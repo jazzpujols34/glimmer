@@ -1,0 +1,125 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import { Progress } from '@/components/ui/progress';
+import type { GenerationStatus } from '@/types';
+
+interface GenerationProgressProps {
+  jobId: string;
+  onComplete: (videoUrl: string, analysis?: string) => void;
+  onError: (error: string) => void;
+}
+
+const statusMessages: Record<GenerationStatus, string> = {
+  queued: '準備中...',
+  processing: '正在生成影片...',
+  complete: '影片已完成！',
+  error: '發生錯誤',
+};
+
+const statusDescriptions: Record<GenerationStatus, string> = {
+  queued: '您的請求已加入排隊，即將開始處理',
+  processing: 'AI 正在將您的照片轉化為動人影片',
+  complete: '您的回憶影片已經準備好了',
+  error: '處理過程中發生問題，請稍後再試',
+};
+
+export function GenerationProgress({ jobId, onComplete, onError }: GenerationProgressProps) {
+  const [status, setStatus] = useState<GenerationStatus>('queued');
+  const [progress, setProgress] = useState(0);
+
+  useEffect(() => {
+    let intervalId: NodeJS.Timeout;
+
+    const pollStatus = async () => {
+      try {
+        const res = await fetch(`/api/status/${jobId}`);
+        const data = await res.json();
+
+        if (!res.ok) {
+          onError(data.error || '發生錯誤');
+          return;
+        }
+
+        setStatus(data.status);
+        setProgress(data.progress || 0);
+
+        if (data.status === 'complete' && data.videoUrl) {
+          clearInterval(intervalId);
+          onComplete(data.videoUrl, data.analysis);
+        } else if (data.status === 'error') {
+          clearInterval(intervalId);
+          onError(data.error || '發生錯誤');
+        }
+      } catch (err) {
+        console.error('Polling error:', err);
+      }
+    };
+
+    // Poll immediately, then every 2 seconds
+    pollStatus();
+    intervalId = setInterval(pollStatus, 2000);
+
+    return () => clearInterval(intervalId);
+  }, [jobId, onComplete, onError]);
+
+  return (
+    <div className="space-y-6 text-center">
+      {/* Animated icon */}
+      <div className="flex justify-center">
+        {status === 'complete' ? (
+          <div className="w-20 h-20 rounded-full bg-green-500/20 flex items-center justify-center">
+            <svg className="w-10 h-10 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+          </div>
+        ) : status === 'error' ? (
+          <div className="w-20 h-20 rounded-full bg-destructive/20 flex items-center justify-center">
+            <svg className="w-10 h-10 text-destructive" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </div>
+        ) : (
+          <div className="w-20 h-20 rounded-full bg-primary/20 flex items-center justify-center animate-pulse">
+            <svg className="w-10 h-10 text-primary animate-spin" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+            </svg>
+          </div>
+        )}
+      </div>
+
+      {/* Status text */}
+      <div className="space-y-2">
+        <h2 className="text-2xl font-semibold">{statusMessages[status]}</h2>
+        <p className="text-muted-foreground">{statusDescriptions[status]}</p>
+      </div>
+
+      {/* Progress bar */}
+      {(status === 'queued' || status === 'processing') && (
+        <div className="space-y-2 max-w-md mx-auto">
+          <Progress value={progress} className="h-2" />
+          <p className="text-sm text-muted-foreground">{progress}% 完成</p>
+        </div>
+      )}
+
+      {/* Processing stages */}
+      {(status === 'queued' || status === 'processing') && (
+        <div className="flex justify-center gap-8 text-sm">
+          <div className={`flex items-center gap-2 ${progress >= 10 ? 'text-primary' : 'text-muted-foreground'}`}>
+            <div className={`w-2 h-2 rounded-full ${progress >= 10 ? 'bg-primary' : 'bg-muted'}`} />
+            處理照片
+          </div>
+          <div className={`flex items-center gap-2 ${progress >= 50 ? 'text-primary' : 'text-muted-foreground'}`}>
+            <div className={`w-2 h-2 rounded-full ${progress >= 50 ? 'bg-primary' : 'bg-muted'}`} />
+            生成影片
+          </div>
+          <div className={`flex items-center gap-2 ${progress >= 95 ? 'text-primary' : 'text-muted-foreground'}`}>
+            <div className={`w-2 h-2 rounded-full ${progress >= 95 ? 'bg-primary' : 'bg-muted'}`} />
+            最後處理
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
