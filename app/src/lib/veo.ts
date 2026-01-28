@@ -85,6 +85,14 @@ export async function generateVideo(options: VeoGenerationOptions): Promise<void
   }
 }
 
+// Content item type for BytePlus API
+interface BytePlusContentItem {
+  type: string;
+  text?: string;
+  image_url?: { url: string };
+  role?: string;
+}
+
 /**
  * Create a single BytePlus video task and poll until completion
  * Returns the video URL on success
@@ -92,8 +100,7 @@ export async function generateVideo(options: VeoGenerationOptions): Promise<void
 async function createAndPollBytePlusTask(
   apiKey: string,
   modelId: string,
-  imageDataUrl: string,
-  fullPromptWithParams: string,
+  contentArray: BytePlusContentItem[],
   videoIndex: number,
   totalVideos: number
 ): Promise<string> {
@@ -106,18 +113,7 @@ async function createAndPollBytePlusTask(
     },
     body: JSON.stringify({
       model: modelId,
-      content: [
-        {
-          type: 'text',
-          text: fullPromptWithParams,
-        },
-        {
-          type: 'image_url',
-          image_url: {
-            url: imageDataUrl,
-          },
-        },
-      ],
+      content: contentArray,
     }),
   });
 
@@ -207,22 +203,50 @@ async function generateWithBytePlus(options: VeoGenerationOptions, prompt: strin
   setJobStatus(jobId, 'processing', 5);
 
   try {
-    // Convert image to base64 data URL
+    // Convert first image to base64 data URL
     const imageBase64 = photos[0].toString('base64');
     const mimeType = detectMimeType(photos[0]);
     const imageDataUrl = `data:${mimeType};base64,${imageBase64}`;
 
-    console.log(`[BytePlus] Image prepared: ${mimeType}, ${Math.round(photos[0].length / 1024)}KB`);
+    console.log(`[BytePlus] First frame prepared: ${mimeType}, ${Math.round(photos[0].length / 1024)}KB`);
     setJobStatus(jobId, 'processing', 10);
 
     // Build prompt with parameters
-    // Format: "prompt text --resolution 720p --duration 5 --ratio 9:16 --camerafixed false"
     const resolution = settings.resolution || '720p';
     const duration = Math.min(Math.max(settings.videoLength, 2), 12); // Clamp to 2-12
     const aspectRatio = settings.aspectRatio || '16:9';
-    const fullPromptWithParams = `${prompt} --resolution ${resolution} --duration ${duration} --ratio ${aspectRatio} --camerafixed false`;
+    const cameraFixed = settings.cameraFixed ?? false;
+    const fullPromptWithParams = `${prompt} --resolution ${resolution} --duration ${duration} --ratio ${aspectRatio} --camerafixed ${cameraFixed}`;
 
     console.log(`[BytePlus] Prompt: ${fullPromptWithParams.substring(0, 200)}...`);
+    console.log(`[BytePlus] TaskType: ${settings.taskType}, CameraFixed: ${cameraFixed}`);
+
+    // Build content array based on task type
+    const contentArray: BytePlusContentItem[] = [
+      {
+        type: 'text',
+        text: fullPromptWithParams,
+      },
+      {
+        type: 'image_url',
+        image_url: { url: imageDataUrl },
+      },
+    ];
+
+    // Add last frame image if in first-last-frame mode and second photo provided
+    if (settings.taskType === 'first-last-frame' && photos.length >= 2) {
+      const lastFrameBase64 = photos[1].toString('base64');
+      const lastFrameMime = detectMimeType(photos[1]);
+      const lastFrameDataUrl = `data:${lastFrameMime};base64,${lastFrameBase64}`;
+
+      console.log(`[BytePlus] Last frame prepared: ${lastFrameMime}, ${Math.round(photos[1].length / 1024)}KB`);
+
+      contentArray.push({
+        type: 'image_url',
+        image_url: { url: lastFrameDataUrl },
+        role: 'last_frame',
+      });
+    }
 
     // Generate videos sequentially (to avoid rate limiting)
     const videoUrls: string[] = [];
@@ -237,8 +261,7 @@ async function generateWithBytePlus(options: VeoGenerationOptions, prompt: strin
       const videoUrl = await createAndPollBytePlusTask(
         apiKey,
         modelId,
-        imageDataUrl,
-        fullPromptWithParams,
+        contentArray,
         i,
         numVideos
       );

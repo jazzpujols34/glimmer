@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { PhotoUploader } from '@/components/PhotoUploader';
+import { FrameUploader } from '@/components/FrameUploader';
 import { SettingsSidebar } from '@/components/SettingsSidebar';
 import type { OccasionType, GenerationSettings } from '@/types';
 import { defaultSettings } from '@/types';
@@ -25,10 +26,14 @@ export default function Home() {
   const [name, setName] = useState('');
   const [occasion, setOccasion] = useState<OccasionType>('memorial');
   const [photos, setPhotos] = useState<File[]>([]);
+  const [firstFrame, setFirstFrame] = useState<File | null>(null);
+  const [lastFrame, setLastFrame] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [settings, setSettings] = useState<GenerationSettings>(defaultSettings);
   const [settingsOpen, setSettingsOpen] = useState(false);
+
+  const isFrameMode = settings.taskType === 'first-last-frame';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,9 +43,16 @@ export default function Home() {
       setError('請輸入主角姓名');
       return;
     }
-    if (photos.length < 1) {
-      setError('請至少上傳 1 張照片');
-      return;
+    if (isFrameMode) {
+      if (!firstFrame) {
+        setError('請上傳首幀圖片');
+        return;
+      }
+    } else {
+      if (photos.length < 1) {
+        setError('請至少上傳 1 張照片');
+        return;
+      }
     }
 
     setIsSubmitting(true);
@@ -50,9 +62,18 @@ export default function Home() {
       formData.append('name', name);
       formData.append('occasion', occasion);
       formData.append('settings', JSON.stringify(settings));
-      photos.forEach((photo, i) => {
-        formData.append(`photo_${i}`, photo);
-      });
+
+      if (isFrameMode) {
+        // First frame is photo_0, last frame (optional) is photo_1
+        formData.append('photo_0', firstFrame!);
+        if (lastFrame) {
+          formData.append('photo_1', lastFrame);
+        }
+      } else {
+        photos.forEach((photo, i) => {
+          formData.append(`photo_${i}`, photo);
+        });
+      }
 
       const res = await fetch('/api/generate', {
         method: 'POST',
@@ -132,6 +153,16 @@ export default function Home() {
                 <span className="px-2 py-1 rounded-full bg-primary/10 text-primary">
                   {settings.model === 'byteplus' ? 'BytePlus Seedance' : settings.model === 'veo-3.1' ? 'Veo 3.1' : settings.model === 'veo-3.1-fast' ? 'Veo 3.1 Fast' : 'Kling AI'}
                 </span>
+                {settings.taskType === 'first-last-frame' && (
+                  <span className="px-2 py-1 rounded-full bg-primary/10 text-primary">
+                    首末幀
+                  </span>
+                )}
+                {settings.cameraFixed && (
+                  <span className="px-2 py-1 rounded-full bg-muted text-muted-foreground">
+                    固定鏡頭
+                  </span>
+                )}
                 <span className="px-2 py-1 rounded-full bg-muted text-muted-foreground">
                   {settings.aspectRatio}
                 </span>
@@ -211,12 +242,21 @@ export default function Home() {
 
                   {/* Photo Upload */}
                   <div className="space-y-2">
-                    <Label>上傳照片</Label>
-                    <PhotoUploader
-                      photos={photos}
-                      onPhotosChange={setPhotos}
-                      maxPhotos={10}
-                    />
+                    <Label>{isFrameMode ? '上傳首末幀圖片' : '上傳照片'}</Label>
+                    {isFrameMode ? (
+                      <FrameUploader
+                        firstFrame={firstFrame}
+                        lastFrame={lastFrame}
+                        onFirstFrameChange={setFirstFrame}
+                        onLastFrameChange={setLastFrame}
+                      />
+                    ) : (
+                      <PhotoUploader
+                        photos={photos}
+                        onPhotosChange={setPhotos}
+                        maxPhotos={10}
+                      />
+                    )}
                   </div>
 
                   {/* Error */}
@@ -231,7 +271,7 @@ export default function Home() {
                     type="submit"
                     size="lg"
                     className="w-full"
-                    disabled={isSubmitting || photos.length < 1}
+                    disabled={isSubmitting || (isFrameMode ? !firstFrame : photos.length < 1)}
                   >
                     {isSubmitting ? (
                       <>

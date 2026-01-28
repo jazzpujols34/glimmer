@@ -3,7 +3,7 @@ export type OccasionType = 'memorial' | 'birthday' | 'wedding' | 'other';
 export type GenerationStatus = 'queued' | 'processing' | 'complete' | 'error';
 
 // Task types
-export type TaskType = 'image-to-video' | 'reference-subject' | 'reference-style';
+export type TaskType = 'image-to-video' | 'first-last-frame';
 
 // Model options
 export type ModelType = 'veo-3.1' | 'veo-3.1-fast' | 'kling-ai' | 'byteplus';
@@ -26,6 +26,7 @@ export interface GenerationSettings {
   numResults: number;      // 1-4
   videoLength: number;     // Veo: fixed 8s, Kling: 5 or 10
   resolution: Resolution;
+  cameraFixed: boolean;    // true = fixed camera, false = dynamic
   seed?: number;           // optional, user input only
 }
 
@@ -38,6 +39,7 @@ export const defaultSettings: GenerationSettings = {
   numResults: 1,
   videoLength: 5,          // BytePlus: 2-12s
   resolution: '720p',
+  cameraFixed: false,      // dynamic camera by default
   seed: undefined,
 };
 

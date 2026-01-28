@@ -25,8 +25,7 @@ interface SettingsSidebarProps {
 
 const taskTypes: { value: TaskType; label: string; description: string }[] = [
   { value: 'image-to-video', label: 'Image to Video', description: '將照片轉換為影片' },
-  { value: 'reference-subject', label: 'Reference (Subject)', description: '以參考圖作為主題' },
-  { value: 'reference-style', label: 'Reference (Style)', description: '以參考圖作為風格' },
+  { value: 'first-last-frame', label: 'First + Last Frame', description: '首幀末幀，平滑過渡' },
 ];
 
 const models: { value: ModelType; label: string; description: string }[] = [
@@ -151,6 +150,34 @@ function SettingsContent({ settings, onSettingsChange }: Omit<SettingsSidebarPro
             ))}
           </SelectContent>
         </Select>
+      </div>
+
+      {/* Camera Fixed */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <Label htmlFor="camera-fixed">固定鏡頭</Label>
+          <button
+            id="camera-fixed"
+            type="button"
+            role="switch"
+            aria-checked={settings.cameraFixed}
+            onClick={() => updateSetting('cameraFixed', !settings.cameraFixed)}
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+              settings.cameraFixed ? 'bg-primary' : 'bg-muted'
+            }`}
+          >
+            <span
+              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                settings.cameraFixed ? 'translate-x-6' : 'translate-x-1'
+              }`}
+            />
+          </button>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          {settings.cameraFixed
+            ? '鏡頭固定不動，適合平滑過渡'
+            : '鏡頭可自由移動，更動態的效果'}
+        </p>
       </div>
 
       {/* Number of Results */}

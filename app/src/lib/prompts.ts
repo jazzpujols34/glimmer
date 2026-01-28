@@ -41,8 +41,7 @@ export function getOccasionPrompt(occasion: OccasionType): string {
 export function getTaskPrompt(taskType: TaskType): string {
   const prompts: Record<TaskType, string> = {
     'image-to-video': `Convert this photo to a short animated video.`,
-    'reference-subject': `Animate the subject in this reference image.`,
-    'reference-style': `Apply the visual style from this reference.`,
+    'first-last-frame': `Create a smooth video transition from the first frame to the last frame. Ensure natural, continuous motion between both images.`,
   };
 
   return prompts[taskType];
