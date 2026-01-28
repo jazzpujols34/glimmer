@@ -52,9 +52,14 @@ export interface GenerationJob {
   id: string;
   status: GenerationStatus;
   progress?: number;
-  videoUrl?: string;
+  videoUrl?: string;        // Primary video URL (first video)
+  videoUrls?: string[];     // All video URLs when numResults > 1
   error?: string;
   createdAt: string;
+  // Metadata for gallery/VOD
+  name?: string;
+  occasion?: OccasionType;
+  settings?: GenerationSettings;
 }
 
 export interface ApiResponse<T> {

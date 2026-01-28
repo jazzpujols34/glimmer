@@ -6,7 +6,7 @@ import type { GenerationStatus } from '@/types';
 
 interface GenerationProgressProps {
   jobId: string;
-  onComplete: (videoUrl: string, analysis?: string) => void;
+  onComplete: (videoUrl: string, videoUrls: string[], analysis?: string) => void;
   onError: (error: string) => void;
 }
 
@@ -46,7 +46,8 @@ export function GenerationProgress({ jobId, onComplete, onError }: GenerationPro
 
         if (data.status === 'complete' && data.videoUrl) {
           clearInterval(intervalId);
-          onComplete(data.videoUrl, data.analysis);
+          const videoUrls = data.videoUrls || [data.videoUrl];
+          onComplete(data.videoUrl, videoUrls, data.analysis);
         } else if (data.status === 'error') {
           clearInterval(intervalId);
           onError(data.error || '發生錯誤');

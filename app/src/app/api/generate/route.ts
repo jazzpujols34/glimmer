@@ -55,8 +55,12 @@ export async function POST(request: NextRequest) {
     // Generate job ID
     const jobId = `job_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-    // Create job record
-    const job = createJob(jobId);
+    // Create job record with metadata for gallery/VOD
+    const job = createJob(jobId, {
+      name,
+      occasion: occasion as OccasionType,
+      settings,
+    });
 
     // Log generation request
     console.log(`[API] Starting generation job ${jobId}`, {

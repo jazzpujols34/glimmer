@@ -86,7 +86,108 @@ export async function generateVideo(options: VeoGenerationOptions): Promise<void
 }
 
 /**
+ * Create a single BytePlus video task and poll until completion
+ * Returns the video URL on success
+ */
+async function createAndPollBytePlusTask(
+  apiKey: string,
+  modelId: string,
+  imageDataUrl: string,
+  fullPromptWithParams: string,
+  videoIndex: number,
+  totalVideos: number
+): Promise<string> {
+  // Create video generation task
+  const createResponse = await fetch('https://ark.ap-southeast.bytepluses.com/api/v3/contents/generations/tasks', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: modelId,
+      content: [
+        {
+          type: 'text',
+          text: fullPromptWithParams,
+        },
+        {
+          type: 'image_url',
+          image_url: {
+            url: imageDataUrl,
+          },
+        },
+      ],
+    }),
+  });
+
+  if (!createResponse.ok) {
+    const errorText = await createResponse.text();
+    console.error(`[BytePlus] Create task ${videoIndex + 1}/${totalVideos} failed:`, errorText);
+    throw new Error(`BytePlus API error: ${createResponse.status} - ${errorText}`);
+  }
+
+  const createResult = await createResponse.json();
+  console.log(`[BytePlus] Task ${videoIndex + 1}/${totalVideos} created:`, JSON.stringify(createResult, null, 2));
+
+  const taskId = createResult.id || createResult.task_id;
+  if (!taskId) {
+    throw new Error('No task ID returned from BytePlus API');
+  }
+
+  console.log(`[BytePlus] Task ${videoIndex + 1}/${totalVideos} ID: ${taskId}`);
+
+  // Poll for completion
+  let pollCount = 0;
+  const maxPolls = 90; // Max 15 minutes (90 * 10 seconds)
+
+  while (pollCount < maxPolls) {
+    await delay(10000); // Poll every 10 seconds
+    pollCount++;
+
+    const statusResponse = await fetch(`https://ark.ap-southeast.bytepluses.com/api/v3/contents/generations/tasks/${taskId}`, {
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+      },
+    });
+
+    if (!statusResponse.ok) {
+      const errorText = await statusResponse.text();
+      console.error(`[BytePlus] Status check failed for task ${videoIndex + 1}:`, errorText);
+      throw new Error(`BytePlus status check failed: ${statusResponse.status}`);
+    }
+
+    const statusResult = await statusResponse.json();
+    const status = statusResult.status || statusResult.task_status;
+
+    console.log(`[BytePlus] Task ${videoIndex + 1}/${totalVideos} poll ${pollCount}/${maxPolls}, status: ${status}`);
+
+    if (status === 'succeeded' || status === 'completed' || status === 'success') {
+      const videoUrl = statusResult.output?.video_url ||
+                      statusResult.content?.video_url ||
+                      statusResult.video_url ||
+                      statusResult.result?.video_url;
+
+      if (videoUrl) {
+        console.log(`[BytePlus] Task ${videoIndex + 1}/${totalVideos} complete: ${videoUrl}`);
+        return videoUrl;
+      }
+
+      console.log(`[BytePlus] Full success response:`, JSON.stringify(statusResult, null, 2));
+      throw new Error('No video URL in BytePlus response');
+    } else if (status === 'failed' || status === 'error') {
+      const errorMsg = statusResult.error || statusResult.message || 'BytePlus generation failed';
+      console.error(`[BytePlus] Task ${videoIndex + 1} failed:`, JSON.stringify(statusResult, null, 2));
+      throw new Error(errorMsg);
+    }
+  }
+
+  throw new Error(`BytePlus task ${videoIndex + 1} timed out`);
+}
+
+/**
  * Generate video using BytePlus Seedance (Image-to-Video)
+ * Supports generating multiple videos based on numResults setting
  */
 async function generateWithBytePlus(options: VeoGenerationOptions, prompt: string): Promise<void> {
   const { jobId, photos, settings } = options;
@@ -101,8 +202,9 @@ async function generateWithBytePlus(options: VeoGenerationOptions, prompt: strin
     throw new Error('BYTEPLUS_MODEL_ID environment variable is not set');
   }
 
-  console.log(`[BytePlus] Processing job ${jobId}`);
-  setJobStatus(jobId, 'processing', 10);
+  const numVideos = Math.min(Math.max(settings.numResults || 1, 1), 4); // Clamp to 1-4
+  console.log(`[BytePlus] Processing job ${jobId}, generating ${numVideos} video(s)`);
+  setJobStatus(jobId, 'processing', 5);
 
   try {
     // Convert image to base64 data URL
@@ -111,111 +213,43 @@ async function generateWithBytePlus(options: VeoGenerationOptions, prompt: strin
     const imageDataUrl = `data:${mimeType};base64,${imageBase64}`;
 
     console.log(`[BytePlus] Image prepared: ${mimeType}, ${Math.round(photos[0].length / 1024)}KB`);
-    setJobStatus(jobId, 'processing', 20);
+    setJobStatus(jobId, 'processing', 10);
 
     // Build prompt with parameters
-    // Format: "prompt text --resolution 720p --duration 5 --camerafixed false"
+    // Format: "prompt text --resolution 720p --duration 5 --ratio 9:16 --camerafixed false"
     const resolution = settings.resolution || '720p';
     const duration = Math.min(Math.max(settings.videoLength, 2), 12); // Clamp to 2-12
-    const fullPromptWithParams = `${prompt} --resolution ${resolution} --duration ${duration} --camerafixed false`;
+    const aspectRatio = settings.aspectRatio || '16:9';
+    const fullPromptWithParams = `${prompt} --resolution ${resolution} --duration ${duration} --ratio ${aspectRatio} --camerafixed false`;
 
     console.log(`[BytePlus] Prompt: ${fullPromptWithParams.substring(0, 200)}...`);
 
-    // Create video generation task
-    const createResponse = await fetch('https://ark.ap-southeast.bytepluses.com/api/v3/contents/generations/tasks', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: modelId,
-        content: [
-          {
-            type: 'text',
-            text: fullPromptWithParams,
-          },
-          {
-            type: 'image_url',
-            image_url: {
-              url: imageDataUrl,
-            },
-          },
-        ],
-      }),
-    });
+    // Generate videos sequentially (to avoid rate limiting)
+    const videoUrls: string[] = [];
 
-    if (!createResponse.ok) {
-      const errorText = await createResponse.text();
-      console.error(`[BytePlus] Create task failed:`, errorText);
-      throw new Error(`BytePlus API error: ${createResponse.status} - ${errorText}`);
+    for (let i = 0; i < numVideos; i++) {
+      // Update progress: each video gets equal share of 10-95% range
+      const baseProgress = 10 + Math.floor((i / numVideos) * 85);
+      setJobStatus(jobId, 'processing', baseProgress);
+
+      console.log(`[BytePlus] Starting video ${i + 1}/${numVideos}`);
+
+      const videoUrl = await createAndPollBytePlusTask(
+        apiKey,
+        modelId,
+        imageDataUrl,
+        fullPromptWithParams,
+        i,
+        numVideos
+      );
+
+      videoUrls.push(videoUrl);
+      console.log(`[BytePlus] Video ${i + 1}/${numVideos} completed`);
     }
 
-    const createResult = await createResponse.json();
-    console.log(`[BytePlus] Create response:`, JSON.stringify(createResult, null, 2));
-
-    const taskId = createResult.id || createResult.task_id;
-    if (!taskId) {
-      throw new Error('No task ID returned from BytePlus API');
-    }
-
-    console.log(`[BytePlus] Task created: ${taskId}`);
-    setJobStatus(jobId, 'processing', 30);
-
-    // Poll for completion
-    let pollCount = 0;
-    const maxPolls = 90; // Max 15 minutes (90 * 10 seconds)
-
-    while (pollCount < maxPolls) {
-      await delay(10000); // Poll every 10 seconds
-      pollCount++;
-
-      const progress = Math.min(30 + Math.floor((pollCount / maxPolls) * 65), 95);
-      setJobStatus(jobId, 'processing', progress);
-
-      const statusResponse = await fetch(`https://ark.ap-southeast.bytepluses.com/api/v3/contents/generations/tasks/${taskId}`, {
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-        },
-      });
-
-      if (!statusResponse.ok) {
-        const errorText = await statusResponse.text();
-        console.error(`[BytePlus] Status check failed:`, errorText);
-        throw new Error(`BytePlus status check failed: ${statusResponse.status}`);
-      }
-
-      const statusResult = await statusResponse.json();
-      const status = statusResult.status || statusResult.task_status;
-
-      console.log(`[BytePlus] Poll ${pollCount}/${maxPolls}, status: ${status}`);
-
-      if (status === 'succeeded' || status === 'completed' || status === 'success') {
-        // Get video URL from response
-        const videoUrl = statusResult.output?.video_url ||
-                        statusResult.content?.video_url ||
-                        statusResult.video_url ||
-                        statusResult.result?.video_url;
-
-        if (videoUrl) {
-          setJobStatus(jobId, 'processing', 98);
-          setJobComplete(jobId, videoUrl);
-          console.log(`[BytePlus] Generation complete for job ${jobId}: ${videoUrl}`);
-          return;
-        }
-
-        // Log full response for debugging
-        console.log(`[BytePlus] Full success response:`, JSON.stringify(statusResult, null, 2));
-        throw new Error('No video URL in BytePlus response');
-      } else if (status === 'failed' || status === 'error') {
-        const errorMsg = statusResult.error || statusResult.message || 'BytePlus generation failed';
-        console.error(`[BytePlus] Generation failed:`, JSON.stringify(statusResult, null, 2));
-        throw new Error(errorMsg);
-      }
-      // Continue polling for 'pending', 'processing', 'running', etc.
-    }
-
-    throw new Error('BytePlus video generation timed out');
+    setJobStatus(jobId, 'processing', 98);
+    setJobComplete(jobId, videoUrls[0], videoUrls);
+    console.log(`[BytePlus] All ${numVideos} video(s) complete for job ${jobId}`);
 
   } catch (error: unknown) {
     console.error(`[BytePlus] API error for job ${jobId}:`, error);

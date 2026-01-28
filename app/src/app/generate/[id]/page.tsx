@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { GenerationProgress } from '@/components/GenerationProgress';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -13,6 +14,7 @@ interface PageProps {
 
 interface CompletionData {
   url: string;
+  urls: string[];
   analysis?: string;
 }
 
@@ -21,27 +23,43 @@ export default function GeneratePage({ params }: PageProps) {
   const [result, setResult] = useState<CompletionData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [videoPoster, setVideoPoster] = useState<string | null>(null);
+  const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
   const videoRef = useRef<HTMLVideoElement>(null);
 
-  const handleComplete = (url: string, analysis?: string) => {
-    setResult({ url, analysis });
+  const handleComplete = (url: string, urls: string[], analysis?: string) => {
+    setResult({ url, urls, analysis });
   };
 
   const handleError = (err: string) => {
     setError(err);
   };
 
+  // Current video URL based on carousel index
+  const currentVideoUrl = result?.urls?.[currentVideoIndex] || result?.url;
+  const totalVideos = result?.urls?.length || 1;
+  const hasMultipleVideos = totalVideos > 1;
+
   // Check if result is an image or video - improved detection
   const isImage = result?.url?.startsWith('data:image/');
   const isVideo = !isImage && result?.url != null; // If not an image, assume it's a video
 
+  const goToPreviousVideo = () => {
+    setCurrentVideoIndex((prev) => (prev > 0 ? prev - 1 : totalVideos - 1));
+  };
+
+  const goToNextVideo = () => {
+    setCurrentVideoIndex((prev) => (prev < totalVideos - 1 ? prev + 1 : 0));
+  };
+
   // Extract first frame from video for poster
   useEffect(() => {
-    if (!isVideo || !result?.url) return;
+    if (!isVideo || !currentVideoUrl) return;
+
+    setVideoPoster(null); // Reset poster when video changes
 
     const video = document.createElement('video');
     video.crossOrigin = 'anonymous';
-    video.src = result.url;
+    video.src = currentVideoUrl;
     video.muted = true;
 
     video.onloadeddata = () => {
@@ -66,7 +84,7 @@ export default function GeneratePage({ params }: PageProps) {
     return () => {
       video.src = '';
     };
-  }, [isVideo, result?.url]);
+  }, [isVideo, currentVideoUrl]);
 
   return (
     <div className="min-h-screen">
@@ -124,38 +142,86 @@ export default function GeneratePage({ params }: PageProps) {
                   </p>
                 </div>
 
-                {/* Preview - Video or Image */}
-                <div className="aspect-video bg-black rounded-lg overflow-hidden relative">
-                  {isVideo ? (
-                    <video
-                      ref={videoRef}
-                      src={result.url}
-                      controls
-                      autoPlay
-                      loop
-                      className="w-full h-full object-contain"
-                      poster={videoPoster || undefined}
-                    >
-                      您的瀏覽器不支援影片播放
-                    </video>
-                  ) : (
-                    <>
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={result.url}
-                        alt="生成的影片預覽"
+                {/* Preview - Video or Image with Carousel */}
+                <div className="relative">
+                  <div className="aspect-video bg-black rounded-lg overflow-hidden relative">
+                    {isVideo ? (
+                      <video
+                        key={currentVideoUrl} // Force re-render on URL change
+                        ref={videoRef}
+                        src={currentVideoUrl}
+                        controls
+                        autoPlay
+                        loop
                         className="w-full h-full object-contain"
-                      />
-                      {isImage && (
-                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4">
-                          <p className="text-white text-sm text-center">
-                            預覽圖片 - 完整影片生成需要 Veo API 存取權限
-                          </p>
-                        </div>
-                      )}
+                        poster={videoPoster || undefined}
+                      >
+                        您的瀏覽器不支援影片播放
+                      </video>
+                    ) : (
+                      <>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={result.url}
+                          alt="生成的影片預覽"
+                          className="w-full h-full object-contain"
+                        />
+                        {isImage && (
+                          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4">
+                            <p className="text-white text-sm text-center">
+                              預覽圖片 - 完整影片生成需要 Veo API 存取權限
+                            </p>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+
+                  {/* Carousel navigation */}
+                  {hasMultipleVideos && isVideo && (
+                    <>
+                      <button
+                        onClick={goToPreviousVideo}
+                        className="absolute left-2 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/50 hover:bg-black/70 text-white transition-colors"
+                        aria-label="上一個影片"
+                      >
+                        <ChevronLeft className="w-6 h-6" />
+                      </button>
+                      <button
+                        onClick={goToNextVideo}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/50 hover:bg-black/70 text-white transition-colors"
+                        aria-label="下一個影片"
+                      >
+                        <ChevronRight className="w-6 h-6" />
+                      </button>
+                      {/* Video counter */}
+                      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-black/50 text-white text-sm">
+                        {currentVideoIndex + 1} / {totalVideos}
+                      </div>
                     </>
                   )}
                 </div>
+
+                {/* Video thumbnails for multiple videos */}
+                {hasMultipleVideos && isVideo && (
+                  <div className="flex gap-2 overflow-x-auto py-2">
+                    {result.urls.map((url, index) => (
+                      <button
+                        key={index}
+                        onClick={() => setCurrentVideoIndex(index)}
+                        className={`flex-shrink-0 w-20 h-12 rounded-md overflow-hidden border-2 transition-colors ${
+                          index === currentVideoIndex
+                            ? 'border-primary'
+                            : 'border-transparent hover:border-primary/50'
+                        }`}
+                      >
+                        <div className="w-full h-full bg-muted flex items-center justify-center text-xs text-muted-foreground">
+                          影片 {index + 1}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
 
                 {/* AI Analysis (from Gemini fallback) */}
                 {result.analysis && (
@@ -176,13 +242,13 @@ export default function GeneratePage({ params }: PageProps) {
                 <div className="flex flex-col sm:flex-row gap-3">
                   <Button asChild className="flex-1">
                     <a
-                      href={result.url}
-                      download={isVideo ? 'glimmer-memory-video.mp4' : 'glimmer-preview.jpg'}
+                      href={currentVideoUrl || result.url}
+                      download={isVideo ? `glimmer-memory-video-${currentVideoIndex + 1}.mp4` : 'glimmer-preview.jpg'}
                     >
                       <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                       </svg>
-                      {isVideo ? '下載生成影片' : '下載預覽圖'}
+                      {isVideo ? (hasMultipleVideos ? `下載影片 ${currentVideoIndex + 1}` : '下載生成影片') : '下載預覽圖'}
                     </a>
                   </Button>
                   <Button variant="outline" asChild className="flex-1">

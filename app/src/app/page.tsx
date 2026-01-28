@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -88,6 +89,7 @@ export default function Home() {
           </div>
           <div className="flex items-center gap-4">
             <nav className="hidden sm:flex items-center gap-6 text-sm">
+              <Link href="/gallery" className="text-muted-foreground hover:text-foreground transition-colors">影片庫</Link>
               <a href="#features" className="text-muted-foreground hover:text-foreground transition-colors">功能特色</a>
               <a href="#pricing" className="text-muted-foreground hover:text-foreground transition-colors">方案價格</a>
             </nav>

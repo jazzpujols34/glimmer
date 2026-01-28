@@ -26,6 +26,7 @@ export async function GET(
       status: job.status,
       progress: job.progress,
       videoUrl: job.videoUrl,
+      videoUrls: job.videoUrls,
       error: job.error,
       // @ts-expect-error - analysis is added by fallback
       analysis: job.analysis,
