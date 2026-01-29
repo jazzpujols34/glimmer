@@ -1,60 +1,147 @@
 # 拾光 Glimmer
 
-AI 驅動的回憶影片服務
+**AI-powered memorial video creation platform** — Transform cherished photos into moving video tributes for life's most important moments.
 
-## 專案簡介
+Upload old photos, generate AI video clips, and edit them in a full-featured browser-based video editor. No software installation required.
 
-**拾光（Glimmer）** 是一個 AI 回憶影片服務平台，讓珍貴的老照片「活過來」，為告別式、壽宴、婚禮等重要場合創造感動人心的數位回憶。
+## Features
 
-### 核心價值
+### AI Video Generation
+- **Photo-to-Video** — Upload a photo and generate an AI video clip with natural motion
+- **Multi-provider support** — BytePlus Seedance, Google Veo, Kling AI
+- **Custom prompts** — Describe the motion and atmosphere you want
+- **Aspect ratio options** — 16:9, 9:16, 1:1
+- **Gallery** — Browse and manage all generated video clips
 
-- **情感價值**：讓靜態照片變成會動、會說話的影片
-- **技術門檻降低**：一站式服務，客戶無需學習 AI 工具
-- **市場定位**：台灣首家專注「照片活化」的本土服務商
-- **通路優勢**：B2B2C 模式，透過殯葬業者、婚禮公司觸及客戶
+### Browser-Based Video Editor
+- **Multi-track timeline** — Video, subtitle, music, and SFX tracks
+- **Free clip positioning** — Drag clips anywhere on the timeline
+- **Resize handles** — Trim clip in/out points by dragging edges
+- **Split tool** — Cut clips at the playhead position (video + music)
+- **Multi-select** — Shift/Cmd-click to select multiple clips
+- **Snap & Ripple** — Snap clips to close gaps, ripple delete
+- **Music clips** — Add multiple positioned, trimmable background music clips
+- **Subtitles** — Add text overlays with drag-to-position on preview
+- **SFX** — Sound effects with timeline positioning
+- **Title & Outro cards** — Customizable intro/outro screens
+- **Video filters** — Warm, vintage, B&W, vivid presets
+- **Speed control** — 0.5x to 2x playback speed per clip
+- **In-browser export** — FFmpeg WASM renders the final MP4 entirely in the browser
 
-## 目錄結構
+## Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| Framework | Next.js 16, React 19, TypeScript |
+| Styling | Tailwind CSS 4, Radix UI, shadcn/ui |
+| Video Export | FFmpeg (WASM) — in-browser, no server upload |
+| AI Video | BytePlus Seedance, Google Veo 3.1, Kling AI |
+| Icons | Lucide React |
+
+## Getting Started
+
+### Prerequisites
+
+- Node.js 18+
+- npm or pnpm
+- API keys for at least one video generation provider
+
+### Setup
+
+```bash
+# Clone the repo
+git clone https://github.com/jazzpujols34/glimmer.git
+cd glimmer/app
+
+# Install dependencies
+npm install
+
+# Copy env template and add your API keys
+cp .env.example .env.local
+
+# Start dev server
+npm run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+### Environment Variables
+
+Copy `.env.example` to `.env.local` and fill in your API keys:
+
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `BYTEPLUS_API_KEY` | BytePlus Seedance API key | Yes (primary) |
+| `BYTEPLUS_MODEL_ID` | BytePlus model endpoint ID | Yes (primary) |
+| `GOOGLE_CLOUD_PROJECT` | GCP project ID for Veo | Optional |
+| `GOOGLE_CLOUD_LOCATION` | Vertex AI region | Optional |
+| `GOOGLE_API_KEY` | Google AI API key | Optional |
+| `KLING_ACCESS_KEY` | Kling AI access key | Optional |
+| `KLING_SECRET_KEY` | Kling AI secret key | Optional |
+
+### Build
+
+```bash
+npm run build
+```
+
+## Project Structure
 
 ```
-拾光glimmer/
-├── README.md                 # 專案說明文件
-├── docs/                     # 文件資料
-│   └── 拾光glimmer_商業計畫書_v1.docx
-├── assets/                   # 資產檔案
-│   ├── brand/               # 品牌素材
-│   │   ├── glimmer-logo.jpeg     # 完整 Logo（含文字）
-│   │   └── glimmer-favicon.jpeg  # 圖示版（不含文字）
-│   └── exports/             # 匯出檔案（PDF、圖片等）
-└── templates/               # 範本文件（提案、合約等）
+glimmer/
+├── app/                          # Next.js application
+│   ├── src/
+│   │   ├── app/                  # App router pages & API routes
+│   │   │   ├── api/generate/     # Video generation API
+│   │   │   ├── api/gallery/      # Gallery CRUD API
+│   │   │   ├── api/transcribe/   # Audio transcription API
+│   │   │   ├── edit/[id]/        # Video editor page
+│   │   │   ├── gallery/          # Gallery page
+│   │   │   └── generate/[id]/    # Generation progress page
+│   │   ├── components/
+│   │   │   ├── editor/           # Editor components
+│   │   │   │   ├── EditorContext.tsx   # State management (useReducer)
+│   │   │   │   ├── EditorLayout.tsx   # Panel layout
+│   │   │   │   ├── Timeline.tsx       # Multi-track timeline
+│   │   │   │   ├── VideoPreview.tsx   # Live preview with playback
+│   │   │   │   ├── MusicPanel.tsx     # Music clip browser & editor
+│   │   │   │   ├── ExportPanel.tsx    # FFmpeg export UI
+│   │   │   │   └── ...
+│   │   │   └── ui/               # shadcn/ui components
+│   │   ├── lib/
+│   │   │   ├── editor/
+│   │   │   │   ├── timeline-utils.ts  # Timeline calculations
+│   │   │   │   ├── ffmpeg-export.ts   # FFmpeg WASM export pipeline
+│   │   │   │   └── filter-maps.ts     # Video filter presets
+│   │   │   ├── veo.ts            # AI video generation client
+│   │   │   ├── storage.ts        # Local file-based storage
+│   │   │   └── prompts.ts        # Prompt templates
+│   │   └── types/
+│   │       ├── editor.ts         # Editor type definitions
+│   │       └── index.ts          # Shared types
+│   ├── public/
+│   │   └── audio/bundled/        # Built-in music tracks
+│   ├── .env.example              # Environment template
+│   └── package.json
+└── assets/brand/                 # Logo and favicon
 ```
 
-## 品牌素材
+## Deployment
 
-| 檔案 | 用途 |
-|------|------|
-| `glimmer-logo.jpeg` | 封面頁、文件表頭、簡報、行銷素材 |
-| `glimmer-favicon.jpeg` | 網站圖示、App 圖示、浮水印 |
+This app is designed to deploy on **Cloudflare Pages** (or any static/edge platform that supports Next.js).
 
-## 技術堆疊
+```bash
+# Build for production
+cd app
+npm run build
+```
 
-- **影片生成**：Google Veo 3.1 API
-- **照片修復**：Topaz / Real-ESRGAN
-- **聲音克隆**：ElevenLabs（進階功能）
-- **影片剪輯**：FFmpeg
-- **前端介面**：React / Streamlit
+All video export processing happens client-side via FFmpeg WASM — no server-side video processing infrastructure needed.
 
-## 目標市場
+## License
 
-| 場景 | 市場規模 | 優先順序 |
-|------|----------|----------|
-| 殯葬追思 | 每年約 18 萬場 | 優先 |
-| 長輩壽宴 | 每年數十萬場 | 次要 |
-| 婚禮紀念 | 每年約 12 萬對 | 延伸 |
-
-## 文件說明
-
-詳細商業計畫書請參閱：`docs/拾光glimmer_商業計畫書_v1.docx`
+MIT
 
 ---
 
-*內部使用 | 商業機密*
+Built with Claude Code.

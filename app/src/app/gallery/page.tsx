@@ -5,7 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Play, Download, Calendar, Film, ArrowLeft } from 'lucide-react';
+import { Play, Download, Calendar, Film, ArrowLeft, Trash2, Scissors } from 'lucide-react';
 
 interface GalleryJob {
   id: string;
@@ -34,6 +34,7 @@ export default function GalleryPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedJob, setSelectedJob] = useState<GalleryJob | null>(null);
+  const [deleting, setDeleting] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadGallery() {
@@ -65,6 +66,27 @@ export default function GalleryPage() {
       hour: '2-digit',
       minute: '2-digit',
     });
+  };
+
+  const handleDelete = async (jobId: string) => {
+    if (!confirm('確定要刪除這支影片嗎？此操作無法復原。')) return;
+
+    setDeleting(jobId);
+    try {
+      const res = await fetch(`/api/gallery/${jobId}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || '刪除失敗');
+      }
+      setJobs((prev) => prev.filter((j) => j.id !== jobId));
+      if (selectedJob?.id === jobId) {
+        setSelectedJob(null);
+      }
+    } catch (err) {
+      alert(err instanceof Error ? err.message : '刪除失敗');
+    } finally {
+      setDeleting(null);
+    }
   };
 
   return (
@@ -243,9 +265,23 @@ export default function GalleryPage() {
                 </a>
               </Button>
               <Button variant="outline" asChild className="flex-1">
-                <Link href={`/generate/${selectedJob.id}`}>
-                  查看詳情
+                <Link href={`/edit/${selectedJob.id}`}>
+                  <Scissors className="w-4 h-4 mr-2" />
+                  編輯影片
                 </Link>
+              </Button>
+              <Button
+                variant="destructive"
+                size="icon"
+                onClick={() => handleDelete(selectedJob.id)}
+                disabled={deleting === selectedJob.id}
+                title="刪除影片"
+              >
+                {deleting === selectedJob.id ? (
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
+                ) : (
+                  <Trash2 className="w-4 h-4" />
+                )}
               </Button>
             </div>
           </div>
