@@ -19,11 +19,11 @@ export default function LandingPage() {
             />
           </Link>
           <nav className="hidden sm:flex items-center gap-6 text-sm">
+            <a href="#showcase" className="text-muted-foreground hover:text-foreground transition-colors">
+              作品展示
+            </a>
             <a href="#features" className="text-muted-foreground hover:text-foreground transition-colors">
               功能特色
-            </a>
-            <a href="#how-it-works" className="text-muted-foreground hover:text-foreground transition-colors">
-              使用方式
             </a>
             <a href="#pricing" className="text-muted-foreground hover:text-foreground transition-colors">
               方案價格
@@ -32,14 +32,9 @@ export default function LandingPage() {
               聯絡我們
             </a>
           </nav>
-          <div className="flex items-center gap-3">
-            <Button variant="outline" size="sm" asChild className="hidden sm:inline-flex">
-              <Link href="/gallery">影片庫</Link>
-            </Button>
-            <Button size="sm" asChild>
-              <Link href="/create">開始製作</Link>
-            </Button>
-          </div>
+          <Button size="sm" asChild>
+            <Link href="/create">開始製作</Link>
+          </Button>
         </div>
       </header>
 
@@ -76,8 +71,126 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* Showcase Section */}
+      <section id="showcase" className="border-t border-border bg-card/50 scroll-mt-20">
+        <div className="container mx-auto px-4 py-20 md:py-28">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl md:text-4xl font-bold mb-4">
+              作品展示
+            </h2>
+            <p className="text-muted-foreground text-lg">
+              See what Glimmer can create for every occasion
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-8 max-w-5xl mx-auto">
+            {/* Memorial */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <svg className="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="font-semibold">追思紀念</h3>
+                  <p className="text-xs text-muted-foreground">Memorial & Remembrance</p>
+                </div>
+              </div>
+              <div className="aspect-video rounded-xl bg-gradient-to-br from-muted/80 to-muted/40 border border-border/50 flex flex-col items-center justify-center gap-3 group hover:border-primary/30 transition-colors">
+                <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+                  <svg className="w-8 h-8 text-primary ml-1" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M8 5v14l11-7z" />
+                  </svg>
+                </div>
+                <p className="text-sm text-muted-foreground">即將上線 Coming Soon</p>
+              </div>
+            </div>
+
+            {/* Birthday */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <svg className="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5.5A2.5 2.5 0 109.5 8H12zm-7 4h14M5 12a2 2 0 110-4h14a2 2 0 110 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="font-semibold">壽宴慶生</h3>
+                  <p className="text-xs text-muted-foreground">Birthday Celebration</p>
+                </div>
+              </div>
+              <div className="aspect-video rounded-xl bg-gradient-to-br from-muted/80 to-muted/40 border border-border/50 flex flex-col items-center justify-center gap-3 group hover:border-primary/30 transition-colors">
+                <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+                  <svg className="w-8 h-8 text-primary ml-1" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M8 5v14l11-7z" />
+                  </svg>
+                </div>
+                <p className="text-sm text-muted-foreground">即將上線 Coming Soon</p>
+              </div>
+            </div>
+
+            {/* Wedding */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <svg className="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="font-semibold">婚禮紀念</h3>
+                  <p className="text-xs text-muted-foreground">Wedding Anniversary</p>
+                </div>
+              </div>
+              <div className="aspect-video rounded-xl bg-gradient-to-br from-muted/80 to-muted/40 border border-border/50 flex flex-col items-center justify-center gap-3 group hover:border-primary/30 transition-colors">
+                <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+                  <svg className="w-8 h-8 text-primary ml-1" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M8 5v14l11-7z" />
+                  </svg>
+                </div>
+                <p className="text-sm text-muted-foreground">即將上線 Coming Soon</p>
+              </div>
+            </div>
+
+            {/* Other */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <svg className="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4.26 10.147a60.436 60.436 0 00-.491 6.347A48.627 48.627 0 0112 20.904a48.627 48.627 0 018.232-4.41 60.46 60.46 0 00-.491-6.347m-15.482 0a50.57 50.57 0 00-2.658-.813A59.905 59.905 0 0112 3.493a59.902 59.902 0 0110.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.697 50.697 0 0112 13.489a50.702 50.702 0 017.74-3.342" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="font-semibold">其他場合</h3>
+                  <p className="text-xs text-muted-foreground">Graduation, Retirement & More</p>
+                </div>
+              </div>
+              <div className="aspect-video rounded-xl bg-gradient-to-br from-muted/80 to-muted/40 border border-border/50 flex flex-col items-center justify-center gap-3 group hover:border-primary/30 transition-colors">
+                <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+                  <svg className="w-8 h-8 text-primary ml-1" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M8 5v14l11-7z" />
+                  </svg>
+                </div>
+                <p className="text-sm text-muted-foreground">即將上線 Coming Soon</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="text-center mt-12">
+            <p className="text-muted-foreground mb-4">
+              想看到您的回憶影片出現在這裡嗎？
+              <span className="block text-sm">Want to see your memorial video featured here?</span>
+            </p>
+            <Button size="lg" asChild>
+              <Link href="/create">製作您的第一支影片 Create Your First Video</Link>
+            </Button>
+          </div>
+        </div>
+      </section>
+
       {/* Features Section */}
-      <section id="features" className="border-t border-border bg-card/50 scroll-mt-20">
+      <section id="features" className="border-t border-border bg-card/30 scroll-mt-20">
         <div className="container mx-auto px-4 py-20 md:py-28">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-bold mb-4">
@@ -365,9 +478,9 @@ export default function LandingPage() {
               <Link href="/create" className="hover:text-foreground transition-colors">
                 開始製作
               </Link>
-              <Link href="/gallery" className="hover:text-foreground transition-colors">
-                影片庫
-              </Link>
+              <a href="#showcase" className="hover:text-foreground transition-colors">
+                作品展示
+              </a>
               <a
                 href="https://github.com/jazzpujols34/glimmer"
                 target="_blank"
