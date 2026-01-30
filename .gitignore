@@ -28,5 +28,10 @@ next-env.d.ts
 .vscode/
 .idea/
 
+# Compound system
+logs/
+tasks/
+scripts/compound/prd.json
+
 # Claude Code
 .claude/
