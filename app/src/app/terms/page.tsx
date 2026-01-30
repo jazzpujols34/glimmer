@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { Logo } from '@/components/Logo';
 
 export const metadata: Metadata = {
   title: '服務條款 Terms of Service - 拾光 Glimmer',
@@ -11,9 +12,7 @@ export default function TermsPage() {
     <div className="min-h-screen bg-background">
       <header className="border-b border-border">
         <div className="container mx-auto px-4 py-4">
-          <Link href="/" className="text-lg font-bold hover:text-primary transition-colors">
-            拾光 Glimmer
-          </Link>
+          <Logo />
         </div>
       </header>
 

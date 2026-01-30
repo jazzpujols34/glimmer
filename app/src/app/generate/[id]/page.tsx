@@ -3,8 +3,8 @@
 export const runtime = 'edge';
 
 import { useState, useRef, use } from 'react';
-import Image from 'next/image';
 import Link from 'next/link';
+import { Logo } from '@/components/Logo';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { GenerationProgress } from '@/components/GenerationProgress';
@@ -57,15 +57,7 @@ export default function GeneratePage({ params }: PageProps) {
       {/* Header */}
       <header className="border-b border-border">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-3">
-            <Image
-              src="/assets/glimmer-logo.jpeg"
-              alt="Glimmer"
-              width={150}
-              height={80}
-              className="h-20 w-auto"
-            />
-          </Link>
+          <Logo />
         </div>
       </header>
 

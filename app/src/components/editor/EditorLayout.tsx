@@ -13,7 +13,7 @@ import { ExportPanel } from './ExportPanel';
 import { AddClipsDialog } from './AddClipsDialog';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import Image from 'next/image';
+import { Logo } from '@/components/Logo';
 import {
   ArrowLeft,
   Film,
@@ -66,15 +66,7 @@ export function EditorLayout() {
               </Link>
             </Button>
             <div className="h-5 w-px bg-border" />
-            <Link href="/" className="flex items-center">
-              <Image
-                src="/assets/glimmer-logo.jpeg"
-                alt="Glimmer"
-                width={80}
-                height={40}
-                className="h-8 w-auto"
-              />
-            </Link>
+            <Logo compact />
           </div>
           <div className="flex items-center gap-2">
             <span className="text-sm font-medium truncate max-w-[200px]">

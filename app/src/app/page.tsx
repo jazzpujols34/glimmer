@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
-import Image from 'next/image';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
+import { Logo } from '@/components/Logo';
 import { Card, CardContent } from '@/components/ui/card';
 
 export const metadata: Metadata = {
@@ -56,15 +56,7 @@ export default function LandingPage() {
       {/* Navigation */}
       <header className="border-b border-border sticky top-0 bg-background/95 backdrop-blur z-50">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <Link href="/" className="flex items-center">
-            <Image
-              src="/assets/glimmer-logo.jpeg"
-              alt="拾光 Glimmer"
-              width={150}
-              height={80}
-              className="h-16 w-auto"
-            />
-          </Link>
+          <Logo />
           <nav className="hidden sm:flex items-center gap-6 text-sm">
             <a href="#showcase" className="text-muted-foreground hover:text-foreground transition-colors">
               作品展示

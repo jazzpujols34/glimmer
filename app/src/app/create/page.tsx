@@ -1,9 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { Logo } from '@/components/Logo';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -100,15 +100,7 @@ export default function Home() {
       {/* Header */}
       <header className="border-b border-border sticky top-0 bg-background z-50">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Image
-              src="/assets/glimmer-logo.jpeg"
-              alt="Glimmer"
-              width={150}
-              height={80}
-              className="h-20 w-auto"
-            />
-          </div>
+          <Logo />
           <div className="flex items-center gap-4">
             <nav className="hidden sm:flex items-center gap-6 text-sm">
               <Link href="/" className="text-muted-foreground hover:text-foreground transition-colors">首頁</Link>

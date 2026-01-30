@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Image from 'next/image';
 import Link from 'next/link';
+import { Logo } from '@/components/Logo';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Play, Download, Calendar, Film, ArrowLeft, Trash2, Scissors } from 'lucide-react';
@@ -94,15 +94,7 @@ export default function GalleryPage() {
       {/* Header */}
       <header className="border-b border-border">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-3">
-            <Image
-              src="/assets/glimmer-logo.jpeg"
-              alt="Glimmer"
-              width={150}
-              height={80}
-              className="h-20 w-auto"
-            />
-          </Link>
+          <Logo />
           <Button variant="outline" asChild>
             <Link href="/">
               <ArrowLeft className="w-4 h-4 mr-2" />
