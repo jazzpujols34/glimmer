@@ -56,6 +56,8 @@ cat > "$REVIEW_PLIST" << EOF
     <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
     <key>HOME</key>
     <string>/Users/${USER_NAME}</string>
+    <key>GLIMMER_PROJECT_DIR</key>
+    <string>${PROJECT_DIR}</string>
   </dict>
 </dict>
 </plist>
@@ -100,6 +102,8 @@ cat > "$AUTO_PLIST" << EOF
     <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
     <key>HOME</key>
     <string>/Users/${USER_NAME}</string>
+    <key>GLIMMER_PROJECT_DIR</key>
+    <string>${PROJECT_DIR}</string>
   </dict>
 </dict>
 </plist>

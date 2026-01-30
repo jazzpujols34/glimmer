@@ -3,12 +3,23 @@ export const runtime = 'edge';
 import { NextRequest, NextResponse } from 'next/server';
 import { getJob, updateJob, setJobComplete, setJobError } from '@/lib/storage';
 import { checkVideoTaskStatus } from '@/lib/veo';
+import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // Rate limit: 60 status polls per minute per IP
+    const ip = getClientIP(request);
+    const rateCheck = await checkRateLimit(`status:${ip}`, 60, 60);
+    if (!rateCheck.allowed) {
+      return NextResponse.json(
+        { error: 'Too many requests' },
+        { status: 429, headers: { 'Retry-After': String(rateCheck.resetAt - Math.floor(Date.now() / 1000)) } }
+      );
+    }
+
     const { id } = await params;
     const job = await getJob(id);
 

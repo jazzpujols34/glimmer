@@ -1,6 +1,7 @@
 export const runtime = 'edge';
 
 import { NextResponse } from 'next/server';
+import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
 
 /**
  * POST /api/transcribe
@@ -9,6 +10,16 @@ import { NextResponse } from 'next/server';
  */
 export async function POST(request: Request) {
   try {
+    // Rate limit: 10 transcription requests per minute per IP
+    const ip = getClientIP(request);
+    const rateCheck = await checkRateLimit(`transcribe:${ip}`, 10, 60);
+    if (!rateCheck.allowed) {
+      return NextResponse.json(
+        { error: '請求過於頻繁，請稍後再試' },
+        { status: 429, headers: { 'Retry-After': String(rateCheck.resetAt - Math.floor(Date.now() / 1000)) } }
+      );
+    }
+
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
       return NextResponse.json(

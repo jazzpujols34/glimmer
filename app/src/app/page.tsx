@@ -287,7 +287,7 @@ export default function Home() {
                   </Button>
 
                   <p className="text-xs text-muted-foreground text-center">
-                    點擊「開始製作」即表示您同意我們的服務條款和隱私政策
+                    點擊「開始製作」即表示您同意我們的<a href="/terms" className="underline hover:text-foreground">服務條款</a>和<a href="/privacy" className="underline hover:text-foreground">隱私政策</a>
                   </p>
                 </form>
               </CardContent>
@@ -296,7 +296,12 @@ export default function Home() {
 
           {/* Footer */}
           <footer className="border-t border-border py-8 mt-auto">
-            <div className="container mx-auto px-4 text-center text-sm text-muted-foreground">
+            <div className="container mx-auto px-4 text-center text-sm text-muted-foreground space-y-2">
+              <div className="flex items-center justify-center gap-4">
+                <a href="/terms" className="hover:text-foreground transition-colors">服務條款</a>
+                <span>|</span>
+                <a href="/privacy" className="hover:text-foreground transition-colors">隱私政策</a>
+              </div>
               <p>&copy; 2026 拾光 Glimmer. All rights reserved.</p>
             </div>
           </footer>

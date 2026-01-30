@@ -9,7 +9,12 @@
 
 set -e
 
-PROJECT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+# Resolve project directory (works from launchd and manual invocation)
+if [ -n "$GLIMMER_PROJECT_DIR" ]; then
+  PROJECT_DIR="$GLIMMER_PROJECT_DIR"
+else
+  PROJECT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+fi
 cd "$PROJECT_DIR"
 
 LOG_FILE="$PROJECT_DIR/logs/compound-review.log"
