@@ -122,7 +122,7 @@ export default function GeneratePage({ params }: PageProps) {
                   <p className="text-muted-foreground mt-2">{error}</p>
                 </div>
                 <Button asChild>
-                  <Link href="/">返回首頁重試</Link>
+                  <Link href="/create">返回重試</Link>
                 </Button>
               </div>
             ) : result ? (
@@ -254,7 +254,7 @@ export default function GeneratePage({ params }: PageProps) {
                     </a>
                   </Button>
                   <Button variant="outline" asChild className="flex-1">
-                    <Link href="/">製作另一支影片</Link>
+                    <Link href="/create">製作另一支影片</Link>
                   </Button>
                 </div>
 

@@ -13,10 +13,10 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "拾光 Glimmer - AI 回憶影片服務",
-  description: "讓珍貴的老照片「活過來」，為重要場合創造感動人心的數位回憶",
+  title: "拾光 Glimmer - AI 回憶影片服務 | AI Memorial Video Service",
+  description: "上傳老照片，AI 自動生成電影級回憶影片。適用於追思、壽宴、婚禮等重要場合。Upload photos, AI creates cinematic memorial videos.",
   icons: {
-    icon: "/assets/glimmer-favicon.jpeg",
+    icon: "/favicon.ico",
   },
 };
 
