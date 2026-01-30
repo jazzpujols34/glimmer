@@ -142,7 +142,7 @@ export default function GalleryPage() {
                   生成您的第一支回憶影片吧！
                 </p>
                 <Button asChild>
-                  <Link href="/">開始製作</Link>
+                  <Link href="/create">開始製作</Link>
                 </Button>
               </CardContent>
             </Card>

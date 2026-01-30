@@ -1,315 +1,401 @@
-'use client';
-
-import { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { PhotoUploader } from '@/components/PhotoUploader';
-import { FrameUploader } from '@/components/FrameUploader';
-import { SettingsSidebar } from '@/components/SettingsSidebar';
-import type { OccasionType, GenerationSettings } from '@/types';
-import { defaultSettings } from '@/types';
+import { Card, CardContent } from '@/components/ui/card';
 
-const occasions: { value: OccasionType; label: string; description: string }[] = [
-  { value: 'memorial', label: '追思紀念', description: '告別式、追悼會' },
-  { value: 'birthday', label: '壽宴慶生', description: '大壽、生日派對' },
-  { value: 'wedding', label: '婚禮紀念', description: '婚禮、週年紀念' },
-  { value: 'other', label: '其他場合', description: '畢業、退休等' },
-];
-
-export default function Home() {
-  const router = useRouter();
-  const [name, setName] = useState('');
-  const [occasion, setOccasion] = useState<OccasionType>('memorial');
-  const [photos, setPhotos] = useState<File[]>([]);
-  const [firstFrame, setFirstFrame] = useState<File | null>(null);
-  const [lastFrame, setLastFrame] = useState<File | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState('');
-  const [settings, setSettings] = useState<GenerationSettings>(defaultSettings);
-  const [settingsOpen, setSettingsOpen] = useState(false);
-
-  const isFrameMode = settings.taskType === 'first-last-frame';
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-
-    if (!name.trim()) {
-      setError('請輸入主角姓名');
-      return;
-    }
-    if (isFrameMode) {
-      if (!firstFrame) {
-        setError('請上傳首幀圖片');
-        return;
-      }
-    } else {
-      if (photos.length < 1) {
-        setError('請至少上傳 1 張照片');
-        return;
-      }
-    }
-
-    setIsSubmitting(true);
-
-    try {
-      const formData = new FormData();
-      formData.append('name', name);
-      formData.append('occasion', occasion);
-      formData.append('settings', JSON.stringify(settings));
-
-      if (isFrameMode) {
-        // First frame is photo_0, last frame (optional) is photo_1
-        formData.append('photo_0', firstFrame!);
-        if (lastFrame) {
-          formData.append('photo_1', lastFrame);
-        }
-      } else {
-        photos.forEach((photo, i) => {
-          formData.append(`photo_${i}`, photo);
-        });
-      }
-
-      const res = await fetch('/api/generate', {
-        method: 'POST',
-        body: formData,
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || '發生錯誤');
-      }
-
-      router.push(`/generate/${data.id}`);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '發生錯誤，請稍後再試');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
+export default function LandingPage() {
   return (
     <div className="min-h-screen flex flex-col">
-      {/* Header */}
-      <header className="border-b border-border sticky top-0 bg-background z-50">
+      {/* Navigation */}
+      <header className="border-b border-border sticky top-0 bg-background/95 backdrop-blur z-50">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
+          <Link href="/" className="flex items-center">
             <Image
               src="/assets/glimmer-logo.jpeg"
-              alt="Glimmer"
+              alt="拾光 Glimmer"
               width={150}
               height={80}
-              className="h-20 w-auto"
+              className="h-16 w-auto"
             />
-          </div>
-          <div className="flex items-center gap-4">
-            <nav className="hidden sm:flex items-center gap-6 text-sm">
-              <Link href="/gallery" className="text-muted-foreground hover:text-foreground transition-colors">影片庫</Link>
-              <a href="#features" className="text-muted-foreground hover:text-foreground transition-colors">功能特色</a>
-              <a href="#pricing" className="text-muted-foreground hover:text-foreground transition-colors">方案價格</a>
-            </nav>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setSettingsOpen(!settingsOpen)}
-              className="hidden lg:flex items-center gap-2"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
-              設定
+          </Link>
+          <nav className="hidden sm:flex items-center gap-6 text-sm">
+            <a href="#features" className="text-muted-foreground hover:text-foreground transition-colors">
+              功能特色
+            </a>
+            <a href="#how-it-works" className="text-muted-foreground hover:text-foreground transition-colors">
+              使用方式
+            </a>
+            <a href="#pricing" className="text-muted-foreground hover:text-foreground transition-colors">
+              方案價格
+            </a>
+            <a href="#contact" className="text-muted-foreground hover:text-foreground transition-colors">
+              聯絡我們
+            </a>
+          </nav>
+          <div className="flex items-center gap-3">
+            <Button variant="outline" size="sm" asChild className="hidden sm:inline-flex">
+              <Link href="/gallery">影片庫</Link>
+            </Button>
+            <Button size="sm" asChild>
+              <Link href="/create">開始製作</Link>
             </Button>
           </div>
         </div>
       </header>
 
-      <div className="flex flex-1">
-        {/* Main Content */}
-        <main className="flex-1 overflow-y-auto">
-          {/* Hero */}
-          <section className="container mx-auto px-4 py-8 md:py-12">
-            <div className="max-w-3xl mx-auto text-center space-y-4">
-              <h1 className="text-3xl md:text-5xl font-bold tracking-tight">
-                讓珍貴回憶
-                <span className="text-primary">活過來</span>
-              </h1>
-              <p className="text-lg text-muted-foreground">
-                AI 驅動的回憶影片服務，將老照片轉化為動人的影片
-              </p>
-            </div>
-          </section>
+      {/* Hero Section */}
+      <section className="container mx-auto px-4 py-20 md:py-32">
+        <div className="max-w-4xl mx-auto text-center space-y-8">
+          <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold tracking-tight leading-tight">
+            讓珍貴回憶
+            <span className="text-primary">活過來</span>
+          </h1>
+          <p className="text-xl md:text-2xl text-muted-foreground font-light">
+            Bring Your Precious Memories to Life
+          </p>
+          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+            上傳老照片，AI 自動生成電影級回憶影片。適用於追思、壽宴、婚禮等重要場合。
+          </p>
+          <p className="text-sm text-muted-foreground">
+            Upload old photos and let AI create cinematic memorial videos for life&apos;s most meaningful moments.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
+            <Button size="lg" asChild className="text-lg px-8 py-6">
+              <Link href="/create">
+                免費開始製作
+                <span className="ml-2 text-sm opacity-75">Start Free</span>
+              </Link>
+            </Button>
+            <Button size="lg" variant="outline" asChild className="text-lg px-8 py-6">
+              <a href="#features">
+                了解更多
+                <span className="ml-2 text-sm opacity-75">Learn More</span>
+              </a>
+            </Button>
+          </div>
+        </div>
+      </section>
 
-          {/* Current Settings Badge */}
-          <section className="container mx-auto px-4 pb-4">
-            <div className="max-w-2xl mx-auto">
-              <div className="flex flex-wrap gap-2 text-xs">
-                <span className="px-2 py-1 rounded-full bg-primary/10 text-primary">
-                  {settings.model === 'byteplus' ? 'BytePlus Seedance' : settings.model === 'veo-3.1' ? 'Veo 3.1' : settings.model === 'veo-3.1-fast' ? 'Veo 3.1 Fast' : 'Kling AI'}
-                </span>
-                {settings.taskType === 'first-last-frame' && (
-                  <span className="px-2 py-1 rounded-full bg-primary/10 text-primary">
-                    首末幀
-                  </span>
-                )}
-                {settings.cameraFixed && (
-                  <span className="px-2 py-1 rounded-full bg-muted text-muted-foreground">
-                    固定鏡頭
-                  </span>
-                )}
-                <span className="px-2 py-1 rounded-full bg-muted text-muted-foreground">
-                  {settings.aspectRatio}
-                </span>
-                <span className="px-2 py-1 rounded-full bg-muted text-muted-foreground">
-                  {settings.videoLength}秒
-                </span>
-                <span className="px-2 py-1 rounded-full bg-muted text-muted-foreground">
-                  {settings.resolution}
-                </span>
-                {settings.numResults > 1 && (
-                  <span className="px-2 py-1 rounded-full bg-muted text-muted-foreground">
-                    {settings.numResults} 個結果
-                  </span>
-                )}
-                <button
-                  onClick={() => setSettingsOpen(true)}
-                  className="px-2 py-1 rounded-full bg-muted text-muted-foreground hover:bg-primary/10 hover:text-primary transition-colors"
-                >
-                  調整設定 →
-                </button>
-              </div>
-            </div>
-          </section>
+      {/* Features Section */}
+      <section id="features" className="border-t border-border bg-card/50 scroll-mt-20">
+        <div className="container mx-auto px-4 py-20 md:py-28">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl md:text-4xl font-bold mb-4">
+              功能特色
+            </h2>
+            <p className="text-muted-foreground text-lg">
+              Features that make your memories unforgettable
+            </p>
+          </div>
 
-          {/* Main Form */}
-          <section className="container mx-auto px-4 pb-20">
-            <Card className="max-w-2xl mx-auto">
-              <CardHeader>
-                <CardTitle>建立回憶影片</CardTitle>
-                <CardDescription>
-                  上傳照片，我們的 AI 將為您製作一支感動人心的影片
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <form onSubmit={handleSubmit} className="space-y-6">
-                  {/* Name */}
-                  <div className="space-y-2">
-                    <Label htmlFor="name">主角姓名</Label>
-                    <Input
-                      id="name"
-                      placeholder="例如：王小明"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                    />
-                  </div>
-
-                  {/* Occasion */}
-                  <div className="space-y-2">
-                    <Label>場合類型</Label>
-                    <div className="grid grid-cols-2 gap-3">
-                      {occasions.map((item) => (
-                        <button
-                          key={item.value}
-                          type="button"
-                          onClick={() => setOccasion(item.value)}
-                          className={`
-                            p-3 rounded-lg border text-left transition-all
-                            ${occasion === item.value
-                              ? 'border-primary bg-primary/10'
-                              : 'border-border hover:border-primary/50'
-                            }
-                          `}
-                        >
-                          <div className="font-medium">{item.label}</div>
-                          <div className="text-sm text-muted-foreground">{item.description}</div>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Prompt (if set) */}
-                  {settings.prompt && (
-                    <div className="p-3 rounded-lg bg-muted/50 text-sm">
-                      <span className="font-medium">提示詞：</span> {settings.prompt}
-                    </div>
-                  )}
-
-                  {/* Photo Upload */}
-                  <div className="space-y-2">
-                    <Label>{isFrameMode ? '上傳首末幀圖片' : '上傳照片'}</Label>
-                    {isFrameMode ? (
-                      <FrameUploader
-                        firstFrame={firstFrame}
-                        lastFrame={lastFrame}
-                        onFirstFrameChange={setFirstFrame}
-                        onLastFrameChange={setLastFrame}
-                      />
-                    ) : (
-                      <PhotoUploader
-                        photos={photos}
-                        onPhotosChange={setPhotos}
-                        maxPhotos={10}
-                      />
-                    )}
-                  </div>
-
-                  {/* Error */}
-                  {error && (
-                    <div className="p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
-                      {error}
-                    </div>
-                  )}
-
-                  {/* Submit */}
-                  <Button
-                    type="submit"
-                    size="lg"
-                    className="w-full"
-                    disabled={isSubmitting || (isFrameMode ? !firstFrame : photos.length < 1)}
-                  >
-                    {isSubmitting ? (
-                      <>
-                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                        </svg>
-                        處理中...
-                      </>
-                    ) : (
-                      '開始製作影片'
-                    )}
-                  </Button>
-
-                  <p className="text-xs text-muted-foreground text-center">
-                    點擊「開始製作」即表示您同意我們的服務條款和隱私政策
-                  </p>
-                </form>
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
+            {/* Feature 1: AI Video */}
+            <Card className="border-border/50 hover:border-primary/30 transition-colors">
+              <CardContent className="p-6 text-center space-y-4">
+                <div className="w-14 h-14 mx-auto rounded-xl bg-primary/10 flex items-center justify-center">
+                  <svg className="w-7 h-7 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                  </svg>
+                </div>
+                <h3 className="text-lg font-semibold">AI 影片生成</h3>
+                <p className="text-sm text-muted-foreground">
+                  AI Video Generation
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  支援多款頂尖模型：BytePlus Seedance、Google Veo 3.1、Kling AI，一鍵將靜態照片轉化為動態影片。
+                </p>
               </CardContent>
             </Card>
-          </section>
 
-          {/* Footer */}
-          <footer className="border-t border-border py-8 mt-auto">
-            <div className="container mx-auto px-4 text-center text-sm text-muted-foreground">
-              <p>&copy; 2026 拾光 Glimmer. All rights reserved.</p>
+            {/* Feature 2: Editor */}
+            <Card className="border-border/50 hover:border-primary/30 transition-colors">
+              <CardContent className="p-6 text-center space-y-4">
+                <div className="w-14 h-14 mx-auto rounded-xl bg-primary/10 flex items-center justify-center">
+                  <svg className="w-7 h-7 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                </div>
+                <h3 className="text-lg font-semibold">內建影片編輯器</h3>
+                <p className="text-sm text-muted-foreground">
+                  Built-in Video Editor
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  時間軸編輯、裁剪、分割、配樂、字幕、音效 — 全在瀏覽器完成，無需安裝任何軟體。
+                </p>
+              </CardContent>
+            </Card>
+
+            {/* Feature 3: Occasions */}
+            <Card className="border-border/50 hover:border-primary/30 transition-colors">
+              <CardContent className="p-6 text-center space-y-4">
+                <div className="w-14 h-14 mx-auto rounded-xl bg-primary/10 flex items-center justify-center">
+                  <svg className="w-7 h-7 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                  </svg>
+                </div>
+                <h3 className="text-lg font-semibold">多場合適用</h3>
+                <p className="text-sm text-muted-foreground">
+                  For Every Occasion
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  追思紀念、壽宴慶生、婚禮週年 — AI 會根據場合類型，自動調整影片風格與動態效果。
+                </p>
+              </CardContent>
+            </Card>
+
+            {/* Feature 4: Export */}
+            <Card className="border-border/50 hover:border-primary/30 transition-colors">
+              <CardContent className="p-6 text-center space-y-4">
+                <div className="w-14 h-14 mx-auto rounded-xl bg-primary/10 flex items-center justify-center">
+                  <svg className="w-7 h-7 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                  </svg>
+                </div>
+                <h3 className="text-lg font-semibold">快速匯出</h3>
+                <p className="text-sm text-muted-foreground">
+                  Instant Export
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  瀏覽器端 FFmpeg 匯出，支援配樂混音、字幕燒錄，直接下載完成影片。
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </section>
+
+      {/* How It Works */}
+      <section id="how-it-works" className="border-t border-border scroll-mt-20">
+        <div className="container mx-auto px-4 py-20 md:py-28">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl md:text-4xl font-bold mb-4">
+              使用方式
+            </h2>
+            <p className="text-muted-foreground text-lg">
+              Three simple steps to create your memorial video
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-8 max-w-4xl mx-auto">
+            {/* Step 1 */}
+            <div className="text-center space-y-4">
+              <div className="w-16 h-16 mx-auto rounded-full bg-primary/20 flex items-center justify-center text-2xl font-bold text-primary">
+                1
+              </div>
+              <h3 className="text-xl font-semibold">上傳照片</h3>
+              <p className="text-sm text-muted-foreground">Upload Photos</p>
+              <p className="text-muted-foreground">
+                選擇您想要轉化為影片的珍貴照片，支援多張上傳或首末幀模式。
+              </p>
             </div>
-          </footer>
-        </main>
 
-        {/* Settings Sidebar */}
-        <SettingsSidebar
-          settings={settings}
-          onSettingsChange={setSettings}
-          isOpen={settingsOpen}
-          onOpenChange={setSettingsOpen}
-        />
-      </div>
+            {/* Step 2 */}
+            <div className="text-center space-y-4">
+              <div className="w-16 h-16 mx-auto rounded-full bg-primary/20 flex items-center justify-center text-2xl font-bold text-primary">
+                2
+              </div>
+              <h3 className="text-xl font-semibold">AI 生成影片</h3>
+              <p className="text-sm text-muted-foreground">AI Generates Video</p>
+              <p className="text-muted-foreground">
+                選擇場合類型與 AI 模型，一鍵啟動。AI 將在幾分鐘內為您生成高品質影片。
+              </p>
+            </div>
+
+            {/* Step 3 */}
+            <div className="text-center space-y-4">
+              <div className="w-16 h-16 mx-auto rounded-full bg-primary/20 flex items-center justify-center text-2xl font-bold text-primary">
+                3
+              </div>
+              <h3 className="text-xl font-semibold">編輯 & 下載</h3>
+              <p className="text-sm text-muted-foreground">Edit & Download</p>
+              <p className="text-muted-foreground">
+                使用內建編輯器添加配樂、字幕與特效，完成後直接下載分享。
+              </p>
+            </div>
+          </div>
+
+          <div className="text-center mt-12">
+            <Button size="lg" asChild>
+              <Link href="/create">立即開始 Get Started</Link>
+            </Button>
+          </div>
+        </div>
+      </section>
+
+      {/* Pricing Section */}
+      <section id="pricing" className="border-t border-border bg-card/50 scroll-mt-20">
+        <div className="container mx-auto px-4 py-20 md:py-28">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl md:text-4xl font-bold mb-4">
+              方案價格
+            </h2>
+            <p className="text-muted-foreground text-lg">
+              Choose the plan that fits your needs
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+            {/* Free Tier */}
+            <Card className="border-border/50 relative">
+              <CardContent className="p-8 space-y-6">
+                <div className="text-center">
+                  <h3 className="text-xl font-semibold">體驗方案</h3>
+                  <p className="text-sm text-muted-foreground">Free</p>
+                  <div className="mt-4">
+                    <span className="text-4xl font-bold">$0</span>
+                    <span className="text-muted-foreground">/月 mo</span>
+                  </div>
+                </div>
+                <ul className="space-y-3 text-sm">
+                  <PricingItem>每月 2 支影片</PricingItem>
+                  <PricingItem>BytePlus 模型</PricingItem>
+                  <PricingItem>720p 解析度</PricingItem>
+                  <PricingItem>基本編輯器</PricingItem>
+                  <PricingItem>社群支援</PricingItem>
+                </ul>
+                <Button variant="outline" className="w-full" asChild>
+                  <Link href="/create">免費開始 Get Started</Link>
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Standard Tier */}
+            <Card className="border-primary relative ring-2 ring-primary/20">
+              <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 bg-primary text-primary-foreground text-xs font-semibold rounded-full">
+                最受歡迎 Most Popular
+              </div>
+              <CardContent className="p-8 space-y-6">
+                <div className="text-center">
+                  <h3 className="text-xl font-semibold">標準方案</h3>
+                  <p className="text-sm text-muted-foreground">Standard</p>
+                  <div className="mt-4">
+                    <span className="text-4xl font-bold">$9.99</span>
+                    <span className="text-muted-foreground">/月 mo</span>
+                  </div>
+                </div>
+                <ul className="space-y-3 text-sm">
+                  <PricingItem>每月 15 支影片</PricingItem>
+                  <PricingItem highlight>所有 AI 模型</PricingItem>
+                  <PricingItem highlight>1080p 解析度</PricingItem>
+                  <PricingItem>完整編輯器</PricingItem>
+                  <PricingItem>Email 支援</PricingItem>
+                </ul>
+                <Button className="w-full" asChild>
+                  <Link href="/create">選擇方案 Choose Plan</Link>
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Pro Tier */}
+            <Card className="border-border/50 relative">
+              <CardContent className="p-8 space-y-6">
+                <div className="text-center">
+                  <h3 className="text-xl font-semibold">專業方案</h3>
+                  <p className="text-sm text-muted-foreground">Professional</p>
+                  <div className="mt-4">
+                    <span className="text-4xl font-bold">$29.99</span>
+                    <span className="text-muted-foreground">/月 mo</span>
+                  </div>
+                </div>
+                <ul className="space-y-3 text-sm">
+                  <PricingItem>每月 60 支影片</PricingItem>
+                  <PricingItem highlight>所有 AI 模型</PricingItem>
+                  <PricingItem highlight>1080p 解析度</PricingItem>
+                  <PricingItem highlight>優先生成佇列</PricingItem>
+                  <PricingItem highlight>優先客服支援</PricingItem>
+                </ul>
+                <Button variant="outline" className="w-full" asChild>
+                  <Link href="/create">選擇方案 Choose Plan</Link>
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+
+          <p className="text-center text-xs text-muted-foreground mt-8">
+            所有方案均可隨時取消。價格以美元計算。
+            <br />
+            All plans can be cancelled anytime. Prices in USD.
+          </p>
+        </div>
+      </section>
+
+      {/* Contact Section */}
+      <section id="contact" className="border-t border-border scroll-mt-20">
+        <div className="container mx-auto px-4 py-20 md:py-28">
+          <div className="max-w-2xl mx-auto text-center space-y-8">
+            <h2 className="text-3xl md:text-4xl font-bold">
+              聯絡我們
+            </h2>
+            <p className="text-muted-foreground text-lg">
+              Have questions? We&apos;d love to hear from you.
+            </p>
+            <p className="text-muted-foreground">
+              如有任何問題或合作提案，歡迎透過以下方式與我們聯繫。
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <Button variant="outline" size="lg" asChild>
+                <a href="mailto:contact@glimmer.video">
+                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                  </svg>
+                  contact@glimmer.video
+                </a>
+              </Button>
+            </div>
+            <div className="pt-8">
+              <Button size="lg" asChild className="text-lg px-8 py-6">
+                <Link href="/create">
+                  立即體驗
+                  <span className="ml-2 text-sm opacity-75">Try It Now</span>
+                </Link>
+              </Button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Footer */}
+      <footer className="border-t border-border py-8 mt-auto">
+        <div className="container mx-auto px-4">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+            <p className="text-sm text-muted-foreground">
+              &copy; 2026 拾光 Glimmer. All rights reserved.
+            </p>
+            <div className="flex items-center gap-6 text-sm text-muted-foreground">
+              <Link href="/create" className="hover:text-foreground transition-colors">
+                開始製作
+              </Link>
+              <Link href="/gallery" className="hover:text-foreground transition-colors">
+                影片庫
+              </Link>
+              <a
+                href="https://github.com/jazzpujols34/glimmer"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-foreground transition-colors"
+              >
+                GitHub
+              </a>
+            </div>
+          </div>
+        </div>
+      </footer>
     </div>
+  );
+}
+
+function PricingItem({ children, highlight }: { children: React.ReactNode; highlight?: boolean }) {
+  return (
+    <li className="flex items-center gap-2">
+      <svg
+        className={`w-4 h-4 flex-shrink-0 ${highlight ? 'text-primary' : 'text-muted-foreground'}`}
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+      </svg>
+      <span className={highlight ? 'text-foreground' : 'text-muted-foreground'}>{children}</span>
+    </li>
   );
 }
