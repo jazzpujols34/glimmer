@@ -2,7 +2,7 @@
 
 export const runtime = 'edge';
 
-import { useState, useEffect, use } from 'react';
+import { useState, useEffect, useRef, use } from 'react';
 import { EditorProvider, useEditorDispatch } from '@/components/editor/EditorContext';
 import { EditorLayout } from '@/components/editor/EditorLayout';
 import { generateId } from '@/lib/editor/timeline-utils';
@@ -44,6 +44,7 @@ function EditorLoader({ jobId }: { jobId: string }) {
   const dispatch = useEditorDispatch();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const blobUrlsRef = useRef<string[]>([]);
 
   useEffect(() => {
     async function loadJob() {
@@ -64,6 +65,7 @@ function EditorLoader({ jobId }: { jobId: string }) {
             const proxyUrl = `/api/proxy-video?jobId=${encodeURIComponent(job.id)}&index=${index}`;
             const blob = await fetchVideoBlob(proxyUrl);
             const blobUrl = URL.createObjectURL(blob);
+            blobUrlsRef.current.push(blobUrl);
             const duration = await getVideoDuration(blobUrl);
 
             return {
@@ -99,6 +101,14 @@ function EditorLoader({ jobId }: { jobId: string }) {
     }
 
     loadJob();
+
+    // Cleanup: revoke all blob URLs when component unmounts
+    return () => {
+      for (const url of blobUrlsRef.current) {
+        URL.revokeObjectURL(url);
+      }
+      blobUrlsRef.current = [];
+    };
   }, [jobId, dispatch]);
 
   if (loading) {
@@ -128,20 +138,31 @@ function EditorLoader({ jobId }: { jobId: string }) {
   return <EditorLayout />;
 }
 
-/** Fetch a video via proxy as a Blob */
+/** Fetch a video via proxy as a Blob (with 60s timeout) */
 async function fetchVideoBlob(proxyUrl: string): Promise<Blob> {
-  const res = await fetch(proxyUrl);
-  if (!res.ok) {
-    // Try to get error message from JSON response
-    try {
-      const data = await res.json();
-      throw new Error(data.error || `影片載入失敗 (${res.status})`);
-    } catch (e) {
-      if (e instanceof Error && e.message !== `影片載入失敗 (${res.status})`) throw e;
-      throw new Error(`影片載入失敗 (${res.status})`);
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 60_000);
+
+  try {
+    const res = await fetch(proxyUrl, { signal: controller.signal });
+    if (!res.ok) {
+      try {
+        const data = await res.json();
+        throw new Error(data.error || `影片載入失敗 (${res.status})`);
+      } catch (e) {
+        if (e instanceof Error && e.message.includes('影片載入失敗')) throw e;
+        throw new Error(`影片載入失敗 (${res.status})`);
+      }
     }
+    return res.blob();
+  } catch (err) {
+    if (err instanceof Error && err.name === 'AbortError') {
+      throw new Error('影片下載逾時，請重新載入頁面 (Video download timed out)');
+    }
+    throw err;
+  } finally {
+    clearTimeout(timeoutId);
   }
-  return res.blob();
 }
 
 /** Get video duration using an off-screen video element */

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useEditor, useEditorDispatch } from './EditorContext';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -16,10 +16,19 @@ export function ExportPanel() {
   const [error, setError] = useState<string | null>(null);
   const linkRef = useRef<HTMLAnchorElement>(null);
 
+  // Revoke blob URL on unmount to prevent memory leak
+  useEffect(() => {
+    return () => {
+      if (downloadUrl) URL.revokeObjectURL(downloadUrl);
+    };
+  }, [downloadUrl]);
+
   const handleExport = async () => {
     setExporting(true);
     setProgress(0);
     setError(null);
+    // Revoke previous blob URL before creating a new one
+    if (downloadUrl) URL.revokeObjectURL(downloadUrl);
     setDownloadUrl(null);
     dispatch({ type: 'SET_EXPORT_PROGRESS', payload: 0 });
 
@@ -144,6 +153,7 @@ export function ExportPanel() {
             variant="outline"
             className="w-full"
             onClick={() => {
+              if (downloadUrl) URL.revokeObjectURL(downloadUrl);
               setDownloadUrl(null);
               setProgress(0);
             }}

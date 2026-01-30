@@ -40,12 +40,11 @@ export default function GalleryPage() {
     async function loadGallery() {
       try {
         const res = await fetch('/api/gallery');
-        const data = await res.json();
-
         if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
           throw new Error(data.error || '載入失敗');
         }
-
+        const data = await res.json();
         setJobs(data.jobs || []);
       } catch (err) {
         setError(err instanceof Error ? err.message : '載入失敗');
@@ -160,7 +159,7 @@ export default function GalleryPage() {
                       className="w-full h-full object-contain"
                       muted
                       playsInline
-                      onMouseEnter={(e) => e.currentTarget.play()}
+                      onMouseEnter={(e) => { e.currentTarget.play().catch(() => {}); }}
                       onMouseLeave={(e) => {
                         e.currentTarget.pause();
                         e.currentTarget.currentTime = 0;
