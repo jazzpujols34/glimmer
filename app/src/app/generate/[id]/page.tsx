@@ -2,7 +2,7 @@
 
 export const runtime = 'edge';
 
-import { useState, useEffect, useRef, use } from 'react';
+import { useState, useRef, use } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -24,7 +24,6 @@ export default function GeneratePage({ params }: PageProps) {
   const { id } = use(params);
   const [result, setResult] = useState<CompletionData | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [videoPoster, setVideoPoster] = useState<string | null>(null);
   const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
   const videoRef = useRef<HTMLVideoElement>(null);
 
@@ -52,41 +51,6 @@ export default function GeneratePage({ params }: PageProps) {
   const goToNextVideo = () => {
     setCurrentVideoIndex((prev) => (prev < totalVideos - 1 ? prev + 1 : 0));
   };
-
-  // Extract first frame from video for poster
-  useEffect(() => {
-    if (!isVideo || !currentVideoUrl) return;
-
-    setVideoPoster(null); // Reset poster when video changes
-
-    const video = document.createElement('video');
-    video.crossOrigin = 'anonymous';
-    video.src = currentVideoUrl;
-    video.muted = true;
-
-    video.onloadeddata = () => {
-      video.currentTime = 0.1; // Seek to first frame
-    };
-
-    video.onseeked = () => {
-      const canvas = document.createElement('canvas');
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-        ctx.drawImage(video, 0, 0);
-        setVideoPoster(canvas.toDataURL('image/jpeg'));
-      }
-    };
-
-    video.onerror = () => {
-      console.log('Could not extract video frame for poster');
-    };
-
-    return () => {
-      video.src = '';
-    };
-  }, [isVideo, currentVideoUrl]);
 
   return (
     <div className="min-h-screen">
@@ -155,8 +119,8 @@ export default function GeneratePage({ params }: PageProps) {
                         controls
                         autoPlay
                         loop
+                        preload="auto"
                         className="w-full h-full object-contain"
-                        poster={videoPoster || undefined}
                       >
                         您的瀏覽器不支援影片播放
                       </video>

@@ -43,7 +43,8 @@ export async function GET(request: NextRequest) {
 
     const headers = new Headers({
       'Content-Type': contentType,
-      'Cache-Control': 'private, max-age=3600',
+      // public: Cloudflare CDN can cache at edge; s-maxage: edge caches for 24h; max-age: browser caches for 4h
+      'Cache-Control': 'public, s-maxage=86400, max-age=14400',
     });
     if (contentLength) {
       headers.set('Content-Length', contentLength);

@@ -160,6 +160,7 @@ export default function GalleryPage() {
                       className="w-full h-full object-contain"
                       muted
                       playsInline
+                      preload="none"
                       onMouseEnter={(e) => { e.currentTarget.play().catch(() => {}); }}
                       onMouseLeave={(e) => {
                         e.currentTarget.pause();
@@ -234,6 +235,7 @@ export default function GalleryPage() {
                 src={selectedJob.videoUrl}
                 controls
                 autoPlay
+                preload="auto"
                 className="w-full h-full object-contain"
               />
             </div>
