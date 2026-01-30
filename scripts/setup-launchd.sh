@@ -140,9 +140,12 @@ echo "Created: $CAFE_PLIST"
 echo ""
 echo "Loading agents..."
 
-launchctl load "$REVIEW_PLIST" 2>/dev/null || launchctl bootout "gui/$(id -u)/com.glimmer.daily-compound-review" 2>/dev/null && launchctl load "$REVIEW_PLIST"
-launchctl load "$AUTO_PLIST" 2>/dev/null || launchctl bootout "gui/$(id -u)/com.glimmer.auto-compound" 2>/dev/null && launchctl load "$AUTO_PLIST"
-launchctl load "$CAFE_PLIST" 2>/dev/null || launchctl bootout "gui/$(id -u)/com.glimmer.caffeinate" 2>/dev/null && launchctl load "$CAFE_PLIST"
+UID_NUM=$(id -u)
+for AGENT_PLIST in "$REVIEW_PLIST" "$AUTO_PLIST" "$CAFE_PLIST"; do
+  LABEL=$(defaults read "$AGENT_PLIST" Label 2>/dev/null || basename "$AGENT_PLIST" .plist)
+  launchctl bootout "gui/$UID_NUM/$LABEL" 2>/dev/null || true
+  launchctl load "$AGENT_PLIST" 2>/dev/null || echo "  Warning: failed to load $LABEL"
+done
 
 echo ""
 echo "Verifying..."
