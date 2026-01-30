@@ -1,3 +1,5 @@
+export const runtime = 'edge';
+
 import { NextRequest, NextResponse } from 'next/server';
 import { createJob } from '@/lib/storage';
 import { generateVideo } from '@/lib/veo';

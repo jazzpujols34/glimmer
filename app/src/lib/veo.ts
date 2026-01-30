@@ -639,35 +639,47 @@ async function generateWithKlingAI(options: VeoGenerationOptions, prompt: string
 }
 
 /**
- * Get Kling AI JWT token
+ * Get Kling AI JWT token (Edge-compatible using Web Crypto API)
  */
 async function getKlingToken(accessKey: string, secretKey: string): Promise<string> {
-  // Kling uses JWT for authentication
-  // Create JWT with header and payload
-  const header = {
-    alg: 'HS256',
-    typ: 'JWT',
-  };
-
+  const header = { alg: 'HS256', typ: 'JWT' };
   const now = Math.floor(Date.now() / 1000);
-  const payload = {
-    iss: accessKey,
-    exp: now + 1800, // 30 minutes
-    nbf: now - 5,
-  };
+  const payload = { iss: accessKey, exp: now + 1800, nbf: now - 5 };
 
-  // Encode header and payload
-  const encodedHeader = Buffer.from(JSON.stringify(header)).toString('base64url');
-  const encodedPayload = Buffer.from(JSON.stringify(payload)).toString('base64url');
+  const encodedHeader = base64UrlEncode(JSON.stringify(header));
+  const encodedPayload = base64UrlEncode(JSON.stringify(payload));
 
-  // Create signature using HMAC-SHA256
-  const crypto = await import('crypto');
-  const signature = crypto
-    .createHmac('sha256', secretKey)
-    .update(`${encodedHeader}.${encodedPayload}`)
-    .digest('base64url');
+  // HMAC-SHA256 using Web Crypto API
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    'raw',
+    encoder.encode(secretKey),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign'],
+  );
+  const signatureBuffer = await crypto.subtle.sign(
+    'HMAC',
+    key,
+    encoder.encode(`${encodedHeader}.${encodedPayload}`),
+  );
+  const signature = base64UrlEncodeBuffer(new Uint8Array(signatureBuffer));
 
   return `${encodedHeader}.${encodedPayload}.${signature}`;
+}
+
+/** Base64url-encode a string */
+function base64UrlEncode(input: string): string {
+  return btoa(input).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+/** Base64url-encode a Uint8Array */
+function base64UrlEncodeBuffer(bytes: Uint8Array): string {
+  let binary = '';
+  for (let i = 0; i < bytes.length; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
 /**

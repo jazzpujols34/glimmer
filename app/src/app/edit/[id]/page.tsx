@@ -1,5 +1,7 @@
 'use client';
 
+export const runtime = 'edge';
+
 import { useState, useEffect, use } from 'react';
 import { EditorProvider, useEditorDispatch } from '@/components/editor/EditorContext';
 import { EditorLayout } from '@/components/editor/EditorLayout';
