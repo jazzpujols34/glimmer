@@ -9,7 +9,7 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    const job = getJob(id);
+    const job = await getJob(id);
     if (!job) {
       return NextResponse.json({ error: '找不到該影片' }, { status: 404 });
     }
@@ -38,12 +38,12 @@ export async function DELETE(
   try {
     const { id } = await params;
 
-    const job = getJob(id);
+    const job = await getJob(id);
     if (!job) {
       return NextResponse.json({ error: '找不到該影片' }, { status: 404 });
     }
 
-    const deleted = deleteJob(id);
+    const deleted = await deleteJob(id);
     if (!deleted) {
       return NextResponse.json({ error: '刪除失敗' }, { status: 500 });
     }

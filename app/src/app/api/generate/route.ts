@@ -1,8 +1,8 @@
 export const runtime = 'edge';
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createJob } from '@/lib/storage';
-import { generateVideo } from '@/lib/veo';
+import { createJob, updateJob } from '@/lib/storage';
+import { createVideoTask } from '@/lib/veo';
 import type { GenerationSettings, OccasionType } from '@/types';
 import { defaultSettings } from '@/types';
 
@@ -57,14 +57,13 @@ export async function POST(request: NextRequest) {
     // Generate job ID
     const jobId = `job_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-    // Create job record with metadata for gallery/VOD
-    const job = createJob(jobId, {
+    // Create job record in KV
+    await createJob(jobId, {
       name,
       occasion: occasion as OccasionType,
       settings,
     });
 
-    // Log generation request
     console.log(`[API] Starting generation job ${jobId}`, {
       name,
       occasion,
@@ -79,12 +78,26 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Start video generation in background
-    generateVideo({ jobId, photos, name, occasion: occasion as OccasionType, settings }).catch(console.error);
+    // Create external video task — returns immediately with tracking data
+    const taskData = await createVideoTask({
+      photos,
+      name,
+      occasion: occasion as OccasionType,
+      settings,
+    });
+
+    // Save external task tracking data to KV
+    await updateJob(jobId, {
+      status: 'processing',
+      progress: 10,
+      provider: taskData.provider,
+      externalTaskIds: taskData.externalTaskIds,
+      veoOperationName: taskData.veoOperationName,
+    });
 
     return NextResponse.json({
-      id: job.id,
-      status: job.status,
+      id: jobId,
+      status: 'processing',
     });
   } catch (error) {
     console.error('Generate API error:', error);

@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Missing jobId' }, { status: 400 });
     }
 
-    const job = getJob(jobId);
+    const job = await getJob(jobId);
     if (!job || job.status !== 'complete') {
       return NextResponse.json({ error: '找不到該影片' }, { status: 404 });
     }

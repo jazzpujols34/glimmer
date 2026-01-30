@@ -62,6 +62,10 @@ export interface GenerationJob {
   name?: string;
   occasion?: OccasionType;
   settings?: GenerationSettings;
+  // Edge-compatible: external task tracking (serverless polling)
+  provider?: ModelType;
+  externalTaskIds?: string[];       // BytePlus/Kling task IDs
+  veoOperationName?: string;        // Veo operation resource name
 }
 
 export interface ApiResponse<T> {

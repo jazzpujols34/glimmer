@@ -5,7 +5,7 @@ import { getCompletedJobs } from '@/lib/storage';
 
 export async function GET() {
   try {
-    const jobs = getCompletedJobs();
+    const jobs = await getCompletedJobs();
 
     return NextResponse.json({
       jobs: jobs.map(job => ({
