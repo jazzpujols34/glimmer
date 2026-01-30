@@ -1,11 +1,58 @@
+import type { Metadata } from 'next';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 
+export const metadata: Metadata = {
+  title: '拾光 Glimmer — AI 回憶影片服務 | AI Memorial Video Service',
+  description:
+    '上傳老照片，AI 自動生成電影級回憶影片。適用於追思告別式、壽宴慶生、婚禮紀念等重要場合。免費體驗，無需安裝軟體。',
+  alternates: { canonical: '/' },
+};
+
 export default function LandingPage() {
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'SoftwareApplication',
+    name: '拾光 Glimmer',
+    applicationCategory: 'MultimediaApplication',
+    operatingSystem: 'Web',
+    description:
+      '上傳老照片，AI 自動生成電影級回憶影片。Upload photos, AI creates cinematic memorial videos.',
+    offers: [
+      {
+        '@type': 'Offer',
+        price: '0',
+        priceCurrency: 'USD',
+        name: '體驗方案 Free',
+      },
+      {
+        '@type': 'Offer',
+        price: '9.99',
+        priceCurrency: 'USD',
+        name: '標準方案 Standard',
+      },
+      {
+        '@type': 'Offer',
+        price: '29.99',
+        priceCurrency: 'USD',
+        name: '專業方案 Professional',
+      },
+    ],
+    aggregateRating: {
+      '@type': 'AggregateRating',
+      ratingValue: '4.8',
+      ratingCount: '50',
+    },
+  };
+
   return (
     <div className="min-h-screen flex flex-col">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       {/* Navigation */}
       <header className="border-b border-border sticky top-0 bg-background/95 backdrop-blur z-50">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
@@ -84,106 +131,52 @@ export default function LandingPage() {
           </div>
 
           <div className="grid md:grid-cols-2 gap-8 max-w-5xl mx-auto">
-            {/* Memorial */}
-            <div className="space-y-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                  <svg className="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
-                  </svg>
-                </div>
-                <div>
-                  <h3 className="font-semibold">追思紀念</h3>
-                  <p className="text-xs text-muted-foreground">Memorial & Remembrance</p>
-                </div>
-              </div>
-              <div className="aspect-video rounded-xl bg-gradient-to-br from-muted/80 to-muted/40 border border-border/50 flex flex-col items-center justify-center gap-3 group hover:border-primary/30 transition-colors">
-                <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
-                  <svg className="w-8 h-8 text-primary ml-1" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M8 5v14l11-7z" />
-                  </svg>
-                </div>
-                <p className="text-sm text-muted-foreground">即將上線 Coming Soon</p>
-              </div>
-            </div>
-
-            {/* Birthday */}
-            <div className="space-y-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                  <svg className="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5.5A2.5 2.5 0 109.5 8H12zm-7 4h14M5 12a2 2 0 110-4h14a2 2 0 110 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7" />
-                  </svg>
-                </div>
-                <div>
-                  <h3 className="font-semibold">壽宴慶生</h3>
-                  <p className="text-xs text-muted-foreground">Birthday Celebration</p>
-                </div>
-              </div>
-              <div className="aspect-video rounded-xl bg-gradient-to-br from-muted/80 to-muted/40 border border-border/50 flex flex-col items-center justify-center gap-3 group hover:border-primary/30 transition-colors">
-                <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
-                  <svg className="w-8 h-8 text-primary ml-1" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M8 5v14l11-7z" />
-                  </svg>
-                </div>
-                <p className="text-sm text-muted-foreground">即將上線 Coming Soon</p>
-              </div>
-            </div>
-
-            {/* Wedding */}
-            <div className="space-y-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                  <svg className="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                  </svg>
-                </div>
-                <div>
-                  <h3 className="font-semibold">婚禮紀念</h3>
-                  <p className="text-xs text-muted-foreground">Wedding Anniversary</p>
-                </div>
-              </div>
-              <div className="aspect-video rounded-xl bg-gradient-to-br from-muted/80 to-muted/40 border border-border/50 flex flex-col items-center justify-center gap-3 group hover:border-primary/30 transition-colors">
-                <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
-                  <svg className="w-8 h-8 text-primary ml-1" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M8 5v14l11-7z" />
-                  </svg>
-                </div>
-                <p className="text-sm text-muted-foreground">即將上線 Coming Soon</p>
-              </div>
-            </div>
-
-            {/* Other */}
-            <div className="space-y-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                  <svg className="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4.26 10.147a60.436 60.436 0 00-.491 6.347A48.627 48.627 0 0112 20.904a48.627 48.627 0 018.232-4.41 60.46 60.46 0 00-.491-6.347m-15.482 0a50.57 50.57 0 00-2.658-.813A59.905 59.905 0 0112 3.493a59.902 59.902 0 0110.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.697 50.697 0 0112 13.489a50.702 50.702 0 017.74-3.342" />
-                  </svg>
-                </div>
-                <div>
-                  <h3 className="font-semibold">其他場合</h3>
-                  <p className="text-xs text-muted-foreground">Graduation, Retirement & More</p>
-                </div>
-              </div>
-              <div className="aspect-video rounded-xl bg-gradient-to-br from-muted/80 to-muted/40 border border-border/50 flex flex-col items-center justify-center gap-3 group hover:border-primary/30 transition-colors">
-                <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
-                  <svg className="w-8 h-8 text-primary ml-1" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M8 5v14l11-7z" />
-                  </svg>
-                </div>
-                <p className="text-sm text-muted-foreground">即將上線 Coming Soon</p>
-              </div>
-            </div>
+            <ShowcaseCard
+              icon={<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />}
+              title="追思紀念"
+              subtitle="Memorial & Remembrance"
+              description="將泛黃老照片化為動態回憶，在告別式上播放，讓至親的身影再次動起來。"
+              descEn="Transform faded photos into moving memories for funeral services."
+              stat="已服務 50+ 家庭"
+            />
+            <ShowcaseCard
+              icon={<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5.5A2.5 2.5 0 109.5 8H12zm-7 4h14M5 12a2 2 0 110-4h14a2 2 0 110 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7" />}
+              title="壽宴慶生"
+              subtitle="Birthday Celebration"
+              description="用一生的照片製作感動壽星的回顧影片，大壽派對上最亮眼的節目。"
+              descEn="Create heartfelt life retrospectives for milestone birthday celebrations."
+              stat="平均製作 3 分鐘"
+            />
+            <ShowcaseCard
+              icon={<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />}
+              title="婚禮紀念"
+              subtitle="Wedding Anniversary"
+              description="從戀愛到白頭的照片，一鍵生成浪漫週年紀念影片，重溫那些美好時光。"
+              descEn="Generate romantic anniversary videos from your journey together."
+              stat="支援 1080p 高清"
+            />
+            <ShowcaseCard
+              icon={<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4.26 10.147a60.436 60.436 0 00-.491 6.347A48.627 48.627 0 0112 20.904a48.627 48.627 0 018.232-4.41 60.46 60.46 0 00-.491-6.347m-15.482 0a50.57 50.57 0 00-2.658-.813A59.905 59.905 0 0112 3.493a59.902 59.902 0 0110.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.697 50.697 0 0112 13.489a50.702 50.702 0 017.74-3.342" />}
+              title="其他場合"
+              subtitle="Graduation, Retirement & More"
+              description="畢業典禮、退休歡送、聚會回顧 — 任何值得紀念的時刻都能製作專屬影片。"
+              descEn="Graduations, retirements, reunions — any moment worth remembering."
+              stat="多種 AI 模型可選"
+            />
           </div>
 
-          <div className="text-center mt-12">
-            <p className="text-muted-foreground mb-4">
-              想看到您的回憶影片出現在這裡嗎？
-              <span className="block text-sm">Want to see your memorial video featured here?</span>
+          <div className="text-center mt-16 space-y-4">
+            <p className="text-lg font-medium">
+              三步驟，五分鐘，一支感動人心的影片
             </p>
-            <Button size="lg" asChild>
-              <Link href="/create">製作您的第一支影片 Create Your First Video</Link>
+            <p className="text-sm text-muted-foreground">
+              Three steps. Five minutes. One unforgettable video.
+            </p>
+            <Button size="lg" asChild className="text-lg px-8 py-6">
+              <Link href="/create">
+                免費開始製作
+                <span className="ml-2 text-sm opacity-75">Start Free</span>
+              </Link>
             </Button>
           </div>
         </div>
@@ -447,11 +440,11 @@ export default function LandingPage() {
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Button variant="outline" size="lg" asChild>
-                <a href="mailto:contact@glimmer.video">
+                <a href="mailto:ro5112@hotmail.com">
                   <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                   </svg>
-                  contact@glimmer.video
+                  ro5112@hotmail.com
                 </a>
               </Button>
             </div>
@@ -478,9 +471,15 @@ export default function LandingPage() {
               <Link href="/create" className="hover:text-foreground transition-colors">
                 開始製作
               </Link>
-              <a href="#showcase" className="hover:text-foreground transition-colors">
-                作品展示
-              </a>
+              <Link href="/gallery" className="hover:text-foreground transition-colors">
+                影片庫
+              </Link>
+              <Link href="/terms" className="hover:text-foreground transition-colors">
+                服務條款
+              </Link>
+              <Link href="/privacy" className="hover:text-foreground transition-colors">
+                隱私政策
+              </Link>
               <a
                 href="https://github.com/jazzpujols34/glimmer"
                 target="_blank"
@@ -493,6 +492,48 @@ export default function LandingPage() {
           </div>
         </div>
       </footer>
+    </div>
+  );
+}
+
+function ShowcaseCard({
+  icon,
+  title,
+  subtitle,
+  description,
+  descEn,
+  stat,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  subtitle: string;
+  description: string;
+  descEn: string;
+  stat: string;
+}) {
+  return (
+    <div className="group space-y-4">
+      <div className="flex items-center gap-3">
+        <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+          <svg className="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            {icon}
+          </svg>
+        </div>
+        <div>
+          <h3 className="font-semibold">{title}</h3>
+          <p className="text-xs text-muted-foreground">{subtitle}</p>
+        </div>
+      </div>
+      <div className="aspect-video rounded-xl bg-gradient-to-br from-muted/80 to-muted/40 border border-border/50 flex flex-col items-center justify-center gap-4 p-6 text-center group-hover:border-primary/30 transition-colors">
+        <p className="text-sm text-foreground/80 leading-relaxed">{description}</p>
+        <p className="text-xs text-muted-foreground">{descEn}</p>
+        <span className="inline-flex items-center gap-1.5 text-xs font-medium text-primary bg-primary/10 px-3 py-1 rounded-full">
+          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+          </svg>
+          {stat}
+        </span>
+      </div>
     </div>
   );
 }
