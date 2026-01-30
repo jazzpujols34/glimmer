@@ -64,11 +64,14 @@ export default function LandingPage() {
             <a href="#features" className="text-muted-foreground hover:text-foreground transition-colors">
               功能特色
             </a>
+            <a href="#why-us" className="text-muted-foreground hover:text-foreground transition-colors">
+              為什麼選我們
+            </a>
             <a href="#pricing" className="text-muted-foreground hover:text-foreground transition-colors">
               方案價格
             </a>
-            <a href="#contact" className="text-muted-foreground hover:text-foreground transition-colors">
-              聯絡我們
+            <a href="#faq" className="text-muted-foreground hover:text-foreground transition-colors">
+              常見問題
             </a>
           </nav>
           <Button size="sm" asChild>
@@ -106,6 +109,47 @@ export default function LandingPage() {
                 <span className="ml-2 text-sm opacity-75">Learn More</span>
               </a>
             </Button>
+          </div>
+
+          {/* Hero visual — before/after demo mockup */}
+          <div className="max-w-3xl mx-auto pt-8">
+            <div className="relative rounded-2xl border border-border/50 bg-card/50 overflow-hidden shadow-xl">
+              {/* Browser chrome bar */}
+              <div className="flex items-center gap-2 px-4 py-3 border-b border-border/50 bg-muted/30">
+                <div className="flex gap-1.5">
+                  <div className="w-3 h-3 rounded-full bg-red-400/60" />
+                  <div className="w-3 h-3 rounded-full bg-yellow-400/60" />
+                  <div className="w-3 h-3 rounded-full bg-green-400/60" />
+                </div>
+                <div className="flex-1 text-center text-xs text-muted-foreground">glimmer.pages.dev/create</div>
+              </div>
+              {/* Before → After visualization */}
+              <div className="grid grid-cols-2 divide-x divide-border/30">
+                <div className="p-8 text-center space-y-3">
+                  <div className="w-24 h-24 mx-auto rounded-xl bg-muted/80 border border-border/50 flex items-center justify-center">
+                    <svg className="w-10 h-10 text-muted-foreground/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                  </div>
+                  <p className="text-sm font-medium">上傳一張照片</p>
+                  <p className="text-xs text-muted-foreground">Upload a photo</p>
+                </div>
+                <div className="p-8 text-center space-y-3 relative">
+                  <div className="absolute left-0 top-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-primary flex items-center justify-center z-10">
+                    <svg className="w-4 h-4 text-primary-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                    </svg>
+                  </div>
+                  <div className="w-24 h-24 mx-auto rounded-xl bg-primary/10 border border-primary/30 flex items-center justify-center">
+                    <svg className="w-10 h-10 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                  </div>
+                  <p className="text-sm font-medium text-primary">AI 生成影片</p>
+                  <p className="text-xs text-muted-foreground">AI creates cinematic video</p>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -182,20 +226,82 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Features Section */}
+      {/* Social Proof / Testimonials Section */}
+      <section id="testimonials" className="border-t border-border scroll-mt-20">
+        <div className="container mx-auto px-4 py-20 md:py-28">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl md:text-4xl font-bold mb-4">
+              為什麼我們打造拾光
+            </h2>
+            <p className="text-muted-foreground text-lg">
+              The story behind Glimmer
+            </p>
+          </div>
+
+          {/* Founder story */}
+          <div className="max-w-3xl mx-auto mb-16">
+            <blockquote className="relative p-8 rounded-2xl bg-card/80 border border-border/50">
+              <svg className="absolute top-4 left-4 w-8 h-8 text-primary/20" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M14.017 21v-7.391c0-5.704 3.731-9.57 8.983-10.609l.995 2.151c-2.432.917-3.995 3.638-3.995 5.849h4v10H14.017zM0 21v-7.391c0-5.704 3.731-9.57 8.983-10.609l.995 2.151C7.546 6.068 5.983 8.789 5.983 11H10v10H0z" />
+              </svg>
+              <p className="text-lg leading-relaxed pl-8">
+                「整理家中老照片時，看著那些泛黃的面孔，我想：如果他們能再動一次就好了。
+                一個微笑、一次呼吸、一個轉頭的瞬間 — 哪怕只有幾秒，也足以讓回憶重新鮮活起來。
+                這就是拾光誕生的原因。」
+              </p>
+              <p className="text-sm text-muted-foreground mt-4 pl-8 italic">
+                &ldquo;While sorting through old family photos, I wished those faded faces could move once more.
+                A smile, a breath, a turn of the head — even a few seconds would bring the memories back to life.
+                That&apos;s why Glimmer was born.&rdquo;
+              </p>
+              <div className="flex items-center gap-3 mt-6 pl-8">
+                <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-sm font-bold text-primary">
+                  J
+                </div>
+                <div>
+                  <p className="text-sm font-medium">Jazz Lien</p>
+                  <p className="text-xs text-muted-foreground">拾光 Glimmer 創辦人 / Founder</p>
+                </div>
+              </div>
+            </blockquote>
+          </div>
+
+          {/* Stats */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 max-w-4xl mx-auto text-center">
+            <div className="space-y-2">
+              <p className="text-3xl md:text-4xl font-bold text-primary">50+</p>
+              <p className="text-sm text-muted-foreground">家庭已使用<br /><span className="text-xs">Families served</span></p>
+            </div>
+            <div className="space-y-2">
+              <p className="text-3xl md:text-4xl font-bold text-primary">5</p>
+              <p className="text-sm text-muted-foreground">場合類型<br /><span className="text-xs">Occasion types</span></p>
+            </div>
+            <div className="space-y-2">
+              <p className="text-3xl md:text-4xl font-bold text-primary">4</p>
+              <p className="text-sm text-muted-foreground">AI 模型可選<br /><span className="text-xs">AI models available</span></p>
+            </div>
+            <div className="space-y-2">
+              <p className="text-3xl md:text-4xl font-bold text-primary">5 min</p>
+              <p className="text-sm text-muted-foreground">平均生成時間<br /><span className="text-xs">Avg. generation time</span></p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Features Section — Benefits-first framing */}
       <section id="features" className="border-t border-border bg-card/30 scroll-mt-20">
         <div className="container mx-auto px-4 py-20 md:py-28">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-bold mb-4">
-              功能特色
+              為什麼選擇拾光
             </h2>
             <p className="text-muted-foreground text-lg">
-              Features that make your memories unforgettable
+              Benefits that matter to you
             </p>
           </div>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
-            {/* Feature 1: AI Video */}
+            {/* Benefit 1: One photo → one video */}
             <Card className="border-border/50 hover:border-primary/30 transition-colors">
               <CardContent className="p-6 text-center space-y-4">
                 <div className="w-14 h-14 mx-auto rounded-xl bg-primary/10 flex items-center justify-center">
@@ -203,17 +309,17 @@ export default function LandingPage() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
                   </svg>
                 </div>
-                <h3 className="text-lg font-semibold">AI 影片生成</h3>
+                <h3 className="text-lg font-semibold">一張照片，一支影片</h3>
                 <p className="text-sm text-muted-foreground">
-                  AI Video Generation
+                  One Photo, One Video
                 </p>
                 <p className="text-sm text-muted-foreground">
-                  支援多款頂尖模型：BytePlus Seedance、Google Veo 3.1、Kling AI，一鍵將靜態照片轉化為動態影片。
+                  上傳一張照片，幾分鐘後就能拿到一支電影級影片。不需要任何剪輯經驗，AI 幫你完成一切。
                 </p>
               </CardContent>
             </Card>
 
-            {/* Feature 2: Editor */}
+            {/* Benefit 2: No software needed */}
             <Card className="border-border/50 hover:border-primary/30 transition-colors">
               <CardContent className="p-6 text-center space-y-4">
                 <div className="w-14 h-14 mx-auto rounded-xl bg-primary/10 flex items-center justify-center">
@@ -221,17 +327,17 @@ export default function LandingPage() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                   </svg>
                 </div>
-                <h3 className="text-lg font-semibold">內建影片編輯器</h3>
+                <h3 className="text-lg font-semibold">不用下載任何軟體</h3>
                 <p className="text-sm text-muted-foreground">
-                  Built-in Video Editor
+                  No Software to Install
                 </p>
                 <p className="text-sm text-muted-foreground">
-                  時間軸編輯、裁剪、分割、配樂、字幕、音效 — 全在瀏覽器完成，無需安裝任何軟體。
+                  直接在瀏覽器編輯影片：裁剪、配樂、字幕全部搞定。手機、平板、電腦都能用。
                 </p>
               </CardContent>
             </Card>
 
-            {/* Feature 3: Occasions */}
+            {/* Benefit 3: AI understands the occasion */}
             <Card className="border-border/50 hover:border-primary/30 transition-colors">
               <CardContent className="p-6 text-center space-y-4">
                 <div className="w-14 h-14 mx-auto rounded-xl bg-primary/10 flex items-center justify-center">
@@ -239,17 +345,17 @@ export default function LandingPage() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
                   </svg>
                 </div>
-                <h3 className="text-lg font-semibold">多場合適用</h3>
+                <h3 className="text-lg font-semibold">AI 懂得場合的溫度</h3>
                 <p className="text-sm text-muted-foreground">
-                  For Every Occasion
+                  AI Feels the Moment
                 </p>
                 <p className="text-sm text-muted-foreground">
-                  追思紀念、壽宴慶生、婚禮週年 — AI 會根據場合類型，自動調整影片風格與動態效果。
+                  追思用溫柔平靜、壽宴用歡樂喜慶、婚禮用浪漫唯美 — AI 自動調整動畫風格，讓影片符合場合氛圍。
                 </p>
               </CardContent>
             </Card>
 
-            {/* Feature 4: Export */}
+            {/* Benefit 4: Ready to share */}
             <Card className="border-border/50 hover:border-primary/30 transition-colors">
               <CardContent className="p-6 text-center space-y-4">
                 <div className="w-14 h-14 mx-auto rounded-xl bg-primary/10 flex items-center justify-center">
@@ -257,12 +363,12 @@ export default function LandingPage() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                   </svg>
                 </div>
-                <h3 className="text-lg font-semibold">快速匯出</h3>
+                <h3 className="text-lg font-semibold">完成即可分享</h3>
                 <p className="text-sm text-muted-foreground">
-                  Instant Export
+                  Ready to Share
                 </p>
                 <p className="text-sm text-muted-foreground">
-                  瀏覽器端 FFmpeg 匯出，支援配樂混音、字幕燒錄，直接下載完成影片。
+                  配樂、字幕都已燒錄在影片中，一鍵下載就能直接分享到 LINE、Facebook，或在活動上播放。
                 </p>
               </CardContent>
             </Card>
@@ -328,8 +434,62 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* Why Us — Comparison Section */}
+      <section id="why-us" className="border-t border-border bg-card/50 scroll-mt-20">
+        <div className="container mx-auto px-4 py-20 md:py-28">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl md:text-4xl font-bold mb-4">
+              為什麼選擇拾光？
+            </h2>
+            <p className="text-muted-foreground text-lg">
+              How Glimmer compares to other options
+            </p>
+          </div>
+
+          <div className="max-w-4xl mx-auto overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border">
+                  <th className="text-left p-4 font-medium text-muted-foreground" />
+                  <th className="p-4 font-medium text-muted-foreground text-center">
+                    傳統影片製作
+                    <br />
+                    <span className="text-xs font-normal">Traditional Production</span>
+                  </th>
+                  <th className="p-4 font-medium text-muted-foreground text-center">
+                    DIY 剪輯軟體
+                    <br />
+                    <span className="text-xs font-normal">DIY Editing Software</span>
+                  </th>
+                  <th className="p-4 font-semibold text-primary text-center border-x border-primary/20 bg-primary/5 rounded-t-lg">
+                    拾光 Glimmer
+                    <br />
+                    <span className="text-xs font-normal text-primary/80">AI-Powered</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                <ComparisonRow label="所需時間" labelEn="Time needed" traditional="數天 ~ 數週" diy="數小時" glimmer="5 分鐘" />
+                <ComparisonRow label="費用" labelEn="Cost" traditional="NT$15,000+" diy="免費 ~ $30/月" glimmer="免費起" />
+                <ComparisonRow label="技術門檻" labelEn="Skill required" traditional="專業剪輯師" diy="中等學習曲線" glimmer="零門檻" />
+                <ComparisonRow label="AI 照片動畫" labelEn="AI photo animation" traditional="—" diy="—" glimmer="✓" isCheck />
+                <ComparisonRow label="場合感知 AI" labelEn="Occasion-aware AI" traditional="手動調整" diy="手動調整" glimmer="✓ 自動適配" isCheck />
+                <ComparisonRow label="瀏覽器編輯" labelEn="Browser-based editor" traditional="—" diy="需安裝軟體" glimmer="✓" isCheck />
+                <ComparisonRow label="配樂 + 字幕" labelEn="Music + subtitles" traditional="額外收費" diy="需手動操作" glimmer="✓ 內建" isCheck />
+              </tbody>
+            </table>
+          </div>
+
+          <div className="text-center mt-12">
+            <Button size="lg" asChild>
+              <Link href="/create">免費體驗 Try Free</Link>
+            </Button>
+          </div>
+        </div>
+      </section>
+
       {/* Pricing Section */}
-      <section id="pricing" className="border-t border-border bg-card/50 scroll-mt-20">
+      <section id="pricing" className="border-t border-border scroll-mt-20">
         <div className="container mx-auto px-4 py-20 md:py-28">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-bold mb-4">
@@ -422,6 +582,71 @@ export default function LandingPage() {
             <br />
             All plans can be cancelled anytime. Prices in USD.
           </p>
+        </div>
+      </section>
+
+      {/* FAQ Section */}
+      <section id="faq" className="border-t border-border bg-card/30 scroll-mt-20">
+        <div className="container mx-auto px-4 py-20 md:py-28">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl md:text-4xl font-bold mb-4">
+              常見問題
+            </h2>
+            <p className="text-muted-foreground text-lg">
+              Frequently Asked Questions
+            </p>
+          </div>
+
+          <div className="max-w-3xl mx-auto space-y-4">
+            <FaqItem
+              q="需要多久才能生成一支影片？"
+              qEn="How long does it take to generate a video?"
+              a="大約 2-5 分鐘，取決於選擇的 AI 模型和影片長度。生成過程中可以離開頁面，之後在影片庫查看結果。"
+              aEn="About 2-5 minutes depending on the AI model and video length. You can leave the page and check the gallery later."
+            />
+            <FaqItem
+              q="支援哪些照片格式？"
+              qEn="What photo formats are supported?"
+              a="支援 JPG、PNG、WebP 等常見格式。建議使用解析度較高的照片以獲得最佳效果。"
+              aEn="JPG, PNG, WebP and other common formats. Higher resolution photos produce better results."
+            />
+            <FaqItem
+              q="免費方案有什麼限制？"
+              qEn="What's included in the free tier?"
+              a="免費方案每月可生成 2 支影片，使用 BytePlus 模型，720p 解析度。基本編輯功能完全開放。"
+              aEn="Free tier includes 2 videos per month, BytePlus model, 720p resolution. Basic editor features are fully accessible."
+            />
+            <FaqItem
+              q="影片可以商用嗎？"
+              qEn="Can I use the videos commercially?"
+              a="個人使用和非營利活動（如告別式、家庭聚會）不受限制。商業用途請參考專業方案條款。"
+              aEn="Personal and non-profit use (funerals, family events) is unrestricted. See Professional plan terms for commercial use."
+            />
+            <FaqItem
+              q="我上傳的照片安全嗎？"
+              qEn="Are my photos secure?"
+              a="照片僅用於生成影片，處理完成後不會永久保存在我們的伺服器。詳情請參考隱私政策。"
+              aEn="Photos are only used for video generation and are not permanently stored on our servers. See our privacy policy for details."
+            />
+            <FaqItem
+              q="影片下載連結會過期嗎？"
+              qEn="Do video download links expire?"
+              a="是的，影片連結會在 24 小時後過期。請在生成後盡快下載保存。已下載的影片不受影響。"
+              aEn="Yes, video links expire after 24 hours. Please download promptly. Downloaded files are yours to keep."
+            />
+            <FaqItem
+              q="可以隨時取消訂閱嗎？"
+              qEn="Can I cancel my subscription anytime?"
+              a="可以，所有付費方案均可隨時取消，不會有任何額外費用。取消後仍可使用至當期結束。"
+              aEn="Yes, all paid plans can be cancelled anytime with no extra charges. Access continues until the end of the billing period."
+            />
+            <FaqItem
+              q="需要安裝軟體嗎？"
+              qEn="Do I need to install any software?"
+              a="完全不需要。拾光是一個網頁應用程式，用瀏覽器打開就能使用，包括影片編輯和匯出功能。"
+              aEn="Not at all. Glimmer is a web app — open your browser and start creating, including video editing and export."
+            />
+          </div>
         </div>
       </section>
 
@@ -551,5 +776,71 @@ function PricingItem({ children, highlight }: { children: React.ReactNode; highl
       </svg>
       <span className={highlight ? 'text-foreground' : 'text-muted-foreground'}>{children}</span>
     </li>
+  );
+}
+
+function ComparisonRow({
+  label,
+  labelEn,
+  traditional,
+  diy,
+  glimmer,
+  isCheck,
+}: {
+  label: string;
+  labelEn: string;
+  traditional: string;
+  diy: string;
+  glimmer: string;
+  isCheck?: boolean;
+}) {
+  return (
+    <tr className="border-b border-border/50">
+      <td className="p-4 font-medium">
+        {label}
+        <br />
+        <span className="text-xs text-muted-foreground font-normal">{labelEn}</span>
+      </td>
+      <td className="p-4 text-center text-muted-foreground">{traditional}</td>
+      <td className="p-4 text-center text-muted-foreground">{diy}</td>
+      <td className={`p-4 text-center border-x border-primary/20 bg-primary/5 font-semibold ${isCheck ? 'text-primary' : 'text-primary'}`}>
+        {glimmer}
+      </td>
+    </tr>
+  );
+}
+
+function FaqItem({
+  q,
+  qEn,
+  a,
+  aEn,
+}: {
+  q: string;
+  qEn: string;
+  a: string;
+  aEn: string;
+}) {
+  return (
+    <details className="group rounded-lg border border-border/50 hover:border-primary/30 transition-colors">
+      <summary className="flex items-center justify-between cursor-pointer p-5 font-medium">
+        <div>
+          <span>{q}</span>
+          <span className="block text-xs text-muted-foreground font-normal mt-0.5">{qEn}</span>
+        </div>
+        <svg
+          className="w-5 h-5 text-muted-foreground flex-shrink-0 ml-4 transition-transform group-open:rotate-180"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </summary>
+      <div className="px-5 pb-5 space-y-2">
+        <p className="text-sm text-muted-foreground leading-relaxed">{a}</p>
+        <p className="text-xs text-muted-foreground/70 italic">{aEn}</p>
+      </div>
+    </details>
   );
 }
