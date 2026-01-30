@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { Logo } from '@/components/Logo';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Play, Download, Calendar, Film, ArrowLeft, Trash2, Scissors } from 'lucide-react';
+import { Play, Download, Calendar, Film, ArrowLeft, Trash2, Scissors, AlertCircle } from 'lucide-react';
 
 interface GalleryJob {
   id: string;
@@ -36,6 +36,7 @@ export default function GalleryPage() {
   const [error, setError] = useState<string | null>(null);
   const [selectedJob, setSelectedJob] = useState<GalleryJob | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [videoErrors, setVideoErrors] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     async function loadGallery() {
@@ -147,18 +148,26 @@ export default function GalleryPage() {
                   onClick={() => setSelectedJob(job)}
                 >
                   <div className="aspect-video bg-black relative group">
-                    <video
-                      src={job.videoUrl}
-                      className="w-full h-full object-contain"
-                      muted
-                      playsInline
-                      preload="none"
-                      onMouseEnter={(e) => { e.currentTarget.play().catch(() => {}); }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.pause();
-                        e.currentTarget.currentTime = 0;
-                      }}
-                    />
+                    {videoErrors.has(job.id) ? (
+                      <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground gap-2">
+                        <AlertCircle className="w-8 h-8" />
+                        <span className="text-xs">影片載入失敗</span>
+                      </div>
+                    ) : (
+                      <video
+                        src={job.videoUrl}
+                        className="w-full h-full object-contain"
+                        muted
+                        playsInline
+                        preload="metadata"
+                        onMouseEnter={(e) => { e.currentTarget.play().catch(() => {}); }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.pause();
+                          e.currentTarget.currentTime = 0;
+                        }}
+                        onError={() => setVideoErrors(prev => new Set(prev).add(job.id))}
+                      />
+                    )}
                     <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                       <Play className="w-12 h-12 text-white" />
                     </div>
@@ -223,13 +232,22 @@ export default function GalleryPage() {
               </Button>
             </div>
             <div className="aspect-video bg-black">
-              <video
-                src={selectedJob.videoUrl}
-                controls
-                autoPlay
-                preload="auto"
-                className="w-full h-full object-contain"
-              />
+              {videoErrors.has(selectedJob.id) ? (
+                <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground gap-3">
+                  <AlertCircle className="w-12 h-12" />
+                  <p className="text-sm">影片連結可能已過期</p>
+                  <p className="text-xs text-muted-foreground/60">Video link may have expired</p>
+                </div>
+              ) : (
+                <video
+                  src={selectedJob.videoUrl}
+                  controls
+                  autoPlay
+                  preload="auto"
+                  className="w-full h-full object-contain"
+                  onError={() => setVideoErrors(prev => new Set(prev).add(selectedJob.id))}
+                />
+              )}
             </div>
             {selectedJob.videoUrls && selectedJob.videoUrls.length > 1 && (
               <div className="p-4 border-t border-border">

@@ -46,14 +46,12 @@ export async function GET(
         }
         if (result.videoUrls && result.videoUrls.length > 0) {
           await setJobComplete(id, result.videoUrls[0], result.videoUrls);
-          // Return proxy URLs to bypass CORS on CDN
-          const proxyUrls = result.videoUrls.map((_: string, i: number) => `/api/proxy-video?jobId=${id}&index=${i}`);
           return NextResponse.json({
             id: job.id,
             status: 'complete',
             progress: 100,
-            videoUrl: proxyUrls[0],
-            videoUrls: proxyUrls,
+            videoUrl: result.videoUrls[0],
+            videoUrls: result.videoUrls,
           });
         }
       }
@@ -71,19 +69,12 @@ export async function GET(
     }
 
     // Return current state (complete, error, or queued)
-    // For completed jobs, convert stored CDN URLs to proxy URLs
-    let videoUrl = job.videoUrl;
-    let videoUrls = job.videoUrls;
-    if (job.status === 'complete' && videoUrls?.length) {
-      videoUrls = videoUrls.map((_: string, i: number) => `/api/proxy-video?jobId=${id}&index=${i}`);
-      videoUrl = videoUrls[0];
-    }
     return NextResponse.json({
       id: job.id,
       status: job.status,
       progress: job.progress,
-      videoUrl,
-      videoUrls,
+      videoUrl: job.videoUrl,
+      videoUrls: job.videoUrls,
       error: job.error,
     });
   } catch (error) {
