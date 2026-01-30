@@ -253,6 +253,7 @@ function occasionLabel(occasion: OccasionType): string {
     memorial: '追思',
     birthday: '生日',
     wedding: '婚禮',
+    pet: '寵物',
     other: '其他',
   };
   return map[occasion] || occasion;

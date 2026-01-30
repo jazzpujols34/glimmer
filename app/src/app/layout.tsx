@@ -21,9 +21,10 @@ export const metadata: Metadata = {
     template: "%s | 拾光 Glimmer",
   },
   description:
-    "上傳老照片，AI 自動生成電影級回憶影片。適用於追思、壽宴、婚禮等重要場合。Upload photos, AI creates cinematic memorial videos for funerals, birthdays, weddings and more.",
+    "上傳老照片或寵物照片，AI 自動生成電影級回憶影片。適用於追思、壽宴、婚禮、寵物紀念等場合。Upload photos of loved ones or pets, AI creates cinematic memorial videos.",
   keywords: [
     "AI影片", "回憶影片", "追思影片", "告別式影片", "壽宴影片", "婚禮影片",
+    "寵物紀念影片", "寵物回憶", "毛孩影片", "pet memorial video",
     "AI memorial video", "photo to video", "AI video generator",
     "memorial service video", "funeral video", "birthday video",
     "拾光", "Glimmer",

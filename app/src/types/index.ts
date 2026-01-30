@@ -1,4 +1,4 @@
-export type OccasionType = 'memorial' | 'birthday' | 'wedding' | 'other';
+export type OccasionType = 'memorial' | 'birthday' | 'wedding' | 'pet' | 'other';
 
 export type GenerationStatus = 'queued' | 'processing' | 'complete' | 'error';
 

@@ -7,7 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 export const metadata: Metadata = {
   title: '拾光 Glimmer — AI 回憶影片服務 | AI Memorial Video Service',
   description:
-    '上傳老照片，AI 自動生成電影級回憶影片。適用於追思告別式、壽宴慶生、婚禮紀念等重要場合。免費體驗，無需安裝軟體。',
+    '上傳老照片或寵物照片，AI 自動生成電影級回憶影片。適用於追思告別式、壽宴慶生、婚禮紀念、寵物紀念等場合。免費體驗，無需安裝軟體。',
   alternates: { canonical: '/' },
 };
 
@@ -96,10 +96,10 @@ export default function LandingPage() {
             Bring Your Precious Memories to Life
           </p>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            上傳老照片，AI 自動生成電影級回憶影片。適用於追思、壽宴、婚禮等重要場合。
+            上傳老照片或寵物照片，AI 自動生成電影級回憶影片。適用於追思、壽宴、婚禮、寵物紀念等重要場合。
           </p>
           <p className="text-sm text-muted-foreground">
-            Upload old photos and let AI create cinematic memorial videos for life&apos;s most meaningful moments.
+            Upload photos of loved ones or beloved pets — AI creates cinematic memorial videos for life&apos;s most meaningful moments.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
             <Button size="lg" asChild className="text-lg px-8 py-6">
@@ -154,6 +154,14 @@ export default function LandingPage() {
               description="從戀愛到白頭的照片，一鍵生成浪漫週年紀念影片，重溫那些美好時光。"
               descEn="Generate romantic anniversary videos from your journey together."
               stat="支援 1080p 高清"
+            />
+            <ShowcaseCard
+              icon={<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M6.633 10.5c.806 0 1.533-.446 2.031-1.08a9.041 9.041 0 012.861-2.4c.723-.384 1.35-.956 1.653-1.715a4.498 4.498 0 00.322-1.672V3.25a.75.75 0 01.75-.75 2.25 2.25 0 012.25 2.25c0 1.152-.26 2.243-.723 3.218-.266.558.107 1.282.725 1.282h3.126c1.026 0 1.945.694 2.054 1.715.045.422.068.85.068 1.285a11.95 11.95 0 01-2.649 7.521c-.388.482-.987.729-1.605.729H13.48c-.483 0-.964-.078-1.423-.23l-3.114-1.04a4.501 4.501 0 00-1.423-.23H3.75" />}
+              title="寵物紀念"
+              subtitle="Pet Memorial"
+              description="讓毛孩的照片動起來 — 輕柔的呼吸、微微的耳朵動作，留住最溫暖的陪伴時光。"
+              descEn="Bring pet photos to life with gentle breathing and soft movements."
+              stat="貓狗及各類寵物"
             />
             <ShowcaseCard
               icon={<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4.26 10.147a60.436 60.436 0 00-.491 6.347A48.627 48.627 0 0112 20.904a48.627 48.627 0 018.232-4.41 60.46 60.46 0 00-.491-6.347m-15.482 0a50.57 50.57 0 00-2.658-.813A59.905 59.905 0 0112 3.493a59.902 59.902 0 0110.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.697 50.697 0 0112 13.489a50.702 50.702 0 017.74-3.342" />}

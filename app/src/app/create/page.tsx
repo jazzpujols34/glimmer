@@ -18,6 +18,7 @@ const occasions: { value: OccasionType; label: string; description: string }[] =
   { value: 'memorial', label: '追思紀念', description: '告別式、追悼會' },
   { value: 'birthday', label: '壽宴慶生', description: '大壽、生日派對' },
   { value: 'wedding', label: '婚禮紀念', description: '婚禮、週年紀念' },
+  { value: 'pet', label: '寵物紀念', description: '毛孩回憶、寵物紀念' },
   { value: 'other', label: '其他場合', description: '畢業、退休等' },
 ];
 
@@ -110,9 +111,8 @@ export default function Home() {
           </div>
           <div className="flex items-center gap-4">
             <nav className="hidden sm:flex items-center gap-6 text-sm">
+              <Link href="/" className="text-muted-foreground hover:text-foreground transition-colors">首頁</Link>
               <Link href="/gallery" className="text-muted-foreground hover:text-foreground transition-colors">影片庫</Link>
-              <a href="#features" className="text-muted-foreground hover:text-foreground transition-colors">功能特色</a>
-              <a href="#pricing" className="text-muted-foreground hover:text-foreground transition-colors">方案價格</a>
             </nav>
             <Button
               variant="outline"
@@ -200,10 +200,10 @@ export default function Home() {
                 <form onSubmit={handleSubmit} className="space-y-6">
                   {/* Name */}
                   <div className="space-y-2">
-                    <Label htmlFor="name">主角姓名</Label>
+                    <Label htmlFor="name">{occasion === 'pet' ? '寵物名字' : '主角姓名'}</Label>
                     <Input
                       id="name"
-                      placeholder="例如：王小明"
+                      placeholder={occasion === 'pet' ? '例如：Lucky、小花' : '例如：王小明'}
                       value={name}
                       onChange={(e) => setName(e.target.value)}
                     />

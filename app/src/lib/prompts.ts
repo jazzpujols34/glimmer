@@ -1,15 +1,19 @@
 import type { OccasionType, TaskType } from '@/types';
 
 /**
- * Universal system prompt for subtle, natural photo animation
+ * Category-aware system prompts for photo animation.
  *
  * Philosophy: We want to bring photos "alive" with gentle movements,
  * NOT create dramatic transformations or exaggerated motion.
- * The person in the photo should feel like they're naturally present,
- * as if captured in a brief, intimate moment.
+ * The subject should feel naturally present, as if captured in a brief,
+ * intimate moment.
+ *
+ * The base prompt adapts to the subject type (person vs pet) so the
+ * animation instructions make sense for what's actually in the photo.
  */
-// Simplified prompt to avoid triggering safety filters
-export const SYSTEM_PROMPT = `Create a gentle video animation from this photograph.
+
+/** System prompt for human subjects */
+const SYSTEM_PROMPT_PERSON = `Create a gentle video animation from this photograph.
 
 Animation style:
 - Very subtle, natural movements only
@@ -19,16 +23,32 @@ Animation style:
 - Smooth, cinematic motion
 - Background remains mostly static`;
 
+/** System prompt for pet/animal subjects */
+const SYSTEM_PROMPT_PET = `Create a gentle video animation from this pet photograph.
+
+Animation style:
+- Very subtle, natural animal movements only
+- Soft breathing motion, gentle ear twitch, slight tail or whisker movement
+- Maintain the exact appearance of the pet in the photo
+- Keep original composition and lighting
+- Smooth, cinematic motion
+- Background remains mostly static`;
+
+/** Get the appropriate system prompt based on occasion */
+function getSystemPrompt(occasion: OccasionType): string {
+  return occasion === 'pet' ? SYSTEM_PROMPT_PET : SYSTEM_PROMPT_PERSON;
+}
+
 /**
- * Get occasion-specific prompt enhancement
- * These add emotional context while maintaining the subtle motion philosophy
+ * Get occasion-specific prompt enhancement.
+ * These add emotional context while maintaining the subtle motion philosophy.
  */
 export function getOccasionPrompt(occasion: OccasionType): string {
-  // Simplified prompts to avoid triggering safety filters
   const prompts: Record<OccasionType, string> = {
     memorial: `Style: peaceful, gentle, warm. Soft smile, calm expression.`,
     birthday: `Style: joyful, warm. Gentle smile, happy expression.`,
     wedding: `Style: romantic, warm. Gentle expression, soft gaze.`,
+    pet: `Style: warm, tender, loving. Gentle breathing, soft eyes, relaxed pose. Capture the pet's unique personality and charm.`,
     other: `Style: natural, warm. Gentle expression.`,
   };
 
@@ -48,7 +68,8 @@ export function getTaskPrompt(taskType: TaskType): string {
 }
 
 /**
- * Build the complete prompt for video generation
+ * Build the complete prompt for video generation.
+ * The system prompt adapts based on the occasion category.
  */
 export function buildPrompt(options: {
   userPrompt: string;
@@ -58,8 +79,8 @@ export function buildPrompt(options: {
 }): string {
   const { userPrompt, occasion, taskType } = options;
 
-  // Build a concise prompt to minimize safety filter triggers
-  let prompt = SYSTEM_PROMPT;
+  // Use category-aware system prompt
+  let prompt = getSystemPrompt(occasion);
   prompt += ' ' + getTaskPrompt(taskType);
   prompt += ' ' + getOccasionPrompt(occasion);
 

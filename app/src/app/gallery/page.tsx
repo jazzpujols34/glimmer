@@ -26,6 +26,7 @@ const occasionLabels: Record<string, string> = {
   memorial: '追思紀念',
   birthday: '生日慶祝',
   wedding: '婚禮紀念',
+  pet: '寵物紀念',
   other: '其他',
 };
 

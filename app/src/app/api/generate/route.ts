@@ -8,7 +8,7 @@ import type { GenerationSettings, OccasionType } from '@/types';
 import { defaultSettings } from '@/types';
 
 // Allowed values for server-side validation
-const VALID_OCCASIONS = ['memorial', 'birthday', 'wedding', 'other'];
+const VALID_OCCASIONS = ['memorial', 'birthday', 'wedding', 'pet', 'other'];
 const VALID_MODELS = ['veo-3.1', 'veo-3.1-fast', 'kling-ai', 'byteplus'];
 const VALID_ASPECT_RATIOS = ['16:9', '9:16'];
 const VALID_RESOLUTIONS = ['720p', '1080p'];
