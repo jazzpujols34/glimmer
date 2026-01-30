@@ -51,30 +51,29 @@ cd app && npm run build   # Production build
 cd app && npm test        # Tests
 ```
 
-## Project Status (Checkup 2026-01-30)
+## Project Status (Checkup 2026-01-31)
 
-**24 total commits, 56 TypeScript files, deployed on Cloudflare Pages**
+**27 total commits, 56 TypeScript files, deployed on Cloudflare Pages**
 
 ### What's Working
 - Multi-provider video generation (BytePlus, Veo, Kling)
 - 5 occasion types: memorial, birthday, wedding, **pet**, other
 - Category-aware AI prompts (person vs pet animation styles)
 - Full editor: timeline, trim, split, music, subtitles, SFX, export
-- Landing page with bilingual content, JSON-LD, OG tags
-- Rate limiting (3 req/min generate, 30 req/min status, 5 req/min transcribe)
-- Legal pages (terms, privacy)
-- Unified Logo component across all pages
+- Landing page: all 7 recommended sections (Hero, Showcase, Social Proof, Benefits, How It Works, Why Us, Pricing, FAQ, Contact)
+- Video proxy: all playback routed through `/api/proxy-video` to bypass CDN CORS
+- Rate limiting, legal pages, unified Logo component, SEO foundation
 
 ### Improvement Opportunities
-1. **R2 Video Storage** — Videos are served directly from BytePlus CDN. URLs expire in 24h. Copying to Cloudflare R2 would give permanent URLs and faster delivery in Asia.
-2. **User Authentication** — No auth yet. Rate limiting is IP-based only. Adding auth enables per-user quotas, saved gallery, and payment integration.
-3. **Payment Integration** — Pricing tiers are display-only. Stripe or local payment (LINE Pay, 街口) needed to monetize.
-4. **Testing** — No unit or integration tests exist. Key areas: prompt builder, storage abstraction, rate limiter, API routes.
-5. **Error Monitoring** — No Sentry or similar. Production errors are invisible.
-6. **OG Image** — Using the logo JPEG as og:image. A proper 1200x630 social card would improve click-through from LINE/Facebook shares.
-7. **Video Thumbnails** — Gallery shows `<video>` elements with `preload="none"`. First-frame thumbnails (via server-side ffmpeg or canvas snapshot) would load faster.
-8. **i18n** — Currently hardcoded bilingual (Chinese + English inline). Consider `next-intl` if full language switching is needed.
-9. **Editor Mobile UX** — Timeline editor is desktop-optimized. Mobile users get a cramped experience.
+1. **R2 Video Storage** — CDN URLs expire in 24h. R2 gives permanent URLs + faster Asia delivery. Proxy helps but doesn't solve expiry.
+2. **User Authentication** — No auth yet. IP-based rate limiting only. Auth enables per-user quotas, saved gallery, payment.
+3. **Payment Integration** — Pricing tiers are display-only. Stripe or LINE Pay needed.
+4. **Testing** — Zero tests. Key areas: prompt builder, storage, rate limiter, API routes.
+5. **Error Monitoring** — No Sentry. Production errors are invisible.
+6. **OG Image** — Still using logo JPEG. Need a proper 1200x630 social card.
+7. **Video Thumbnails** — Gallery uses `preload="none"` `<video>`. First-frame image thumbnails would load faster.
+8. **Real Testimonials** — Social proof section uses founder story. Replace with real user reviews when available.
+9. **Editor Mobile UX** — Timeline editor is desktop-optimized.
 
 ## Recent Learnings
 
@@ -115,3 +114,11 @@ cd app && npm test        # Tests
 - **[2026-01-30] API**: When adding a value to a TypeScript union type (e.g., `'pet'` to `OccasionType`), every `Record<OccasionType, ...>` in the codebase must be updated. The compiler catches these — always run `npm run build` after union type changes.
 
 - **[2026-01-30] Prompts**: Category-aware system prompts: use `getSystemPrompt(occasion)` to select between subject-specific base prompts (person: breathing/eye movement/hair vs pet: breathing/ear twitch/tail). Keep the occasion prompt layer separate for emotional styling.
+
+- **[2026-01-31] API/CORS**: External video CDN URLs (BytePlus, etc.) are CORS-restricted — browsers show black screen when `<video src={cdnUrl}>` is used directly. Fix: convert URLs to proxy URLs (`/api/proxy-video?jobId=...&index=...`) at the API layer (status + gallery routes) so all client pages automatically get CORS-free URLs. Never expose raw CDN URLs to the frontend.
+
+- **[2026-01-31] Architecture**: Fix CORS at the API boundary, not at the component level. When both gallery and generate pages need the same URL transformation, doing it in each API route ensures no consumer is missed and no component needs to know about CDN internals.
+
+- **[2026-01-31] Landing Page**: The "7 Sections Every Landing Page Needs" framework: Hero (headline + visual + CTA), Solutions/Benefits, Product Showcase, Social Proof, Why Us (comparison), CTA/Pricing, FAQ. Missing any of these reduces conversion. Benefits should lead with "so what" (what it does for the user) not "what it is" (feature specs).
+
+- **[2026-01-31] Landing Page**: When you don't have real testimonials yet, substitute with a founder story explaining why the product was created. This builds authenticity and emotional connection. Replace with real reviews as they come in.
