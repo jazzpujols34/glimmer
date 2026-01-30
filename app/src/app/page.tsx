@@ -111,8 +111,7 @@ export default function Home() {
           <div className="flex items-center gap-4">
             <nav className="hidden sm:flex items-center gap-6 text-sm">
               <Link href="/gallery" className="text-muted-foreground hover:text-foreground transition-colors">影片庫</Link>
-              <a href="#features" className="text-muted-foreground hover:text-foreground transition-colors">功能特色</a>
-              <a href="#pricing" className="text-muted-foreground hover:text-foreground transition-colors">方案價格</a>
+              <Link href="/terms" className="text-muted-foreground hover:text-foreground transition-colors">服務條款</Link>
             </nav>
             <Button
               variant="outline"

@@ -138,8 +138,8 @@ export default function PrivacyPage() {
               如有任何隱私相關問題，請聯絡：
             </p>
             <p className="mt-2">
-              <a href="mailto:privacy@glimmer.app" className="text-primary hover:underline">
-                privacy@glimmer.app
+              <a href="mailto:ro5112@hotmail.com" className="text-primary hover:underline">
+                ro5112@hotmail.com
               </a>
             </p>
           </section>

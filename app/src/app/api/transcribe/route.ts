@@ -14,9 +14,10 @@ export async function POST(request: Request) {
     const ip = getClientIP(request);
     const rateCheck = await checkRateLimit(`transcribe:${ip}`, 10, 60);
     if (!rateCheck.allowed) {
+      const retryAfter = Math.max(1, rateCheck.resetAt - Math.floor(Date.now() / 1000));
       return NextResponse.json(
         { error: '請求過於頻繁，請稍後再試' },
-        { status: 429, headers: { 'Retry-After': String(rateCheck.resetAt - Math.floor(Date.now() / 1000)) } }
+        { status: 429, headers: { 'Retry-After': String(retryAfter) } }
       );
     }
 
