@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Logo } from '@/components/Logo';
@@ -33,8 +33,16 @@ export default function Home() {
   const [error, setError] = useState('');
   const [settings, setSettings] = useState<GenerationSettings>(defaultSettings);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const errorRef = useRef<HTMLDivElement>(null);
 
   const isFrameMode = settings.taskType === 'first-last-frame';
+
+  // Scroll to error when it appears
+  useEffect(() => {
+    if (error && errorRef.current) {
+      errorRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [error]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -101,8 +109,8 @@ export default function Home() {
       <header className="border-b border-border sticky top-0 bg-background z-50">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <Logo />
-          <div className="flex items-center gap-4">
-            <nav className="hidden sm:flex items-center gap-6 text-sm">
+          <div className="flex items-center gap-2 sm:gap-4">
+            <nav className="flex items-center gap-3 sm:gap-6 text-sm">
               <Link href="/" className="text-muted-foreground hover:text-foreground transition-colors">首頁</Link>
               <Link href="/gallery" className="text-muted-foreground hover:text-foreground transition-colors">影片庫</Link>
             </nav>
@@ -110,13 +118,13 @@ export default function Home() {
               variant="outline"
               size="sm"
               onClick={() => setSettingsOpen(!settingsOpen)}
-              className="hidden lg:flex items-center gap-2"
+              className="flex items-center gap-2"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
               </svg>
-              設定
+              <span className="hidden sm:inline">設定</span>
             </Button>
           </div>
         </div>
@@ -204,11 +212,13 @@ export default function Home() {
                   {/* Occasion */}
                   <div className="space-y-2">
                     <Label>場合類型</Label>
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-2 gap-3" role="radiogroup" aria-label="場合類型">
                       {occasions.map((item) => (
                         <button
                           key={item.value}
                           type="button"
+                          role="radio"
+                          aria-checked={occasion === item.value}
                           onClick={() => setOccasion(item.value)}
                           className={`
                             p-3 rounded-lg border text-left transition-all
@@ -253,7 +263,7 @@ export default function Home() {
 
                   {/* Error */}
                   {error && (
-                    <div className="p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
+                    <div ref={errorRef} className="p-3 rounded-lg bg-destructive/10 text-destructive text-sm" role="alert">
                       {error}
                     </div>
                   )}

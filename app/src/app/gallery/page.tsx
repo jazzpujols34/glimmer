@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { Logo } from '@/components/Logo';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Play, Download, Calendar, Film, ArrowLeft, Trash2, Scissors, AlertCircle } from 'lucide-react';
+import { Play, Download, Calendar, Film, ArrowLeft, Trash2, Scissors, AlertCircle, X } from 'lucide-react';
 
 interface GalleryJob {
   id: string;
@@ -37,6 +37,17 @@ export default function GalleryPage() {
   const [selectedJob, setSelectedJob] = useState<GalleryJob | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [videoErrors, setVideoErrors] = useState<Set<string>>(new Set());
+
+  // Close modal on Escape key
+  const closeModal = useCallback(() => setSelectedJob(null), []);
+  useEffect(() => {
+    if (!selectedJob) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') closeModal();
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [selectedJob, closeModal]);
 
   useEffect(() => {
     async function loadGallery() {
@@ -116,8 +127,16 @@ export default function GalleryPage() {
           </div>
 
           {loading ? (
-            <div className="flex justify-center py-20">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {[1, 2, 3].map((i) => (
+                <Card key={i} className="overflow-hidden">
+                  <div className="aspect-video bg-muted animate-pulse" />
+                  <CardContent className="p-4 space-y-2">
+                    <div className="h-5 bg-muted animate-pulse rounded w-2/3" />
+                    <div className="h-4 bg-muted animate-pulse rounded w-1/2" />
+                  </CardContent>
+                </Card>
+              ))}
             </div>
           ) : error ? (
             <Card className="max-w-md mx-auto">
@@ -131,8 +150,11 @@ export default function GalleryPage() {
               <CardContent className="p-8 text-center">
                 <Film className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
                 <h2 className="text-xl font-semibold mb-2">還沒有影片</h2>
-                <p className="text-muted-foreground mb-6">
-                  生成您的第一支回憶影片吧！
+                <p className="text-muted-foreground mb-2">
+                  您生成的影片會自動出現在這裡
+                </p>
+                <p className="text-muted-foreground/60 text-xs mb-6">
+                  影片連結有效期限為 24 小時，請及時下載保存
                 </p>
                 <Button asChild>
                   <Link href="/create">開始製作</Link>
@@ -147,7 +169,7 @@ export default function GalleryPage() {
                   className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer"
                   onClick={() => setSelectedJob(job)}
                 >
-                  <div className="aspect-video bg-black relative group">
+                  <div className="aspect-video bg-black relative">
                     {videoErrors.has(job.id) ? (
                       <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground gap-2">
                         <AlertCircle className="w-8 h-8" />
@@ -160,16 +182,13 @@ export default function GalleryPage() {
                         muted
                         playsInline
                         preload="metadata"
-                        onMouseEnter={(e) => { e.currentTarget.play().catch(() => {}); }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.pause();
-                          e.currentTarget.currentTime = 0;
-                        }}
                         onError={() => setVideoErrors(prev => new Set(prev).add(job.id))}
                       />
                     )}
-                    <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                      <Play className="w-12 h-12 text-white" />
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                      <div className="w-10 h-10 rounded-full bg-black/50 flex items-center justify-center">
+                        <Play className="w-5 h-5 text-white ml-0.5" />
+                      </div>
                     </div>
                     {job.videoUrls && job.videoUrls.length > 1 && (
                       <div className="absolute top-2 right-2 px-2 py-1 rounded bg-black/50 text-white text-xs">
@@ -214,7 +233,10 @@ export default function GalleryPage() {
       {selectedJob && (
         <div
           className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4"
-          onClick={() => setSelectedJob(null)}
+          onClick={closeModal}
+          role="dialog"
+          aria-modal="true"
+          aria-label={selectedJob.name}
         >
           <div
             className="bg-background rounded-lg max-w-4xl w-full max-h-[90vh] overflow-auto"
@@ -227,8 +249,8 @@ export default function GalleryPage() {
                   {occasionLabels[selectedJob.occasion]} · {formatDate(selectedJob.createdAt)}
                 </p>
               </div>
-              <Button variant="ghost" onClick={() => setSelectedJob(null)}>
-                ✕
+              <Button variant="ghost" size="icon" onClick={closeModal} aria-label="關閉">
+                <X className="w-5 h-5" />
               </Button>
             </div>
             <div className="aspect-video bg-black">

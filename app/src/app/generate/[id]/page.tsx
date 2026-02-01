@@ -8,7 +8,7 @@ import { Logo } from '@/components/Logo';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { GenerationProgress } from '@/components/GenerationProgress';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Clock, FolderOpen } from 'lucide-react';
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -58,6 +58,10 @@ export default function GeneratePage({ params }: PageProps) {
       <header className="border-b border-border">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <Logo />
+          <nav className="flex items-center gap-3 sm:gap-6 text-sm">
+            <Link href="/create" className="text-muted-foreground hover:text-foreground transition-colors">新影片</Link>
+            <Link href="/gallery" className="text-muted-foreground hover:text-foreground transition-colors">影片庫</Link>
+          </nav>
         </div>
       </header>
 
@@ -196,6 +200,17 @@ export default function GeneratePage({ params }: PageProps) {
                   </div>
                 )}
 
+                {/* Expiration alert */}
+                {isVideo && (
+                  <div className="flex items-start gap-3 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                    <Clock className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-medium text-amber-600 dark:text-amber-400">影片連結 24 小時後失效</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">請盡快下載保存，過期後需重新生成</p>
+                    </div>
+                  </div>
+                )}
+
                 {/* Actions */}
                 <div className="flex flex-col sm:flex-row gap-3">
                   <Button asChild className="flex-1">
@@ -214,6 +229,16 @@ export default function GeneratePage({ params }: PageProps) {
                   </Button>
                 </div>
 
+                {/* Gallery link */}
+                {isVideo && (
+                  <div className="text-center">
+                    <Link href="/gallery" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
+                      <FolderOpen className="w-4 h-4" />
+                      前往影片庫查看所有影片
+                    </Link>
+                  </div>
+                )}
+
                 {isImage && (
                   <div className="p-4 rounded-lg bg-primary/10 border border-primary/20">
                     <p className="text-sm text-center">
@@ -221,12 +246,6 @@ export default function GeneratePage({ params }: PageProps) {
                       如需完整影片生成功能，請啟用 Veo API 存取權限或使用 Vertex AI。
                     </p>
                   </div>
-                )}
-
-                {isVideo && (
-                  <p className="text-xs text-muted-foreground text-center">
-                    影片連結將在 24 小時後失效，請盡快下載保存
-                  </p>
                 )}
               </div>
             ) : (
