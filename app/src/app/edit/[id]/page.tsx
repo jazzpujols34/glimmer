@@ -6,7 +6,8 @@ import { useState, useEffect, useRef, use } from 'react';
 import { EditorProvider, useEditorDispatch } from '@/components/editor/EditorContext';
 import { EditorLayout } from '@/components/editor/EditorLayout';
 import { generateId } from '@/lib/editor/timeline-utils';
-import type { TimelineClip } from '@/types/editor';
+import { loadEditorState, clearEditorState, type SavedEditorState } from '@/lib/editor/auto-save';
+import type { EditorState, TimelineClip } from '@/types/editor';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
@@ -44,72 +45,186 @@ function EditorLoader({ jobId }: { jobId: string }) {
   const dispatch = useEditorDispatch();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [savedSession, setSavedSession] = useState<SavedEditorState | null>(null);
+  const [showRestore, setShowRestore] = useState(false);
   const blobUrlsRef = useRef<string[]>([]);
 
+  // Check for saved session on mount
   useEffect(() => {
-    async function loadJob() {
-      try {
-        // Fetch job metadata
-        const res = await fetch(`/api/gallery/${jobId}`);
-        if (!res.ok) {
-          const data = await res.json();
-          throw new Error(data.error || '載入失敗');
-        }
-        const job: JobData = await res.json();
+    loadEditorState(jobId).then(saved => {
+      if (saved && saved.clips.length > 0) {
+        setSavedSession(saved);
+        setShowRestore(true);
+        setLoading(false);
+      } else {
+        // No saved session — load fresh
+        loadFresh();
+      }
+    }).catch(() => {
+      loadFresh();
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [jobId]);
 
-        const videoCount = job.videoUrls?.length || 1;
+  async function loadFresh() {
+    try {
+      // Fetch job metadata
+      const res = await fetch(`/api/gallery/${jobId}`);
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || '載入失敗');
+      }
+      const job: JobData = await res.json();
 
-        // Fetch all video blobs via server-side proxy (bypasses CORS)
-        const clips = await Promise.all(
-          Array.from({ length: videoCount }, async (_, index): Promise<TimelineClip> => {
-            const proxyUrl = `/api/proxy-video?jobId=${encodeURIComponent(job.id)}&index=${index}`;
-            const blob = await fetchVideoBlob(proxyUrl);
+      const videoCount = job.videoUrls?.length || 1;
+
+      // Fetch all video blobs via server-side proxy (bypasses CORS)
+      const clips = await Promise.all(
+        Array.from({ length: videoCount }, async (_, index): Promise<TimelineClip> => {
+          const proxyUrl = `/api/proxy-video?jobId=${encodeURIComponent(job.id)}&index=${index}`;
+          const blob = await fetchVideoBlob(proxyUrl);
+          const blobUrl = URL.createObjectURL(blob);
+          blobUrlsRef.current.push(blobUrl);
+          const duration = await getVideoDuration(blobUrl);
+
+          return {
+            id: generateId(),
+            sourceUrl: job.videoUrls?.[index] || job.videoUrl,
+            blobUrl,
+            originalDuration: duration,
+            trimStart: 0,
+            trimEnd: duration,
+            speed: 1,
+            filter: null,
+            volume: 1,
+            timelinePosition: 0,
+          };
+        })
+      );
+
+      dispatch({
+        type: 'INIT',
+        payload: {
+          jobId: job.id,
+          jobName: job.name || '未命名影片',
+          clips,
+        },
+      });
+
+      setShowRestore(false);
+      setLoading(false);
+    } catch (err) {
+      console.error('Failed to load editor:', err);
+      setError(err instanceof Error ? err.message : '載入編輯器失敗');
+      setLoading(false);
+    }
+  }
+
+  async function handleRestore() {
+    if (!savedSession) return;
+    setLoading(true);
+    setShowRestore(false);
+
+    try {
+      // Re-create blobUrls for video clips by fetching via proxy
+      const restoredClips: TimelineClip[] = await Promise.all(
+        savedSession.clips.map(async (clip, index) => {
+          const proxyUrl = `/api/proxy-video?jobId=${encodeURIComponent(jobId)}&index=${index}`;
+          const blob = await fetchVideoBlob(proxyUrl);
+          const blobUrl = URL.createObjectURL(blob);
+          blobUrlsRef.current.push(blobUrl);
+          return { ...clip, blobUrl } as TimelineClip;
+        })
+      );
+
+      // Re-create blobUrls for music clips
+      const restoredMusic = await Promise.all(
+        savedSession.musicClips.map(async mc => {
+          const audioSrc = mc.type === 'bundled' ? `/audio/bundled/${mc.src}` : mc.src;
+          try {
+            const res = await fetch(audioSrc);
+            const blob = await res.blob();
             const blobUrl = URL.createObjectURL(blob);
             blobUrlsRef.current.push(blobUrl);
-            const duration = await getVideoDuration(blobUrl);
+            return { ...mc, blobUrl };
+          } catch {
+            return { ...mc, blobUrl: '' };
+          }
+        })
+      );
 
-            return {
-              id: generateId(),
-              sourceUrl: job.videoUrls?.[index] || job.videoUrl,
-              blobUrl,
-              originalDuration: duration,
-              trimStart: 0,
-              trimEnd: duration,
-              speed: 1,
-              filter: null,
-              volume: 1,
-              timelinePosition: 0, // INIT reducer will set sequential positions
-            };
-          })
-        );
+      // SFX blobUrls can't be restored (uploaded files) — clear them
+      const restoredSfx = savedSession.sfx.map(s => ({ ...s, blobUrl: '' }));
 
-        dispatch({
-          type: 'INIT',
-          payload: {
-            jobId: job.id,
-            jobName: job.name || '未命名影片',
-            clips,
-          },
-        });
+      const restoredState: EditorState = {
+        jobId: savedSession.jobId,
+        jobName: savedSession.jobName,
+        clips: restoredClips,
+        transitions: savedSession.transitions,
+        subtitles: savedSession.subtitles,
+        musicClips: restoredMusic,
+        sfx: restoredSfx,
+        titleCard: savedSession.titleCard,
+        outroCard: savedSession.outroCard,
+        trackStates: savedSession.trackStates,
+        playheadPosition: 0,
+        isPlaying: false,
+        selectedClipIds: [],
+        selectedMusicClipId: null,
+        selectedSubtitleId: null,
+        activePanel: 'clips',
+        exportProgress: null,
+        totalDuration: 0,
+      };
 
-        setLoading(false);
-      } catch (err) {
-        console.error('Failed to load editor:', err);
-        setError(err instanceof Error ? err.message : '載入編輯器失敗');
-        setLoading(false);
-      }
+      dispatch({ type: 'RESTORE', payload: restoredState });
+      setLoading(false);
+    } catch (err) {
+      console.error('Failed to restore session:', err);
+      // Fall back to fresh load
+      await loadFresh();
     }
+  }
 
-    loadJob();
+  function handleStartFresh() {
+    clearEditorState(jobId);
+    setSavedSession(null);
+    setShowRestore(false);
+    setLoading(true);
+    loadFresh();
+  }
 
-    // Cleanup: revoke all blob URLs when component unmounts
+  // Cleanup: revoke all blob URLs when component unmounts
+  useEffect(() => {
     return () => {
       for (const url of blobUrlsRef.current) {
         URL.revokeObjectURL(url);
       }
       blobUrlsRef.current = [];
     };
-  }, [jobId, dispatch]);
+  }, []);
+
+  if (showRestore && savedSession) {
+    const savedDate = new Date(savedSession.savedAt);
+    const timeAgo = getTimeAgo(savedDate);
+    return (
+      <div className="h-screen flex flex-col items-center justify-center gap-6">
+        <div className="text-center max-w-md">
+          <h2 className="text-xl font-semibold mb-2">找到未儲存的編輯內容</h2>
+          <p className="text-muted-foreground text-sm">
+            您在 {timeAgo} 有未完成的編輯工作，包含 {savedSession.clips.length} 個片段
+            {savedSession.subtitles.length > 0 && `、${savedSession.subtitles.length} 條字幕`}
+            {savedSession.musicClips.length > 0 && `、${savedSession.musicClips.length} 首音樂`}
+            。要恢復嗎？
+          </p>
+        </div>
+        <div className="flex gap-3">
+          <Button onClick={handleRestore}>恢復編輯</Button>
+          <Button variant="outline" onClick={handleStartFresh}>重新開始</Button>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
@@ -163,6 +278,18 @@ async function fetchVideoBlob(proxyUrl: string): Promise<Blob> {
   } finally {
     clearTimeout(timeoutId);
   }
+}
+
+/** Format a date as relative time (e.g. "5 分鐘前") */
+function getTimeAgo(date: Date): string {
+  const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
+  if (seconds < 60) return '剛才';
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes} 分鐘前`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} 小時前`;
+  const days = Math.floor(hours / 24);
+  return `${days} 天前`;
 }
 
 /** Get video duration using an off-screen video element */

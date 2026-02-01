@@ -2,6 +2,7 @@ export const runtime = 'edge';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getJob } from '@/lib/storage';
+import { r2Get } from '@/lib/r2';
 
 /**
  * Proxy video fetches server-side to bypass CORS restrictions on CDN URLs.
@@ -28,8 +29,28 @@ export async function GET(request: NextRequest) {
     }
 
     const videoUrl = urls[index];
+    const isR2Key = !videoUrl.startsWith('http');
 
-    // Fetch video from CDN server-side (no CORS restriction)
+    if (isR2Key) {
+      // Read from R2 storage
+      const r2Object = await r2Get(videoUrl);
+      if (!r2Object) {
+        return NextResponse.json(
+          { error: '影片檔案不存在，可能已過期。' },
+          { status: 404 }
+        );
+      }
+
+      const headers = new Headers({
+        'Content-Type': r2Object.contentType,
+        'Content-Length': String(r2Object.size),
+        'Cache-Control': 'public, s-maxage=86400, max-age=14400',
+      });
+
+      return new NextResponse(r2Object.body, { status: 200, headers });
+    }
+
+    // Legacy: fetch video from CDN server-side (no CORS restriction)
     const cdnResponse = await fetch(videoUrl);
     if (!cdnResponse.ok) {
       return NextResponse.json(
@@ -43,18 +64,13 @@ export async function GET(request: NextRequest) {
 
     const headers = new Headers({
       'Content-Type': contentType,
-      // public: Cloudflare CDN can cache at edge; s-maxage: edge caches for 24h; max-age: browser caches for 4h
       'Cache-Control': 'public, s-maxage=86400, max-age=14400',
     });
     if (contentLength) {
       headers.set('Content-Length', contentLength);
     }
 
-    // Stream the response body through
-    return new NextResponse(cdnResponse.body, {
-      status: 200,
-      headers,
-    });
+    return new NextResponse(cdnResponse.body, { status: 200, headers });
   } catch (error) {
     console.error('Proxy video error:', error);
     return NextResponse.json({ error: '影片代理載入失敗' }, { status: 500 });

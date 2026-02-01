@@ -63,6 +63,7 @@ export interface GenerationJob {
   occasion?: OccasionType;
   settings?: GenerationSettings;
   email?: string;           // Email of the user who created this job
+  archived?: boolean;       // true if videos have been archived to R2
   // Edge-compatible: external task tracking (serverless polling)
   provider?: ModelType;
   externalTaskIds?: string[];       // BytePlus/Kling task IDs

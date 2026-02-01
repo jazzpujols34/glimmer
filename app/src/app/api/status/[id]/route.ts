@@ -3,6 +3,9 @@ export const runtime = 'edge';
 import { NextRequest, NextResponse } from 'next/server';
 import { getJob, updateJob, setJobComplete, setJobError } from '@/lib/storage';
 import { checkVideoTaskStatus } from '@/lib/veo';
+import { archiveVideos } from '@/lib/r2';
+import { checkCredits } from '@/lib/credits';
+import { sendCompletionEmail } from '@/lib/email';
 import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
 
 export async function GET(
@@ -45,13 +48,39 @@ export async function GET(
           });
         }
         if (result.videoUrls && result.videoUrls.length > 0) {
-          await setJobComplete(id, result.videoUrls[0], result.videoUrls);
+          // Archive videos to R2 for permanent storage
+          const archive = await archiveVideos(id, result.videoUrls);
+          const finalUrls = archive.urls;
+
+          // Paid users get 30-day TTL; free users get 24h
+          let paidUser = false;
+          if (job.email) {
+            try {
+              const balance = await checkCredits(job.email);
+              paidUser = balance.total > 0;
+            } catch {
+              // Non-critical — default to free TTL
+            }
+          }
+
+          await setJobComplete(id, finalUrls[0], finalUrls, {
+            paidUser,
+            archived: archive.archived,
+          });
+
+          // Send completion notification email (fire-and-forget)
+          if (job.email) {
+            sendCompletionEmail(job.email, id, job.name || '').catch(err =>
+              console.error(`[Email] Completion notification failed for job ${id}:`, err)
+            );
+          }
+
           return NextResponse.json({
             id: job.id,
             status: 'complete',
             progress: 100,
-            videoUrl: result.videoUrls[0],
-            videoUrls: result.videoUrls,
+            videoUrl: finalUrls[0],
+            videoUrls: finalUrls,
           });
         }
       }

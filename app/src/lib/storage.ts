@@ -6,7 +6,8 @@ import { kvGet, kvPut, kvDelete, kvListKeys } from './kv';
  * Jobs expire after 24 hours (expirationTtl: 86400).
  */
 
-const JOB_TTL = 86400; // 24 hours
+const JOB_TTL = 86400;          // 24 hours (free tier)
+const PAID_JOB_TTL = 2592000;   // 30 days (paid users)
 
 // --- Public API (all async) ---
 
@@ -64,13 +65,25 @@ export async function setJobStatus(id: string, status: GenerationStatus, progres
   return updateJob(id, { status, progress });
 }
 
-export async function setJobComplete(id: string, videoUrl: string, videoUrls?: string[]): Promise<GenerationJob | undefined> {
-  return updateJob(id, {
-    status: 'complete',
+export async function setJobComplete(
+  id: string,
+  videoUrl: string,
+  videoUrls?: string[],
+  options?: { paidUser?: boolean; archived?: boolean },
+): Promise<GenerationJob | undefined> {
+  const ttl = options?.paidUser ? PAID_JOB_TTL : JOB_TTL;
+  const job = await getJob(id);
+  if (!job) return undefined;
+  const updated = {
+    ...job,
+    status: 'complete' as GenerationStatus,
     progress: 100,
     videoUrl,
     videoUrls: videoUrls || [videoUrl],
-  });
+    archived: options?.archived,
+  };
+  await kvPut(`${KEY_PREFIX}${id}`, JSON.stringify(updated), { expirationTtl: ttl });
+  return updated;
 }
 
 export async function setJobError(id: string, error: string): Promise<GenerationJob | undefined> {

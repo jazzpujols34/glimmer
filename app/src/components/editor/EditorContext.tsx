@@ -1,6 +1,7 @@
 'use client';
 
-import { createContext, useContext, useReducer, type ReactNode, type Dispatch } from 'react';
+import { createContext, useContext, useReducer, useEffect, useRef, type ReactNode, type Dispatch } from 'react';
+import { saveEditorState } from '@/lib/editor/auto-save';
 import type { EditorState, EditorAction, TimelineClip, MusicClip, Transition, TrackStates } from '@/types/editor';
 import {
   getTotalDuration,
@@ -97,6 +98,12 @@ function editorReducer(state: EditorState, action: EditorAction): EditorState {
         clips: positioned,
         transitions: buildDefaultTransitions(positioned.length),
       };
+      break;
+    }
+
+    case 'RESTORE': {
+      // Restore full state from auto-save (blobUrls already re-created by caller)
+      next = { ...action.payload };
       break;
     }
 
@@ -576,12 +583,43 @@ function editorReducer(state: EditorState, action: EditorAction): EditorState {
 const EditorStateContext = createContext<EditorState | null>(null);
 const EditorDispatchContext = createContext<Dispatch<EditorAction> | null>(null);
 
+// Actions that don't modify persistent state (skip auto-save for these)
+const UI_ONLY_ACTIONS = new Set([
+  'SET_PLAYHEAD', 'SET_PLAYING', 'SELECT_CLIP', 'SELECT_ALL_CLIPS',
+  'DESELECT_ALL', 'SELECT_SUBTITLE', 'SELECT_MUSIC_CLIP',
+  'SET_ACTIVE_PANEL', 'SET_EXPORT_PROGRESS',
+]);
+
 export function EditorProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(editorReducer, undefined, createInitialState);
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastActionRef = useRef<string>('');
+
+  // Wrap dispatch to track which actions trigger saves
+  const wrappedDispatch: Dispatch<EditorAction> = (action) => {
+    lastActionRef.current = action.type;
+    dispatch(action);
+  };
+
+  // Auto-save: debounced 1s after persistent state changes
+  useEffect(() => {
+    if (!state.jobId || state.clips.length === 0) return;
+    if (UI_ONLY_ACTIONS.has(lastActionRef.current)) return;
+    if (lastActionRef.current === 'RESTORE') return;
+
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      saveEditorState(state);
+    }, 1000);
+
+    return () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    };
+  }, [state]);
 
   return (
     <EditorStateContext.Provider value={state}>
-      <EditorDispatchContext.Provider value={dispatch}>
+      <EditorDispatchContext.Provider value={wrappedDispatch}>
         {children}
       </EditorDispatchContext.Provider>
     </EditorStateContext.Provider>

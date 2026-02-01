@@ -145,6 +145,7 @@ export interface EditorState {
 
 export type EditorAction =
   | { type: 'INIT'; payload: { jobId: string; jobName: string; clips: TimelineClip[] } }
+  | { type: 'RESTORE'; payload: EditorState }
   | { type: 'REORDER_CLIPS'; payload: { fromIndex: number; toIndex: number } }
   | { type: 'REMOVE_CLIP'; payload: { clipId: string } }
   | { type: 'SET_TRIM'; payload: { clipId: string; trimStart: number; trimEnd: number } }
