@@ -106,7 +106,7 @@ export interface FreeRecord {
 }
 
 export interface CreditPack {
-  id: string;           // 'single' | 'pack5' | 'pack10'
+  id: string;           // 'single' | 'pack5'
   credits: number;
   priceTWD: number;
   perVideoPriceTWD: number;
