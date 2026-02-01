@@ -83,6 +83,7 @@ export interface CreditBalance {
   used: number;         // credits consumed
   freeUsed: boolean;    // whether the 1 free video has been used
   remaining: number;    // computed: (total - used) + (freeUsed ? 0 : 1)
+  verified: boolean;    // whether email ownership has been verified
 }
 
 export interface CreditRecord {

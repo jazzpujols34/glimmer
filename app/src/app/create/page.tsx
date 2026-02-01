@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, Suspense } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Logo } from '@/components/Logo';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -22,7 +22,15 @@ const occasions: { value: OccasionType; label: string; description: string }[] =
   { value: 'other', label: '其他場合', description: '畢業、退休等' },
 ];
 
-export default function Home() {
+export default function CreatePage() {
+  return (
+    <Suspense>
+      <CreatePageInner />
+    </Suspense>
+  );
+}
+
+function CreatePageInner() {
   const router = useRouter();
   const [email, setEmail] = useState(() => {
     if (typeof window !== 'undefined') return localStorage.getItem('glimmer_email') || '';
@@ -39,7 +47,10 @@ export default function Home() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [creditBalance, setCreditBalance] = useState<CreditBalance | null>(null);
   const [creditLoading, setCreditLoading] = useState(false);
+  const [verificationSent, setVerificationSent] = useState(false);
+  const [verifyLoading, setVerifyLoading] = useState(false);
   const errorRef = useRef<HTMLDivElement>(null);
+  const searchParams = useSearchParams();
 
   const isFrameMode = settings.taskType === 'first-last-frame';
   const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -80,6 +91,51 @@ export default function Home() {
       errorRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
   }, [error]);
+
+  // Handle verification callback from magic link
+  useEffect(() => {
+    const verified = searchParams.get('verified');
+    const verifyError = searchParams.get('verify_error');
+    if (verified === '1') {
+      // Refresh credit balance to pick up verified status
+      setCreditBalance(prev => prev ? { ...prev, verified: true } : null);
+      // Clean URL
+      router.replace('/create', { scroll: false });
+    } else if (verifyError) {
+      const messages: Record<string, string> = {
+        expired: '驗證連結已過期，請重新發送',
+        invalid: '驗證連結無效',
+        error: '驗證過程發生錯誤，請稍後再試',
+      };
+      setError(messages[verifyError] || '驗證失敗');
+      router.replace('/create', { scroll: false });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
+  const handleVerifyEmail = async () => {
+    if (!email || !isValidEmail) return;
+    setVerifyLoading(true);
+    try {
+      const res = await fetch('/api/verify/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      const data = await res.json();
+      if (data.alreadyVerified) {
+        setCreditBalance(prev => prev ? { ...prev, verified: true } : null);
+      } else if (data.sent) {
+        setVerificationSent(true);
+      } else {
+        setError(data.error || '發送驗證信失敗');
+      }
+    } catch {
+      setError('發送驗證信失敗，請稍後再試');
+    } finally {
+      setVerifyLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -139,8 +195,9 @@ export default function Home() {
 
       if (!res.ok) {
         if (res.status === 402) {
-          // Refresh credit balance
           setCreditBalance(prev => prev ? { ...prev, remaining: 0 } : null);
+        } else if (res.status === 403 && data.code === 'EMAIL_NOT_VERIFIED') {
+          setCreditBalance(prev => prev ? { ...prev, verified: false } : null);
         }
         throw new Error(data.error || '發生錯誤');
       }
@@ -266,12 +323,39 @@ export default function Home() {
                           <p className="text-muted-foreground">查詢額度中...</p>
                         ) : creditBalance ? (
                           creditBalance.remaining > 0 ? (
-                            <p className="text-green-600 dark:text-green-400 font-medium">
-                              {!creditBalance.freeUsed
-                                ? '您有 1 支免費影片額度！'
-                                : `剩餘 ${creditBalance.remaining} 點`
-                              }
-                            </p>
+                            creditBalance.total > 0 ? (
+                              // Has paid credits — no verification needed
+                              <p className="text-green-600 dark:text-green-400 font-medium">
+                                剩餘 {creditBalance.remaining} 點
+                              </p>
+                            ) : !creditBalance.freeUsed && !creditBalance.verified ? (
+                              // Free tier available but email not verified
+                              verificationSent ? (
+                                <p className="text-blue-600 dark:text-blue-400 font-medium">
+                                  已寄出驗證信，請查收 Email 並點擊連結驗證
+                                </p>
+                              ) : (
+                                <div className="space-y-2">
+                                  <p className="text-amber-600 dark:text-amber-400 font-medium">
+                                    驗證 Email 以使用免費影片額度
+                                  </p>
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={handleVerifyEmail}
+                                    disabled={verifyLoading}
+                                  >
+                                    {verifyLoading ? '發送中...' : '發送驗證信'}
+                                  </Button>
+                                </div>
+                              )
+                            ) : (
+                              // Free tier, verified
+                              <p className="text-green-600 dark:text-green-400 font-medium">
+                                您有 1 支免費影片額度！
+                              </p>
+                            )
                           ) : (
                             <div className="space-y-3">
                               <p className="text-amber-600 dark:text-amber-400 font-medium">
@@ -365,7 +449,7 @@ export default function Home() {
                     type="submit"
                     size="lg"
                     className="w-full"
-                    disabled={isSubmitting || !isValidEmail || (creditBalance?.remaining ?? 1) <= 0 || (isFrameMode ? !firstFrame : photos.length < 1)}
+                    disabled={isSubmitting || !isValidEmail || (creditBalance?.remaining ?? 1) <= 0 || (isFrameMode ? !firstFrame : photos.length < 1) || (creditBalance !== null && creditBalance.total === 0 && !creditBalance.freeUsed && !creditBalance.verified)}
                   >
                     {isSubmitting ? (
                       <>

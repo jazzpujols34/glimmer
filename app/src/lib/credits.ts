@@ -8,6 +8,7 @@ import type { CreditBalance, CreditRecord, PurchaseRecord, FreeRecord } from '@/
 
 const CREDIT_PREFIX = 'credits:';
 const FREE_PREFIX = 'free:';
+const VERIFIED_PREFIX = 'verified:';
 
 // --- Email helpers ---
 
@@ -17,6 +18,17 @@ function normalize(email: string): string {
 
 export function isValidEmail(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+// --- Email Verification ---
+
+export async function isEmailVerified(email: string): Promise<boolean> {
+  const data = await kvGet(`${VERIFIED_PREFIX}${normalize(email)}`);
+  return data === 'true';
+}
+
+export async function setEmailVerified(email: string): Promise<void> {
+  await kvPut(`${VERIFIED_PREFIX}${normalize(email)}`, 'true');
 }
 
 // --- Credit Record CRUD ---
@@ -49,8 +61,11 @@ async function saveFreeRecord(email: string, record: FreeRecord): Promise<void> 
 /** Check credit balance for an email address. */
 export async function checkCredits(email: string): Promise<CreditBalance> {
   const norm = normalize(email);
-  const record = await getCreditRecord(norm);
-  const free = await getFreeRecord(norm);
+  const [record, free, verified] = await Promise.all([
+    getCreditRecord(norm),
+    getFreeRecord(norm),
+    isEmailVerified(norm),
+  ]);
   const paidRemaining = record.total - record.used;
   const freeAvailable = free.used ? 0 : 1;
 
@@ -60,6 +75,7 @@ export async function checkCredits(email: string): Promise<CreditBalance> {
     used: record.used,
     freeUsed: free.used,
     remaining: paidRemaining + freeAvailable,
+    verified,
   };
 }
 
