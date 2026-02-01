@@ -3,69 +3,101 @@
 > This file is read by the nightly auto-compound system.
 > The agent picks the first item NOT marked [DONE] or [IN PROGRESS].
 > Keep highest priority at top.
+>
+> **Business model:** Pay-per-video credits (not subscriptions).
+> Free: 1 video per email. Paid: NT$499/video or NT$1,999/5 pack. Enterprise: 請洽業務.
+> Identity: email-only (no passwords, no OAuth). All models/resolutions available to all tiers.
+> Payment: ECPay (applying). Stripe checkout code exists as fallback.
 
-## Priority 1: User authentication and usage tracking
-Add auth using NextAuth.js with email magic link + Google OAuth.
-- Create user accounts in KV (user:{id} → {email, plan, videosUsed, createdAt})
-- Protect /api/generate, /api/transcribe, /gallery behind auth
-- Track per-user video generation count per month
-- Enforce free tier limit (2 videos/month)
-- Add login/signup UI on the create page
-- Add user avatar + logout in header
-Edge-compatible: use JWT sessions (no database sessions).
+## Priority 1: ECPay payment integration [IN PROGRESS]
+Replace Stripe checkout with ECPay (綠界) for Taiwan-native payment methods.
+- Swap `/api/checkout/route.ts` to create ECPay payment form (credit card, ATM, 超商代碼, LINE Pay)
+- Swap `/api/webhooks/stripe/route.ts` to ECPay callback handler (ReturnURL + NotifyURL pattern)
+- ECPay signature verification (SHA256 CheckMacValue) via Web Crypto API (Edge-compatible)
+- Test with ECPay sandbox environment
+- Keep Stripe code on a branch as international fallback
+**Unblocks:** actual revenue, all paid features
 
-## Priority 2: Payment integration with Stripe
-Connect Stripe Checkout for Standard ($9.99/mo) and Pro ($29.99/mo) tiers.
-- Create /api/stripe/checkout — generates Stripe Checkout session
-- Create /api/stripe/webhook — handles subscription events (created, cancelled, updated)
-- Store subscription status in KV user record (plan: 'free' | 'standard' | 'pro')
-- Gate model selection based on tier (free = BytePlus only)
-- Gate resolution based on tier (free = 720p only)
-- Gate monthly quota (free: 2, standard: 15, pro: 60)
-- Add /pricing page with tier comparison and checkout buttons
-- Add /account page with billing portal link
+## Priority 2: Email verification (magic link) [DONE]
+- Magic link via Resend REST API (`lib/email.ts`)
+- Token in KV with 15min TTL, one-time use, email match validation
+- `isEmailVerified()` / `setEmailVerified()` in `lib/credits.ts`
+- Free tier gated behind verified email; paid credits bypass (403 if unverified)
+- Create page: verify button, "已寄出驗證信" state, URL param handling (`?verified=1`)
+- Rate limited: 3/IP/10min, 5/email/hour
 
-## Priority 3: Video persistence with Cloudflare R2
-Currently video URLs expire in 24 hours. For a paid product, this is unacceptable.
-- Create R2 bucket for permanent video storage
-- After video generation completes, download from CDN → store in R2
-- Serve videos via R2 public URL or signed URL
-- Free tier: 24h expiry (current behavior). Paid: 30 days.
-- Update gallery to load from R2 URLs
-- Add download button that works forever (within retention period)
+## Priority 3: R2 video storage [DONE]
+- R2 abstraction (`lib/r2.ts`) using `getRequestContext()` (same pattern as KV)
+- `archiveVideos()`: downloads from provider CDN → uploads to R2 as `videos/{jobId}/{i}.mp4`
+- Status polling endpoint archives on completion, stores R2 keys in KV
+- Proxy-video reads from R2 for archived jobs, CDN fetch for legacy jobs
+- Paid users: 30-day KV TTL. Free: 24h (unchanged). R2 objects persist independently.
+- **Setup needed:** Create R2 bucket `glimmer-videos`, add `GLIMMER_R2` binding in Pages settings
 
-## Priority 4: Email notification on video completion
-Send an email when a video generation job completes (success or error).
-Use Resend or Cloudflare Email Workers. Include a link to view/download.
-Requires auth (Priority 1) to know user's email address.
+## Priority 4: Email notification on completion [DONE]
+- `sendCompletionEmail()` in `lib/email.ts` with branded bilingual HTML
+- Fire-and-forget call after `setJobComplete()` in status polling endpoint
+- Links to `/generate/{jobId}` for viewing
 
-## Priority 5: Editor auto-save
-The video editor currently loses all work on browser crash/navigation.
-- Save editor state to IndexedDB every 30 seconds
-- On page load, check for unsaved session and offer to restore
-- Add manual save/load project buttons
-- Critical for paid users editing long memorial videos
+## Priority 5: Editor auto-save [DONE]
+- IndexedDB persistence (`lib/editor/auto-save.ts`)
+- 1s debounced save on persistent state changes (skips UI-only actions)
+- Restore prompt on editor load: shows clip/subtitle/music counts and time ago
+- Re-fetches blobUrls from proxy on restore (blobUrls are session-specific)
+- RESTORE action in EditorContext reducer
 
-## Priority 6: Landing page merge and polish [DONE]
-Merge feature/landing-page branch. Fix showcase section with real demo videos.
-Add pricing section that links to /pricing (after Priority 2).
+## Priority 6: Landing page and pricing [DONE]
+- Landing page with all sections (Hero, Showcase, Social Proof, Benefits, How It Works, Why Us, Pricing, B2B, FAQ, Contact)
+- Pay-per-video pricing cards (Free / NT$499 / NT$1,999 / 請洽業務)
+- "For Businesses" section for funeral homes, wedding planners, event companies
+- Updated FAQ for credit model (no subscription references)
+- Contact email: glimmer.hello@gmail.com
 
-## Priority 7: Analytics dashboard
+## Priority 7: Credit system and generate gating [DONE]
+- Email-based credit system (`lib/credits.ts`)
+- Free tier: 1 video per email (KV: `free:{email}`)
+- Paid credits: never expire (KV: `credits:{email}`)
+- Idempotent webhook handling (duplicate purchase protection)
+- Credit check before generation, deduction after external API success
+- Stripe checkout + webhook (Edge-compatible REST API, no SDK)
+- Email input + credit balance UI on create page
+- Purchase success page with retry polling
+
+## Priority 8: Testing [DONE]
+- Vitest setup (`vitest.config.ts`) with `@/` path alias
+- 58 tests across 3 files:
+  - `timeline-utils.test.ts` (30): clip duration, total duration, snapping, ripple delete, active elements
+  - `prompts.test.ts` (12): occasion prompts, task prompts, prompt building
+  - `credits.test.ts` (16): email validation, credit checking, usage, purchases, idempotency, verification
+- KV mocked via `vi.mock('./kv')`
+
+## Priority 9: Error monitoring
+No error visibility in production.
+- Add Sentry or equivalent (must be Edge-compatible)
+- Track: generation failures, payment webhook errors, KV failures
+- Alert on spike in error rates
+
+## Priority 10: OG image and social sharing
+- Proper 1200x630 social card (not logo JPEG)
+- Share buttons (LINE, Facebook) on video completion page
+- OG video meta tags for link previews
+
+## Priority 11: Analytics dashboard
 Track generation counts, model usage, error rates, avg generation time.
-Simple admin page at /admin with charts. Requires auth (Priority 1).
+- Simple admin page at /admin with charts
+- Requires some form of admin auth (API key or email whitelist)
 
-## Priority 8: Video watermark for free tier
-Add a small "Made with 拾光 Glimmer" watermark overlay on free-tier videos.
-Paid tiers get watermark-free exports. Applied during FFmpeg export.
+## Priority 12: Multi-language support (i18n)
+Add language toggle (繁中/English) across the entire app.
+Use next-intl or a simple context-based approach.
 
-## Priority 9: Multi-language support (i18n)
-Add language toggle (繁中/English) across the entire app, not just the
-landing page. Use next-intl or a simple context-based approach.
+## Priority 13: Batch generation
+Allow uploading multiple photos and generating one video per photo
+in a single batch job. Show progress for all jobs on a batch status page.
 
-## Priority 10: Social sharing
-Add share buttons (LINE, Facebook, Instagram) on the video completion page.
-Generate OG image/video meta tags for link previews.
-
-## Priority 11: Batch generation
-Allow uploading multiple photos and generating one video per photo in a
-single batch job. Show progress for all jobs on a batch status page.
+## Future / Phase 2
+- **B2B dashboard**: Business accounts with sub-users, unified billing, usage reports
+- **Full auth (NextAuth.js)**: Only if B2B dashboard or multi-device sync demands it
+- **ECPay/NewebPay local payment**: 超商代碼, ATM transfer, LINE Pay (once ECPay approved)
+- **Video watermark for free tier**: "Made with 拾光 Glimmer" overlay via FFmpeg
+- **Editor mobile UX**: Timeline editor is desktop-optimized
