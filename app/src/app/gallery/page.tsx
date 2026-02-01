@@ -185,11 +185,13 @@ export default function GalleryPage() {
                         onError={() => setVideoErrors(prev => new Set(prev).add(job.id))}
                       />
                     )}
-                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                      <div className="w-10 h-10 rounded-full bg-black/50 flex items-center justify-center">
-                        <Play className="w-5 h-5 text-white ml-0.5" />
+                    {!videoErrors.has(job.id) && (
+                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                        <div className="w-10 h-10 rounded-full bg-black/50 flex items-center justify-center">
+                          <Play className="w-5 h-5 text-white ml-0.5" />
+                        </div>
                       </div>
-                    </div>
+                    )}
                     {job.videoUrls && job.videoUrls.length > 1 && (
                       <div className="absolute top-2 right-2 px-2 py-1 rounded bg-black/50 text-white text-xs">
                         {job.videoUrls.length} 支影片
