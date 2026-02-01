@@ -67,7 +67,7 @@ export async function checkVideoTaskStatus(job: GenerationJob): Promise<TaskChec
     case 'veo-3.1-fast':
       return checkVeoTask(job.veoOperationName || '');
     case 'kling-ai':
-      return checkKlingTask(job.externalTaskIds?.[0] || '');
+      return checkKlingTasks(job.externalTaskIds || []);
     default:
       return { done: true, error: `Unknown provider: ${job.provider}` };
   }
@@ -251,59 +251,77 @@ async function createKlingTask(options: CreateTaskOptions, prompt: string): Prom
   const secretKey = process.env.KLING_SECRET_KEY;
   if (!accessKey || !secretKey) throw new Error('Kling AI credentials not set');
 
+  const numVideos = Math.min(Math.max(settings.numResults || 1, 1), 4);
   const imageBase64 = photos[0].toString('base64');
   const token = await getKlingToken(accessKey, secretKey);
   const klingDuration = settings.videoLength <= 5 ? '5' : '10';
 
-  const res = await fetch('https://api.klingai.com/v1/videos/image2video', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-    body: JSON.stringify({
-      model_name: 'kling-v1-5',
-      image: imageBase64,
-      prompt,
-      negative_prompt: 'blurry, distorted, unnatural movements, dramatic changes, morphing',
-      cfg_scale: 0.5,
-      mode: 'std',
-      duration: klingDuration,
-      aspect_ratio: settings.aspectRatio,
-    }),
+  const body = JSON.stringify({
+    model_name: 'kling-v1-5',
+    image: imageBase64,
+    prompt,
+    negative_prompt: 'blurry, distorted, unnatural movements, dramatic changes, morphing',
+    cfg_scale: 0.5,
+    mode: 'std',
+    duration: klingDuration,
+    aspect_ratio: settings.aspectRatio,
   });
 
-  if (!res.ok) throw new Error(`Kling create failed: ${await res.text()}`);
-  const data = await res.json();
-  const taskId = data.data?.task_id;
-  if (!taskId) throw new Error('No task ID from Kling');
+  // Create N parallel tasks (Kling API doesn't support multiple results per request)
+  const taskIds = await Promise.all(
+    Array.from({ length: numVideos }, async () => {
+      const res = await fetch('https://api.klingai.com/v1/videos/image2video', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body,
+      });
+      if (!res.ok) throw new Error(`Kling create failed: ${await res.text()}`);
+      const data = await res.json();
+      const taskId = data.data?.task_id;
+      if (!taskId) throw new Error('No task ID from Kling');
+      return taskId as string;
+    })
+  );
 
-  return { provider: 'kling-ai', externalTaskIds: [taskId] };
+  return { provider: 'kling-ai', externalTaskIds: taskIds };
 }
 
-async function checkKlingTask(taskId: string): Promise<TaskCheckResult> {
-  if (!taskId) return { done: true, error: 'No Kling task ID' };
-
+async function checkKlingTasks(taskIds: string[]): Promise<TaskCheckResult> {
   const accessKey = process.env.KLING_ACCESS_KEY;
   const secretKey = process.env.KLING_SECRET_KEY;
   if (!accessKey || !secretKey) return { done: true, error: 'Kling credentials not set' };
+  if (taskIds.length === 0) return { done: true, error: 'No Kling task IDs' };
 
   const token = await getKlingToken(accessKey, secretKey);
-  const res = await fetch(`https://api.klingai.com/v1/videos/image2video/${taskId}`, {
-    headers: { 'Authorization': `Bearer ${token}` },
-  });
-  if (!res.ok) return { done: true, error: 'Kling status check failed' };
+  const videoUrls: string[] = [];
+  let pending = 0;
 
-  const data = await res.json();
-  const status = data.data?.task_status;
+  for (const taskId of taskIds) {
+    const res = await fetch(`https://api.klingai.com/v1/videos/image2video/${taskId}`, {
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
+    if (!res.ok) return { done: true, error: 'Kling status check failed' };
 
-  if (status === 'succeed') {
-    const videoUrl = data.data?.task_result?.videos?.[0]?.url;
-    if (videoUrl) return { done: true, videoUrls: [videoUrl] };
-    return { done: true, error: 'No video URL in Kling response' };
+    const data = await res.json();
+    const status = data.data?.task_status;
+
+    if (status === 'succeed') {
+      const videoUrl = data.data?.task_result?.videos?.[0]?.url;
+      if (videoUrl) videoUrls.push(videoUrl);
+      else return { done: true, error: 'No video URL in Kling response' };
+    } else if (status === 'failed') {
+      return { done: true, error: data.data?.task_status_msg || 'Kling generation failed' };
+    } else {
+      pending++;
+    }
   }
-  if (status === 'failed') {
-    return { done: true, error: data.data?.task_status_msg || 'Kling generation failed' };
+
+  if (pending === 0 && videoUrls.length === taskIds.length) {
+    return { done: true, videoUrls };
   }
 
-  return { done: false, progress: 50 };
+  const progress = Math.floor((videoUrls.length / taskIds.length) * 90) + 10;
+  return { done: false, progress };
 }
 
 // ════════════════════════════════════════════════════════════════

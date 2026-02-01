@@ -96,7 +96,7 @@ export async function getCompletedJobs(): Promise<GenerationJob[]> {
     const data = await kvGet(key);
     if (data) {
       const job: GenerationJob = JSON.parse(data);
-      if (job.status === 'complete' && job.videoUrl) {
+      if (job.status === 'complete' && (job.videoUrl || job.videoUrls?.length)) {
         jobs.push(job);
       }
     }
