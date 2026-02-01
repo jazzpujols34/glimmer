@@ -3,6 +3,7 @@ export const runtime = 'edge';
 import { NextRequest, NextResponse } from 'next/server';
 import { createJob, updateJob } from '@/lib/storage';
 import { createVideoTask } from '@/lib/veo';
+import { checkCredits, useCredit, isValidEmail } from '@/lib/credits';
 import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
 import type { GenerationSettings, OccasionType } from '@/types';
 import { defaultSettings } from '@/types';
@@ -35,10 +36,19 @@ export async function POST(request: NextRequest) {
     const name = formData.get('name') as string;
     const occasion = formData.get('occasion') as string;
     const settingsJson = formData.get('settings') as string;
+    const email = formData.get('email') as string;
 
     if (!name || !occasion) {
       return NextResponse.json(
         { error: '請提供完整資訊' },
+        { status: 400 }
+      );
+    }
+
+    // --- Email validation ---
+    if (!email || !isValidEmail(email)) {
+      return NextResponse.json(
+        { error: '請提供有效的 Email 地址' },
         { status: 400 }
       );
     }
@@ -129,6 +139,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // --- Credit check (fail fast before creating job) ---
+    const balance = await checkCredits(email);
+    if (balance.remaining <= 0) {
+      return NextResponse.json(
+        { error: '點數不足，請購買點數後再試', code: 'INSUFFICIENT_CREDITS' },
+        { status: 402 }
+      );
+    }
+
     // Generate job ID
     const jobId = `job_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
@@ -137,6 +156,7 @@ export async function POST(request: NextRequest) {
       name,
       occasion: occasion as OccasionType,
       settings,
+      email,
     });
 
     console.log(`[API] Starting generation job ${jobId}`, {
@@ -169,6 +189,13 @@ export async function POST(request: NextRequest) {
       externalTaskIds: taskData.externalTaskIds,
       veoOperationName: taskData.veoOperationName,
     });
+
+    // Deduct credit AFTER external task creation succeeds
+    const creditResult = await useCredit(email, jobId);
+    if (!creditResult.success) {
+      // Shouldn't happen (we checked above), but log defensively
+      console.error(`[API] Credit deduction failed for ${email} on job ${jobId}`);
+    }
 
     return NextResponse.json({
       id: jobId,

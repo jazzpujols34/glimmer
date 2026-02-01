@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { PhotoUploader } from '@/components/PhotoUploader';
 import { FrameUploader } from '@/components/FrameUploader';
 import { SettingsSidebar } from '@/components/SettingsSidebar';
-import type { OccasionType, GenerationSettings } from '@/types';
+import type { OccasionType, GenerationSettings, CreditBalance } from '@/types';
 import { defaultSettings } from '@/types';
 
 const occasions: { value: OccasionType; label: string; description: string }[] = [
@@ -24,6 +24,10 @@ const occasions: { value: OccasionType; label: string; description: string }[] =
 
 export default function Home() {
   const router = useRouter();
+  const [email, setEmail] = useState(() => {
+    if (typeof window !== 'undefined') return localStorage.getItem('glimmer_email') || '';
+    return '';
+  });
   const [name, setName] = useState('');
   const [occasion, setOccasion] = useState<OccasionType>('memorial');
   const [photos, setPhotos] = useState<File[]>([]);
@@ -33,9 +37,42 @@ export default function Home() {
   const [error, setError] = useState('');
   const [settings, setSettings] = useState<GenerationSettings>(defaultSettings);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [creditBalance, setCreditBalance] = useState<CreditBalance | null>(null);
+  const [creditLoading, setCreditLoading] = useState(false);
   const errorRef = useRef<HTMLDivElement>(null);
 
   const isFrameMode = settings.taskType === 'first-last-frame';
+  const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+
+  // Check credits when email changes (debounced)
+  useEffect(() => {
+    if (!email || !isValidEmail) {
+      setCreditBalance(null);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      setCreditLoading(true);
+      try {
+        const res = await fetch(`/api/credits?email=${encodeURIComponent(email)}`);
+        if (res.ok) {
+          const data = await res.json();
+          setCreditBalance(data);
+        }
+      } catch { /* ignore */ } finally {
+        setCreditLoading(false);
+      }
+    }, 500);
+    return () => clearTimeout(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [email]);
+
+  // Persist email to localStorage
+  useEffect(() => {
+    if (email && isValidEmail) {
+      localStorage.setItem('glimmer_email', email);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [email]);
 
   // Scroll to error when it appears
   useEffect(() => {
@@ -48,8 +85,16 @@ export default function Home() {
     e.preventDefault();
     setError('');
 
+    if (!email.trim() || !isValidEmail) {
+      setError('請輸入有效的 Email 地址');
+      return;
+    }
     if (!name.trim()) {
       setError('請輸入主角姓名');
+      return;
+    }
+    if (creditBalance && creditBalance.remaining <= 0) {
+      setError('點數不足，請先購買點數');
       return;
     }
     if (isFrameMode) {
@@ -68,6 +113,7 @@ export default function Home() {
 
     try {
       const formData = new FormData();
+      formData.append('email', email);
       formData.append('name', name);
       formData.append('occasion', occasion);
       formData.append('settings', JSON.stringify(settings));
@@ -92,6 +138,10 @@ export default function Home() {
       const data = await res.json();
 
       if (!res.ok) {
+        if (res.status === 402) {
+          // Refresh credit balance
+          setCreditBalance(prev => prev ? { ...prev, remaining: 0 } : null);
+        }
         throw new Error(data.error || '發生錯誤');
       }
 
@@ -198,6 +248,48 @@ export default function Home() {
               </CardHeader>
               <CardContent>
                 <form onSubmit={handleSubmit} className="space-y-6">
+                  {/* Email */}
+                  <div className="space-y-2">
+                    <Label htmlFor="email">Email 地址</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      placeholder="your@email.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      required
+                    />
+                    {/* Credit balance display */}
+                    {email && isValidEmail && (
+                      <div className="p-3 rounded-lg border border-border bg-card text-sm">
+                        {creditLoading ? (
+                          <p className="text-muted-foreground">查詢額度中...</p>
+                        ) : creditBalance ? (
+                          creditBalance.remaining > 0 ? (
+                            <p className="text-green-600 dark:text-green-400 font-medium">
+                              {!creditBalance.freeUsed
+                                ? '您有 1 支免費影片額度！'
+                                : `剩餘 ${creditBalance.remaining} 點`
+                              }
+                            </p>
+                          ) : (
+                            <div className="space-y-3">
+                              <p className="text-amber-600 dark:text-amber-400 font-medium">
+                                點數不足 — 購買點數以繼續
+                              </p>
+                              <div className="flex gap-2 flex-wrap">
+                                <PurchaseButton email={email} packId="single" label="1 支 NT$499" />
+                                <PurchaseButton email={email} packId="pack5" label="5 支 NT$1,999" />
+                              </div>
+                            </div>
+                          )
+                        ) : (
+                          <p className="text-muted-foreground">輸入 Email 以查詢額度</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
                   {/* Name */}
                   <div className="space-y-2">
                     <Label htmlFor="name">{occasion === 'pet' ? '寵物名字' : '主角姓名'}</Label>
@@ -273,7 +365,7 @@ export default function Home() {
                     type="submit"
                     size="lg"
                     className="w-full"
-                    disabled={isSubmitting || (isFrameMode ? !firstFrame : photos.length < 1)}
+                    disabled={isSubmitting || !isValidEmail || (creditBalance?.remaining ?? 1) <= 0 || (isFrameMode ? !firstFrame : photos.length < 1)}
                   >
                     {isSubmitting ? (
                       <>
@@ -313,5 +405,39 @@ export default function Home() {
         />
       </div>
     </div>
+  );
+}
+
+function PurchaseButton({ email, packId, label }: { email: string; packId: string; label: string }) {
+  const [loading, setLoading] = useState(false);
+
+  const handlePurchase = async () => {
+    setLoading(true);
+    try {
+      localStorage.setItem('glimmer_email', email);
+      const res = await fetch('/api/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, packId }),
+      });
+      const data = await res.json();
+      if (data.url) {
+        window.location.href = data.url;
+      }
+    } catch { /* ignore */ } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Button
+      type="button"
+      variant="outline"
+      size="sm"
+      onClick={handlePurchase}
+      disabled={loading}
+    >
+      {loading ? '...' : label}
+    </Button>
   );
 }

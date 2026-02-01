@@ -118,8 +118,8 @@ export default function TermsPage() {
               如有任何問題，請透過以下方式聯絡我們：
             </p>
             <p className="mt-2">
-              <a href="mailto:ro5112@hotmail.com" className="text-primary hover:underline">
-                ro5112@hotmail.com
+              <a href="mailto:glimmer.hello@gmail.com" className="text-primary hover:underline">
+                glimmer.hello@gmail.com
               </a>
             </p>
           </section>

@@ -62,6 +62,7 @@ export interface GenerationJob {
   name?: string;
   occasion?: OccasionType;
   settings?: GenerationSettings;
+  email?: string;           // Email of the user who created this job
   // Edge-compatible: external task tracking (serverless polling)
   provider?: ModelType;
   externalTaskIds?: string[];       // BytePlus/Kling task IDs
@@ -72,4 +73,43 @@ export interface ApiResponse<T> {
   success: boolean;
   data?: T;
   error?: string;
+}
+
+// === Credit System Types ===
+
+export interface CreditBalance {
+  email: string;
+  total: number;        // total credits ever purchased
+  used: number;         // credits consumed
+  freeUsed: boolean;    // whether the 1 free video has been used
+  remaining: number;    // computed: (total - used) + (freeUsed ? 0 : 1)
+}
+
+export interface CreditRecord {
+  total: number;
+  used: number;
+  freeUsed: boolean;
+  purchases: PurchaseRecord[];
+}
+
+export interface PurchaseRecord {
+  id: string;           // Stripe checkout session ID
+  credits: number;
+  amountTWD: number;
+  createdAt: string;
+}
+
+export interface FreeRecord {
+  used: boolean;
+  jobId?: string;
+  usedAt?: string;
+}
+
+export interface CreditPack {
+  id: string;           // 'single' | 'pack5' | 'pack10'
+  credits: number;
+  priceTWD: number;
+  perVideoPriceTWD: number;
+  label: string;        // "1 支影片"
+  labelEn: string;      // "1 Video"
 }
