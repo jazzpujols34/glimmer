@@ -57,7 +57,7 @@ export async function GET(
           if (job.email) {
             try {
               const balance = await checkCredits(job.email);
-              paidUser = balance.total > 0;
+              paidUser = balance.paidTotal > 0;
             } catch {
               // Non-critical — default to free TTL
             }

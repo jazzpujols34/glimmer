@@ -298,27 +298,33 @@ function CreatePageInner() {
                             creditBalance.isAdmin ? (
                               // Admin user
                               <p className="text-purple-600 dark:text-purple-400 font-medium">
-                                👑 管理員 — 無限額度
-                              </p>
-                            ) : creditBalance.total > 0 ? (
-                              // Has paid credits
-                              <p className="text-green-600 dark:text-green-400 font-medium">
-                                剩餘 {creditBalance.remaining} 點
+                                👑 管理員 — 無限生成次數
                               </p>
                             ) : (
-                              // Free tier available
-                              <p className="text-green-600 dark:text-green-400 font-medium">
-                                您有 1 支免費影片額度！
-                              </p>
+                              // Show remaining generations
+                              <div className="space-y-1">
+                                <p className="text-green-600 dark:text-green-400 font-medium">
+                                  剩餘 {creditBalance.remaining} 次生成
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                  {creditBalance.freeTotal - creditBalance.freeUsed > 0
+                                    ? `免費: ${creditBalance.freeTotal - creditBalance.freeUsed} 次`
+                                    : ''}
+                                  {creditBalance.freeTotal - creditBalance.freeUsed > 0 && creditBalance.paidTotal - creditBalance.paidUsed > 0 ? ' + ' : ''}
+                                  {creditBalance.paidTotal - creditBalance.paidUsed > 0
+                                    ? `已購: ${creditBalance.paidTotal - creditBalance.paidUsed} 次`
+                                    : ''}
+                                </p>
+                              </div>
                             )
                           ) : (
                             <div className="space-y-3">
                               <p className="text-amber-600 dark:text-amber-400 font-medium">
-                                點數不足 — 購買點數以繼續
+                                生成次數已用完 — 購買更多次數
                               </p>
                               <div className="flex gap-2 flex-wrap">
-                                <PurchaseButton email={email} packId="single" label="1 支 NT$499" />
-                                <PurchaseButton email={email} packId="pack5" label="5 支 NT$1,999" />
+                                <PurchaseButton email={email} packId="pack20" label="20 次 NT$299" />
+                                <PurchaseButton email={email} packId="pack50" label="50 次 NT$599" />
                               </div>
                             </div>
                           )

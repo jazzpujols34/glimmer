@@ -15,7 +15,7 @@ vi.mock('./kv', () => ({
   }),
 }));
 
-import { checkCredits, useCredit, addCredits, isValidEmail, isEmailVerified, setEmailVerified } from './credits';
+import { checkCredits, useCredit, addCredits, isValidEmail, isEmailVerified, setEmailVerified, FREE_GENERATIONS } from './credits';
 
 beforeEach(() => {
   mockStore.clear();
@@ -37,12 +37,13 @@ describe('isValidEmail', () => {
 });
 
 describe('checkCredits', () => {
-  it('returns free credit available for new user', async () => {
+  it('returns 10 free generations for new user', async () => {
     const balance = await checkCredits('new@example.com');
-    expect(balance.total).toBe(0);
-    expect(balance.used).toBe(0);
-    expect(balance.freeUsed).toBe(false);
-    expect(balance.remaining).toBe(1); // 1 free credit
+    expect(balance.paidTotal).toBe(0);
+    expect(balance.paidUsed).toBe(0);
+    expect(balance.freeUsed).toBe(0);
+    expect(balance.freeTotal).toBe(FREE_GENERATIONS);
+    expect(balance.remaining).toBe(FREE_GENERATIONS); // 10 free generations
     expect(balance.verified).toBe(false);
   });
 
@@ -58,86 +59,100 @@ describe('checkCredits', () => {
     expect(balance.verified).toBe(true);
   });
 
-  it('shows paid credits', async () => {
-    await addCredits('paid@example.com', 5, {
+  it('shows paid generations plus remaining free', async () => {
+    await addCredits('paid@example.com', 20, {
       id: 'purchase_1',
-      credits: 5,
-      amountTWD: 1999,
+      credits: 20,
+      amountTWD: 299,
       createdAt: new Date().toISOString(),
     });
     const balance = await checkCredits('paid@example.com');
-    expect(balance.total).toBe(5);
-    expect(balance.remaining).toBe(6); // 5 paid + 1 free
+    expect(balance.paidTotal).toBe(20);
+    expect(balance.remaining).toBe(30); // 20 paid + 10 free
   });
 });
 
 describe('useCredit', () => {
-  it('uses free credit first', async () => {
+  it('uses free generations first', async () => {
     const result = await useCredit('user@example.com', 'job_1');
     expect(result.success).toBe(true);
     expect(result.usedFree).toBe(true);
   });
 
-  it('marks free credit as used after first use', async () => {
+  it('tracks free generation usage', async () => {
     await useCredit('user@example.com', 'job_1');
     const balance = await checkCredits('user@example.com');
-    expect(balance.freeUsed).toBe(true);
-    expect(balance.remaining).toBe(0);
+    expect(balance.freeUsed).toBe(1);
+    expect(balance.remaining).toBe(FREE_GENERATIONS - 1); // 9 remaining
   });
 
-  it('fails when no credits remain', async () => {
-    await useCredit('user@example.com', 'job_1'); // uses free
-    const result = await useCredit('user@example.com', 'job_2');
+  it('uses all 10 free generations before failing', async () => {
+    // Use all 10 free generations
+    for (let i = 0; i < FREE_GENERATIONS; i++) {
+      const result = await useCredit('user@example.com', `job_${i}`);
+      expect(result.success).toBe(true);
+      expect(result.usedFree).toBe(true);
+    }
+
+    // 11th should fail (no paid credits)
+    const result = await useCredit('user@example.com', 'job_11');
     expect(result.success).toBe(false);
     expect(result.usedFree).toBe(false);
   });
 
-  it('uses paid credits after free is exhausted', async () => {
-    await useCredit('user@example.com', 'job_1'); // uses free
-    await addCredits('user@example.com', 3, {
-      id: 'purchase_1', credits: 3, amountTWD: 999, createdAt: new Date().toISOString(),
+  it('uses paid generations after free is exhausted', async () => {
+    // Use all free generations
+    for (let i = 0; i < FREE_GENERATIONS; i++) {
+      await useCredit('user@example.com', `job_${i}`);
+    }
+
+    // Add paid credits
+    await addCredits('user@example.com', 5, {
+      id: 'purchase_1', credits: 5, amountTWD: 99, createdAt: new Date().toISOString(),
     });
-    const result = await useCredit('user@example.com', 'job_2');
+
+    // Should now use paid credits
+    const result = await useCredit('user@example.com', 'job_paid_1');
     expect(result.success).toBe(true);
     expect(result.usedFree).toBe(false);
 
     const balance = await checkCredits('user@example.com');
-    expect(balance.used).toBe(1);
-    expect(balance.remaining).toBe(2); // 3 - 1 paid, free already used
+    expect(balance.paidUsed).toBe(1);
+    expect(balance.remaining).toBe(4); // 5 - 1 paid, free exhausted
   });
 });
 
 describe('addCredits', () => {
-  it('adds credits to record', async () => {
-    const { added, record } = await addCredits('user@example.com', 5, {
-      id: 'purchase_1', credits: 5, amountTWD: 1999, createdAt: new Date().toISOString(),
+  it('adds generations to record', async () => {
+    const { added, record } = await addCredits('user@example.com', 20, {
+      id: 'purchase_1', credits: 20, amountTWD: 299, createdAt: new Date().toISOString(),
     });
     expect(added).toBe(true);
-    expect(record.total).toBe(5);
+    expect(record.total).toBe(20);
     expect(record.purchases).toHaveLength(1);
   });
 
   it('is idempotent — rejects duplicate purchase IDs', async () => {
     const purchase = {
-      id: 'purchase_1', credits: 5, amountTWD: 1999, createdAt: new Date().toISOString(),
+      id: 'purchase_1', credits: 20, amountTWD: 299, createdAt: new Date().toISOString(),
     };
-    await addCredits('user@example.com', 5, purchase);
-    const { added, record } = await addCredits('user@example.com', 5, purchase);
+    await addCredits('user@example.com', 20, purchase);
+    const { added, record } = await addCredits('user@example.com', 20, purchase);
     expect(added).toBe(false);
-    expect(record.total).toBe(5); // not doubled
+    expect(record.total).toBe(20); // not doubled
     expect(record.purchases).toHaveLength(1);
   });
 
   it('accumulates multiple purchases', async () => {
-    await addCredits('user@example.com', 5, {
-      id: 'p1', credits: 5, amountTWD: 1999, createdAt: new Date().toISOString(),
+    await addCredits('user@example.com', 20, {
+      id: 'p1', credits: 20, amountTWD: 299, createdAt: new Date().toISOString(),
     });
-    await addCredits('user@example.com', 1, {
-      id: 'p2', credits: 1, amountTWD: 499, createdAt: new Date().toISOString(),
+    await addCredits('user@example.com', 50, {
+      id: 'p2', credits: 50, amountTWD: 599, createdAt: new Date().toISOString(),
     });
     const balance = await checkCredits('user@example.com');
-    expect(balance.total).toBe(6);
-    expect(balance.remaining).toBe(7); // 6 paid + 1 free
+    expect(balance.paidTotal).toBe(70);
+    expect(balance.remaining).toBe(80); // 70 paid + 10 free
   });
 });
 

@@ -484,112 +484,155 @@ export default function LandingPage() {
               方案價格
             </h2>
             <p className="text-muted-foreground text-lg">
-              Choose the plan that fits your needs
+              自己動手 DIY 或交給我們全程服務
+            </p>
+            <p className="text-sm text-muted-foreground mt-2">
+              DIY with our platform, or let us handle everything for you
             </p>
           </div>
 
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 max-w-5xl mx-auto">
-            {/* Free Tier */}
-            <Card className="border-border/50 relative">
-              <CardContent className="p-6 space-y-5">
-                <div className="text-center">
-                  <h3 className="text-lg font-semibold">免費體驗</h3>
-                  <p className="text-xs text-muted-foreground">Free Trial</p>
-                  <div className="mt-3">
-                    <span className="text-3xl font-bold">NT$0</span>
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-1">每個 Email 1 支 / 1 video per email</p>
-                </div>
-                <ul className="space-y-2 text-sm">
-                  <PricingItem highlight>完整品質，無浮水印</PricingItem>
-                  <PricingItem>所有 AI 模型</PricingItem>
-                  <PricingItem>所有解析度</PricingItem>
-                  <PricingItem>完整編輯器</PricingItem>
-                </ul>
-                <Button variant="outline" className="w-full" asChild>
-                  <Link href="/create">免費開始 Start Free</Link>
-                </Button>
-              </CardContent>
-            </Card>
-
-            {/* Single Credit */}
-            <Card className="border-border/50 relative">
-              <CardContent className="p-6 space-y-5">
-                <div className="text-center">
-                  <h3 className="text-lg font-semibold">單支影片</h3>
-                  <p className="text-xs text-muted-foreground">Single Video</p>
-                  <div className="mt-3">
-                    <span className="text-3xl font-bold">NT$499</span>
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-1">1 點 / 1 credit</p>
-                </div>
-                <ul className="space-y-2 text-sm">
-                  <PricingItem>所有 AI 模型</PricingItem>
-                  <PricingItem>所有解析度</PricingItem>
-                  <PricingItem>完整編輯器</PricingItem>
-                  <PricingItem>點數永不過期</PricingItem>
-                </ul>
-                <Button variant="outline" className="w-full" asChild>
-                  <Link href="/create">購買 Buy Now</Link>
-                </Button>
-              </CardContent>
-            </Card>
-
-            {/* Pack of 5 */}
-            <Card className="border-primary relative ring-2 ring-primary/20">
-              <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 bg-primary text-primary-foreground text-xs font-semibold rounded-full whitespace-nowrap">
-                最受歡迎 Popular
+          {/* Two Tracks */}
+          <div className="grid lg:grid-cols-2 gap-8 max-w-6xl mx-auto">
+            {/* Track 1: DIY */}
+            <div className="space-y-6">
+              <div className="text-center pb-4 border-b border-border">
+                <h3 className="text-xl font-bold">自己動手 DIY</h3>
+                <p className="text-sm text-muted-foreground mt-1">
+                  使用我們的平台自行生成 AI 片段並編輯
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Use our platform to generate AI clips and edit yourself
+                </p>
               </div>
-              <CardContent className="p-6 space-y-5">
-                <div className="text-center">
-                  <h3 className="text-lg font-semibold">5 支方案</h3>
-                  <p className="text-xs text-muted-foreground">5-Video Pack</p>
-                  <div className="mt-3">
-                    <span className="text-3xl font-bold">NT$1,999</span>
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-1">NT$400/支 — 省 20%</p>
-                </div>
-                <ul className="space-y-2 text-sm">
-                  <PricingItem highlight>5 點影片點數</PricingItem>
-                  <PricingItem>所有 AI 模型</PricingItem>
-                  <PricingItem>所有解析度</PricingItem>
-                  <PricingItem>點數永不過期</PricingItem>
-                </ul>
-                <Button className="w-full" asChild>
-                  <Link href="/create">購買 Buy Now</Link>
-                </Button>
-              </CardContent>
-            </Card>
 
-            {/* Enterprise / Contact Sales */}
-            <Card className="border-border/50 relative">
-              <CardContent className="p-6 space-y-5">
-                <div className="text-center">
-                  <h3 className="text-lg font-semibold">企業 / 大量</h3>
-                  <p className="text-xs text-muted-foreground">Enterprise / Volume</p>
-                  <div className="mt-3">
-                    <span className="text-2xl font-bold">請洽業務</span>
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-1">Custom pricing</p>
-                </div>
-                <ul className="space-y-2 text-sm">
-                  <PricingItem highlight>量身定制報價</PricingItem>
-                  <PricingItem highlight>專屬帳戶管理</PricingItem>
-                  <PricingItem highlight>優先技術支援</PricingItem>
-                  <PricingItem>點數永不過期</PricingItem>
-                </ul>
-                <Button variant="outline" className="w-full" asChild>
-                  <a href="#business">聯繫我們 Contact</a>
-                </Button>
-              </CardContent>
-            </Card>
+              <div className="grid sm:grid-cols-2 gap-4">
+                {/* Free Trial */}
+                <Card className="border-border/50">
+                  <CardContent className="p-5 space-y-4">
+                    <div className="text-center">
+                      <h4 className="font-semibold">免費體驗</h4>
+                      <p className="text-xs text-muted-foreground">Free Trial</p>
+                      <div className="mt-2">
+                        <span className="text-2xl font-bold">NT$0</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">10 次 AI 生成</p>
+                    </div>
+                    <ul className="space-y-1.5 text-sm">
+                      <PricingItem>10 次 AI 片段生成</PricingItem>
+                      <PricingItem>完整編輯器</PricingItem>
+                      <PricingItem>無限次匯出</PricingItem>
+                    </ul>
+                    <Button variant="outline" size="sm" className="w-full" asChild>
+                      <Link href="/create">免費開始</Link>
+                    </Button>
+                  </CardContent>
+                </Card>
+
+                {/* Generation Pack */}
+                <Card className="border-primary ring-1 ring-primary/20">
+                  <CardContent className="p-5 space-y-4">
+                    <div className="text-center">
+                      <h4 className="font-semibold">生成次數包</h4>
+                      <p className="text-xs text-muted-foreground">Generation Packs</p>
+                      <div className="mt-2">
+                        <span className="text-2xl font-bold">NT$299</span>
+                        <span className="text-sm text-muted-foreground"> 起</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">20 次起購</p>
+                    </div>
+                    <ul className="space-y-1.5 text-sm">
+                      <PricingItem highlight>20 次 NT$299</PricingItem>
+                      <PricingItem highlight>50 次 NT$599</PricingItem>
+                      <PricingItem>次數永不過期</PricingItem>
+                    </ul>
+                    <Button size="sm" className="w-full" asChild>
+                      <Link href="/create">購買次數</Link>
+                    </Button>
+                  </CardContent>
+                </Card>
+              </div>
+
+              <p className="text-xs text-muted-foreground text-center">
+                每次生成產出一段 5-12 秒 AI 片段，用編輯器組合成完整影片
+              </p>
+            </div>
+
+            {/* Track 2: Full Service */}
+            <div className="space-y-6">
+              <div className="text-center pb-4 border-b border-border">
+                <h3 className="text-xl font-bold text-primary">全程代製服務</h3>
+                <p className="text-sm text-muted-foreground mt-1">
+                  您提供照片，我們交付完整影片
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Send us photos, we deliver a finished video
+                </p>
+              </div>
+
+              <div className="grid sm:grid-cols-2 gap-4">
+                {/* Standard Package */}
+                <Card className="border-border/50">
+                  <CardContent className="p-5 space-y-4">
+                    <div className="text-center">
+                      <h4 className="font-semibold">標準方案</h4>
+                      <p className="text-xs text-muted-foreground">Standard</p>
+                      <div className="mt-2">
+                        <span className="text-2xl font-bold">NT$2,999</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">60-90 秒影片</p>
+                    </div>
+                    <ul className="space-y-1.5 text-sm">
+                      <PricingItem>5-10 張照片</PricingItem>
+                      <PricingItem>配樂 + 字幕</PricingItem>
+                      <PricingItem>3 個工作天交付</PricingItem>
+                    </ul>
+                    <Button variant="outline" size="sm" className="w-full" asChild>
+                      <a href="mailto:glimmer.hello@gmail.com?subject=標準方案詢問">聯繫我們</a>
+                    </Button>
+                  </CardContent>
+                </Card>
+
+                {/* Premium Package */}
+                <Card className="border-primary ring-1 ring-primary/20">
+                  <CardContent className="p-5 space-y-4">
+                    <div className="text-center">
+                      <h4 className="font-semibold">精緻方案</h4>
+                      <p className="text-xs text-muted-foreground">Premium</p>
+                      <div className="mt-2">
+                        <span className="text-2xl font-bold">NT$5,999</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">120-180 秒影片</p>
+                    </div>
+                    <ul className="space-y-1.5 text-sm">
+                      <PricingItem highlight>10-20 張照片</PricingItem>
+                      <PricingItem highlight>精緻剪輯 + 特效</PricingItem>
+                      <PricingItem>1 次免費修改</PricingItem>
+                    </ul>
+                    <Button size="sm" className="w-full" asChild>
+                      <a href="mailto:glimmer.hello@gmail.com?subject=精緻方案詢問">聯繫我們</a>
+                    </Button>
+                  </CardContent>
+                </Card>
+              </div>
+
+              <p className="text-xs text-muted-foreground text-center">
+                適合追思告別式、壽宴、婚禮等重要場合，專人服務確保品質
+              </p>
+            </div>
           </div>
 
-          <p className="text-center text-xs text-muted-foreground mt-8">
-            點數永不過期，購買後可隨時使用。以新台幣計價，透過 Stripe 安全付款。
-            <br />
-            Credits never expire. Prices in TWD. Secure payment via Stripe.
-          </p>
+          {/* Enterprise Note */}
+          <div className="max-w-2xl mx-auto mt-12 p-6 rounded-xl border border-border/50 bg-card/50 text-center">
+            <h4 className="font-semibold mb-2">殯葬業者 / 婚禮公司 / 活動企劃</h4>
+            <p className="text-sm text-muted-foreground mb-4">
+              提供企業專屬大量優惠方案，統一管理帳戶與帳單
+            </p>
+            <Button variant="outline" asChild>
+              <a href="mailto:glimmer.hello@gmail.com?subject=企業合作詢問">
+                洽談企業合作 Contact for Enterprise
+              </a>
+            </Button>
+          </div>
         </div>
       </section>
 
@@ -654,10 +697,28 @@ export default function LandingPage() {
 
           <div className="max-w-3xl mx-auto space-y-4">
             <FaqItem
-              q="需要多久才能生成一支影片？"
-              qEn="How long does it take to generate a video?"
-              a="大約 2-5 分鐘，取決於選擇的 AI 模型和影片長度。生成過程中可以離開頁面，之後在影片庫查看結果。"
-              aEn="About 2-5 minutes depending on the AI model and video length. You can leave the page and check the gallery later."
+              q="「生成」和「影片」有什麼不同？"
+              qEn="What's the difference between a 'generation' and a 'video'?"
+              a="一次「生成」會產出一段 5-12 秒的 AI 動態片段。一支完整的「影片」（90-180 秒）是由多個生成片段加上音樂、字幕剪輯而成。DIY 用戶可用編輯器自行組合，或選擇全程代製服務由我們為您完成。"
+              aEn="One 'generation' creates a 5-12 second AI clip. A complete 'video' (90-180 sec) is made by combining multiple clips with music and subtitles. DIY users can edit themselves, or choose our full-service option."
+            />
+            <FaqItem
+              q="免費體驗包含什麼？"
+              qEn="What's included in the free trial?"
+              a="每個 Email 可獲得 10 次免費 AI 生成、完整編輯器、無限次匯出。足夠製作 1-2 支短影片來體驗效果。"
+              aEn="Each email gets 10 free AI generations, full editor access, and unlimited exports. Enough to create 1-2 short videos to try the experience."
+            />
+            <FaqItem
+              q="需要多久才能生成一段片段？"
+              qEn="How long does one generation take?"
+              a="每次生成大約 2-5 分鐘。生成過程中可以離開頁面，稍後在影片庫查看結果。"
+              aEn="Each generation takes about 2-5 minutes. You can leave the page and check results in the gallery later."
+            />
+            <FaqItem
+              q="全程代製服務如何運作？"
+              qEn="How does the full-service option work?"
+              a="您只需提供照片和場合說明，我們的團隊會為您完成所有生成、剪輯、配樂工作，交付一支可直接使用的完整影片。適合沒時間或不熟悉技術的用戶。"
+              aEn="Just send us photos and occasion details. Our team handles all generation, editing, and music. We deliver a ready-to-use video. Perfect for those who prefer a hands-off approach."
             />
             <FaqItem
               q="支援哪些照片格式？"
@@ -666,40 +727,16 @@ export default function LandingPage() {
               aEn="JPG, PNG, WebP and other common formats. Higher resolution photos produce better results."
             />
             <FaqItem
-              q="免費方案有什麼限制？"
-              qEn="What's included in the free tier?"
-              a="每個 Email 可免費製作 1 支影片，使用所有 AI 模型、所有解析度，完整品質無浮水印。想要製作更多影片可以購買點數。"
-              aEn="Each email gets 1 free video with full quality — all AI models, all resolutions, no watermark. Purchase credits for more videos."
-            />
-            <FaqItem
-              q="影片可以商用嗎？"
-              qEn="Can I use the videos commercially?"
-              a="個人使用和非營利活動（如告別式、家庭聚會）不受限制。商業用途請參考專業方案條款。"
-              aEn="Personal and non-profit use (funerals, family events) is unrestricted. See Professional plan terms for commercial use."
-            />
-            <FaqItem
-              q="我上傳的照片安全嗎？"
-              qEn="Are my photos secure?"
-              a="照片僅用於生成影片，處理完成後不會永久保存在我們的伺服器。詳情請參考隱私政策。"
-              aEn="Photos are only used for video generation and are not permanently stored on our servers. See our privacy policy for details."
+              q="生成次數會過期嗎？"
+              qEn="Do generations expire?"
+              a="不會！購買的生成次數永不過期，可以隨時使用。免費的 10 次也不會過期。"
+              aEn="No! Purchased generations never expire. The 10 free generations don't expire either."
             />
             <FaqItem
               q="影片下載連結會過期嗎？"
               qEn="Do video download links expire?"
-              a="是的，影片連結會在 24 小時後過期。請在生成後盡快下載保存。已下載的影片不受影響。"
-              aEn="Yes, video links expire after 24 hours. Please download promptly. Downloaded files are yours to keep."
-            />
-            <FaqItem
-              q="點數會過期嗎？"
-              qEn="Do credits expire?"
-              a="不會！購買的點數永不過期，可以隨時使用。您可以一次購買多點，慢慢使用。"
-              aEn="No! Purchased credits never expire. Buy in bulk and use them whenever you need."
-            />
-            <FaqItem
-              q="支援哪些付款方式？"
-              qEn="What payment methods are accepted?"
-              a="我們透過 Stripe 處理付款，支援 Visa、Mastercard、JCB 等主要信用卡與簽帳卡。Apple Pay 和 Google Pay 也可使用。"
-              aEn="We accept Visa, Mastercard, JCB, and other major credit/debit cards via Stripe. Apple Pay and Google Pay are also supported."
+              a="AI 生成的片段連結會在 24 小時後過期，請及時下載。但使用編輯器匯出的完整影片會直接下載到您的裝置，不受影響。"
+              aEn="AI-generated clip links expire after 24 hours — download promptly. However, videos exported from the editor download directly to your device."
             />
             <FaqItem
               q="需要安裝軟體嗎？"

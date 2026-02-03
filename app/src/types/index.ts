@@ -77,42 +77,46 @@ export interface ApiResponse<T> {
 }
 
 // === Credit System Types ===
+// "Generation" = one AI video clip (5-12 sec)
+// "Video" = final edited product (90-180 sec, made from multiple generations)
+
+export const FREE_GENERATIONS = 10; // Free tier gets 10 generations
 
 export interface CreditBalance {
   email: string;
-  total: number;        // total credits ever purchased
-  used: number;         // credits consumed
-  freeUsed: boolean;    // whether the 1 free video has been used
-  remaining: number;    // computed: (total - used) + (freeUsed ? 0 : 1)
-  verified: boolean;    // whether email ownership has been verified
-  isAdmin?: boolean;    // admin users have unlimited credits
+  paidTotal: number;      // total generations ever purchased
+  paidUsed: number;       // paid generations consumed
+  freeUsed: number;       // free generations used (0-10)
+  freeTotal: number;      // free generations available (10)
+  remaining: number;      // computed: (paidTotal - paidUsed) + (freeTotal - freeUsed)
+  verified: boolean;      // whether email ownership has been verified
+  isAdmin?: boolean;      // admin users have unlimited generations
 }
 
 export interface CreditRecord {
-  total: number;
-  used: number;
-  freeUsed: boolean;
+  total: number;          // total paid generations purchased
+  used: number;           // paid generations consumed
   purchases: PurchaseRecord[];
 }
 
 export interface PurchaseRecord {
-  id: string;           // Stripe checkout session ID
-  credits: number;
+  id: string;             // Stripe/ECPay transaction ID
+  credits: number;        // generations purchased
   amountTWD: number;
   createdAt: string;
 }
 
 export interface FreeRecord {
-  used: boolean;
-  jobId?: string;
-  usedAt?: string;
+  used: number;           // number of free generations used (max 10)
+  jobs?: string[];        // job IDs created with free generations
 }
 
-export interface CreditPack {
-  id: string;           // 'single' | 'pack5'
-  credits: number;
+export interface GenerationPack {
+  id: string;             // 'pack20' | 'pack50' | 'pack100'
+  generations: number;
   priceTWD: number;
-  perVideoPriceTWD: number;
-  label: string;        // "1 支影片"
-  labelEn: string;      // "1 Video"
+  perGenPriceTWD: number;
+  label: string;          // "20 次生成"
+  labelEn: string;        // "20 Generations"
+  savings?: string;       // "省 20%"
 }
