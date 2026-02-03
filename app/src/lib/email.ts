@@ -4,7 +4,6 @@
  */
 
 const RESEND_API_URL = 'https://api.resend.com/emails';
-const FROM_EMAIL = '拾光 Glimmer <noreply@glimmer.video>';
 const FROM_EMAIL_FALLBACK = 'onboarding@resend.dev'; // Resend sandbox
 
 export async function sendVerificationEmail(
@@ -87,7 +86,12 @@ export async function sendCompletionEmail(
   return { success: true };
 }
 
+function escapeHtml(str: string): string {
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
 function buildCompletionHtml(viewUrl: string, name: string): string {
+  const safeName = escapeHtml(name);
   return `
 <!DOCTYPE html>
 <html lang="zh-Hant">
@@ -100,7 +104,7 @@ function buildCompletionHtml(viewUrl: string, name: string): string {
 
   <p style="font-size: 16px; line-height: 1.6;">您好，</p>
   <p style="font-size: 16px; line-height: 1.6;">
-    您為 <strong>${name}</strong> 製作的回憶影片已經完成！請點擊下方按鈕觀看影片。
+    您為 <strong>${safeName}</strong> 製作的回憶影片已經完成！請點擊下方按鈕觀看影片。
   </p>
 
   <div style="text-align: center; margin: 32px 0;">
@@ -110,7 +114,7 @@ function buildCompletionHtml(viewUrl: string, name: string): string {
   </div>
 
   <p style="font-size: 13px; color: #888; line-height: 1.5;">
-    Your memorial video for <strong>${name}</strong> is ready! Click the button above to view it.
+    Your memorial video for <strong>${safeName}</strong> is ready! Click the button above to view it.
   </p>
 
   <hr style="border: none; border-top: 1px solid #eee; margin: 32px 0;" />
