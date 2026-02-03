@@ -295,7 +295,12 @@ function CreatePageInner() {
                           <p className="text-muted-foreground">查詢額度中...</p>
                         ) : creditBalance ? (
                           creditBalance.remaining > 0 ? (
-                            creditBalance.total > 0 ? (
+                            creditBalance.isAdmin ? (
+                              // Admin user
+                              <p className="text-purple-600 dark:text-purple-400 font-medium">
+                                👑 管理員 — 無限額度
+                              </p>
+                            ) : creditBalance.total > 0 ? (
                               // Has paid credits
                               <p className="text-green-600 dark:text-green-400 font-medium">
                                 剩餘 {creditBalance.remaining} 點

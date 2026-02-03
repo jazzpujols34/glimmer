@@ -10,6 +10,16 @@ const CREDIT_PREFIX = 'credits:';
 const FREE_PREFIX = 'free:';
 const VERIFIED_PREFIX = 'verified:';
 
+// Admin emails get unlimited credits (comma-separated in env, or hardcoded fallback)
+const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || 'jazz.lien@gmail.com')
+  .split(',')
+  .map(e => e.toLowerCase().trim())
+  .filter(Boolean);
+
+function isAdmin(email: string): boolean {
+  return ADMIN_EMAILS.includes(email.toLowerCase().trim());
+}
+
 // --- Email helpers ---
 
 function normalize(email: string): string {
@@ -61,6 +71,20 @@ async function saveFreeRecord(email: string, record: FreeRecord): Promise<void> 
 /** Check credit balance for an email address. */
 export async function checkCredits(email: string): Promise<CreditBalance> {
   const norm = normalize(email);
+
+  // Admins get unlimited credits
+  if (isAdmin(norm)) {
+    return {
+      email: norm,
+      total: 999999,
+      used: 0,
+      freeUsed: false,
+      remaining: 999999,
+      verified: true,
+      isAdmin: true,
+    };
+  }
+
   const [record, free, verified] = await Promise.all([
     getCreditRecord(norm),
     getFreeRecord(norm),
@@ -88,6 +112,11 @@ export async function useCredit(
   jobId: string,
 ): Promise<{ success: boolean; usedFree: boolean }> {
   const norm = normalize(email);
+
+  // Admins: always succeed, no deduction
+  if (isAdmin(norm)) {
+    return { success: true, usedFree: false };
+  }
 
   // Try free tier first
   const free = await getFreeRecord(norm);

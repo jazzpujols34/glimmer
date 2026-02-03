@@ -28,11 +28,11 @@ const taskTypes: { value: TaskType; label: string; description: string }[] = [
   { value: 'first-last-frame', label: 'First + Last Frame', description: '首幀末幀，平滑過渡' },
 ];
 
-const models: { value: ModelType; label: string; description: string }[] = [
+const models: { value: ModelType; label: string; description: string; disabled?: boolean }[] = [
   { value: 'byteplus', label: 'BytePlus Seedance', description: '推薦，2-12秒影片' },
-  { value: 'veo-3.1', label: 'Veo 3.1', description: 'Google，8秒固定' },
-  { value: 'veo-3.1-fast', label: 'Veo 3.1 Fast', description: 'Google 快速' },
-  { value: 'kling-ai', label: 'Kling AI', description: '5或10秒' },
+  { value: 'veo-3.1', label: 'Veo 3.1', description: 'Google，8秒固定 (coming soon)', disabled: true },
+  { value: 'veo-3.1-fast', label: 'Veo 3.1 Fast', description: 'Google 快速 (coming soon)', disabled: true },
+  { value: 'kling-ai', label: 'Kling AI', description: '5或10秒 (coming soon)', disabled: true },
 ];
 
 const aspectRatios: { value: AspectRatio; label: string }[] = [
@@ -109,9 +109,9 @@ function SettingsContent({ settings, onSettingsChange }: Omit<SettingsSidebarPro
           </SelectTrigger>
           <SelectContent>
             {models.map((model) => (
-              <SelectItem key={model.value} value={model.value}>
+              <SelectItem key={model.value} value={model.value} disabled={model.disabled}>
                 <div>
-                  <div className="font-medium">{model.label}</div>
+                  <div className={`font-medium ${model.disabled ? 'text-muted-foreground' : ''}`}>{model.label}</div>
                   <div className="text-xs text-muted-foreground">{model.description}</div>
                 </div>
               </SelectItem>
