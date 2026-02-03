@@ -47,8 +47,6 @@ function CreatePageInner() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [creditBalance, setCreditBalance] = useState<CreditBalance | null>(null);
   const [creditLoading, setCreditLoading] = useState(false);
-  const [verificationSent, setVerificationSent] = useState(false);
-  const [verifyLoading, setVerifyLoading] = useState(false);
   const errorRef = useRef<HTMLDivElement>(null);
   const searchParams = useSearchParams();
 
@@ -113,30 +111,6 @@ function CreatePageInner() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
-  const handleVerifyEmail = async () => {
-    if (!email || !isValidEmail) return;
-    setVerifyLoading(true);
-    try {
-      const res = await fetch('/api/verify/send', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
-      });
-      const data = await res.json();
-      if (data.alreadyVerified) {
-        setCreditBalance(prev => prev ? { ...prev, verified: true } : null);
-      } else if (data.sent) {
-        setVerificationSent(true);
-      } else {
-        setError(data.error || '發送驗證信失敗');
-      }
-    } catch {
-      setError('發送驗證信失敗，請稍後再試');
-    } finally {
-      setVerifyLoading(false);
-    }
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -196,8 +170,6 @@ function CreatePageInner() {
       if (!res.ok) {
         if (res.status === 402) {
           setCreditBalance(prev => prev ? { ...prev, remaining: 0 } : null);
-        } else if (res.status === 403 && data.code === 'EMAIL_NOT_VERIFIED') {
-          setCreditBalance(prev => prev ? { ...prev, verified: false } : null);
         }
         throw new Error(data.error || '發生錯誤');
       }
@@ -324,34 +296,12 @@ function CreatePageInner() {
                         ) : creditBalance ? (
                           creditBalance.remaining > 0 ? (
                             creditBalance.total > 0 ? (
-                              // Has paid credits — no verification needed
+                              // Has paid credits
                               <p className="text-green-600 dark:text-green-400 font-medium">
                                 剩餘 {creditBalance.remaining} 點
                               </p>
-                            ) : !creditBalance.freeUsed && !creditBalance.verified ? (
-                              // Free tier available but email not verified
-                              verificationSent ? (
-                                <p className="text-blue-600 dark:text-blue-400 font-medium">
-                                  已寄出驗證信，請查收 Email 並點擊連結驗證
-                                </p>
-                              ) : (
-                                <div className="space-y-2">
-                                  <p className="text-amber-600 dark:text-amber-400 font-medium">
-                                    驗證 Email 以使用免費影片額度
-                                  </p>
-                                  <Button
-                                    type="button"
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={handleVerifyEmail}
-                                    disabled={verifyLoading}
-                                  >
-                                    {verifyLoading ? '發送中...' : '發送驗證信'}
-                                  </Button>
-                                </div>
-                              )
                             ) : (
-                              // Free tier, verified
+                              // Free tier available
                               <p className="text-green-600 dark:text-green-400 font-medium">
                                 您有 1 支免費影片額度！
                               </p>
@@ -449,7 +399,7 @@ function CreatePageInner() {
                     type="submit"
                     size="lg"
                     className="w-full"
-                    disabled={isSubmitting || !isValidEmail || (creditBalance?.remaining ?? 1) <= 0 || (isFrameMode ? !firstFrame : photos.length < 1) || (creditBalance !== null && creditBalance.total === 0 && !creditBalance.freeUsed && !creditBalance.verified)}
+                    disabled={isSubmitting || !isValidEmail || (creditBalance?.remaining ?? 1) <= 0 || (isFrameMode ? !firstFrame : photos.length < 1)}
                   >
                     {isSubmitting ? (
                       <>

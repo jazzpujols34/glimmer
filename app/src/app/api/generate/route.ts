@@ -148,15 +148,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // --- Email verification check (free tier only) ---
-    const usingFreeTier = balance.total === 0 && !balance.freeUsed;
-    if (usingFreeTier && !balance.verified) {
-      return NextResponse.json(
-        { error: '請先驗證 Email 以使用免費額度', code: 'EMAIL_NOT_VERIFIED' },
-        { status: 403 }
-      );
-    }
-
     // Generate job ID
     const jobId = `job_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
