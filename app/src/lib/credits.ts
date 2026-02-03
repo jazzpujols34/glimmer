@@ -11,7 +11,7 @@ const FREE_PREFIX = 'free:';
 const VERIFIED_PREFIX = 'verified:';
 
 // Admin emails get unlimited credits (comma-separated in env, or hardcoded fallback)
-const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || 'jazz.lien@gmail.com')
+const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || 'glimmer.hello@gmail.com,aipujol34@gmail.com,cocoshell8988@gmail.com')
   .split(',')
   .map(e => e.toLowerCase().trim())
   .filter(Boolean);
