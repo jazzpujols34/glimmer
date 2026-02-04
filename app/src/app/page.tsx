@@ -787,9 +787,12 @@ export default function LandingPage() {
       <footer className="border-t border-border py-8 mt-auto">
         <div className="container mx-auto px-4">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-            <p className="text-sm text-muted-foreground">
-              &copy; 2026 拾光 Glimmer. All rights reserved.
-            </p>
+            <div className="text-sm text-muted-foreground text-center md:text-left">
+              <p>&copy; 2026 拾光 Glimmer. All rights reserved.</p>
+              <p className="mt-1 text-xs">
+                聯絡信箱：aipujols34@gmail.com ｜ 電話：0973-313-882
+              </p>
+            </div>
             <div className="flex items-center gap-6 text-sm text-muted-foreground">
               <Link href="/create" className="hover:text-foreground transition-colors">
                 開始製作
