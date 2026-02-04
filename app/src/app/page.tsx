@@ -806,14 +806,6 @@ export default function LandingPage() {
               <Link href="/privacy" className="hover:text-foreground transition-colors">
                 隱私政策
               </Link>
-              <a
-                href="https://github.com/jazzpujols34/glimmer"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="hover:text-foreground transition-colors"
-              >
-                GitHub
-              </a>
             </div>
           </div>
         </div>
