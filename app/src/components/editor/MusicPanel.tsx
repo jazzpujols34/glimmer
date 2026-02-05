@@ -9,7 +9,6 @@ import { generateId } from '@/lib/editor/timeline-utils';
 import type { MusicClip, BundledTrack } from '@/types/editor';
 import type { OccasionType } from '@/types/index';
 import { Upload, Play, Pause, Trash2, Music, ArrowLeft } from 'lucide-react';
-import { cn } from '@/lib/utils';
 
 const BUNDLED_TRACKS: BundledTrack[] = [
   { id: 'gentle-piano', name: '溫柔鋼琴', filename: 'gentle-piano.mp3', occasion: 'all', durationSeconds: 60 },

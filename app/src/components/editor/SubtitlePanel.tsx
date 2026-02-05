@@ -115,7 +115,7 @@ export function SubtitlePanel() {
         </div>
       ) : (
         <div className="space-y-1">
-          {state.subtitles.map((sub, idx) => (
+          {state.subtitles.map((sub) => (
             <button
               key={sub.id}
               onClick={() => {

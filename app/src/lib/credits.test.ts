@@ -15,7 +15,7 @@ vi.mock('./kv', () => ({
   }),
 }));
 
-import { checkCredits, useCredit, addCredits, isValidEmail, isEmailVerified, setEmailVerified, FREE_GENERATIONS } from './credits';
+import { checkCredits, consumeCredit, addCredits, isValidEmail, isEmailVerified, setEmailVerified, FREE_GENERATIONS } from './credits';
 
 beforeEach(() => {
   mockStore.clear();
@@ -72,15 +72,15 @@ describe('checkCredits', () => {
   });
 });
 
-describe('useCredit', () => {
+describe('consumeCredit', () => {
   it('uses free generations first', async () => {
-    const result = await useCredit('user@example.com', 'job_1');
+    const result = await consumeCredit('user@example.com', 'job_1');
     expect(result.success).toBe(true);
     expect(result.usedFree).toBe(true);
   });
 
   it('tracks free generation usage', async () => {
-    await useCredit('user@example.com', 'job_1');
+    await consumeCredit('user@example.com', 'job_1');
     const balance = await checkCredits('user@example.com');
     expect(balance.freeUsed).toBe(1);
     expect(balance.remaining).toBe(FREE_GENERATIONS - 1); // 9 remaining
@@ -89,13 +89,13 @@ describe('useCredit', () => {
   it('uses all 10 free generations before failing', async () => {
     // Use all 10 free generations
     for (let i = 0; i < FREE_GENERATIONS; i++) {
-      const result = await useCredit('user@example.com', `job_${i}`);
+      const result = await consumeCredit('user@example.com', `job_${i}`);
       expect(result.success).toBe(true);
       expect(result.usedFree).toBe(true);
     }
 
     // 11th should fail (no paid credits)
-    const result = await useCredit('user@example.com', 'job_11');
+    const result = await consumeCredit('user@example.com', 'job_11');
     expect(result.success).toBe(false);
     expect(result.usedFree).toBe(false);
   });
@@ -103,7 +103,7 @@ describe('useCredit', () => {
   it('uses paid generations after free is exhausted', async () => {
     // Use all free generations
     for (let i = 0; i < FREE_GENERATIONS; i++) {
-      await useCredit('user@example.com', `job_${i}`);
+      await consumeCredit('user@example.com', `job_${i}`);
     }
 
     // Add paid credits
@@ -112,7 +112,7 @@ describe('useCredit', () => {
     });
 
     // Should now use paid credits
-    const result = await useCredit('user@example.com', 'job_paid_1');
+    const result = await consumeCredit('user@example.com', 'job_paid_1');
     expect(result.success).toBe(true);
     expect(result.usedFree).toBe(false);
 

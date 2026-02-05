@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useEditor, useEditorDispatch } from './EditorContext';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -14,7 +14,6 @@ export function ExportPanel() {
   const [progress, setProgress] = useState(0);
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const linkRef = useRef<HTMLAnchorElement>(null);
 
   // Revoke blob URL on unmount to prevent memory leak
   useEffect(() => {

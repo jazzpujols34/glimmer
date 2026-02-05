@@ -35,6 +35,7 @@ export function GenerationProgress({ jobId, onComplete, onError }: GenerationPro
   const [networkError, setNetworkError] = useState(false);
 
   useEffect(() => {
+    // eslint-disable-next-line prefer-const -- assigned after pollStatus is defined for closure
     let intervalId: NodeJS.Timeout;
     let attempts = 0;
     let consecutiveErrors = 0;

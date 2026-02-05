@@ -333,7 +333,7 @@ function escapeFFmpegText(text: string): string {
 
 function generateASS(
   subtitles: EditorState['subtitles'],
-  state: EditorState,
+  _state: EditorState,
 ): string {
   const header = `[Script Info]
 ScriptType: v4.00+

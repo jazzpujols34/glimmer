@@ -76,7 +76,6 @@ function SettingsContent({ settings, onSettingsChange }: Omit<SettingsSidebarPro
 
   const isVeo = isVeoModel(settings.model);
   const isBytePlus = isBytePlusModel(settings.model);
-  const isKling = isKlingModel(settings.model);
 
   return (
     <div className="space-y-6 py-4">

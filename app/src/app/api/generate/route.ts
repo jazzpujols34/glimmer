@@ -3,7 +3,7 @@ export const runtime = 'edge';
 import { NextRequest, NextResponse } from 'next/server';
 import { createJob, updateJob } from '@/lib/storage';
 import { createVideoTask } from '@/lib/veo';
-import { checkCredits, useCredit, isValidEmail } from '@/lib/credits';
+import { checkCredits, consumeCredit, isValidEmail } from '@/lib/credits';
 import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
 import type { GenerationSettings, OccasionType } from '@/types';
 import { defaultSettings } from '@/types';
@@ -191,7 +191,7 @@ export async function POST(request: NextRequest) {
     });
 
     // Deduct credit AFTER external task creation succeeds
-    const creditResult = await useCredit(email, jobId);
+    const creditResult = await consumeCredit(email, jobId);
     if (!creditResult.success) {
       // Shouldn't happen (we checked above), but log defensively
       console.error(`[API] Credit deduction failed for ${email} on job ${jobId}`);

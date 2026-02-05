@@ -3,7 +3,6 @@ import {
   getClipDuration,
   getMusicClipDuration,
   getTotalDuration,
-  getOutroStart,
   clipsSortedByPosition,
   getActiveElementAtPosition,
   getActiveSubtitles,

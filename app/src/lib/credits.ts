@@ -121,7 +121,7 @@ export async function checkCredits(email: string): Promise<CreditBalance> {
  * Use 1 generation. Checks free tier first, then paid credits.
  * Returns { success, usedFree } — success=false if no generations available.
  */
-export async function useCredit(
+export async function consumeCredit(
   email: string,
   jobId: string,
 ): Promise<{ success: boolean; usedFree: boolean }> {

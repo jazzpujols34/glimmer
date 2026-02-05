@@ -1,5 +1,7 @@
 # CLAUDE.md — 拾光 Glimmer
 
+> **Root conventions apply:** See `../CLAUDE.md` for coding guardrails, plan mode structure, and learned rules protocol.
+
 ## Project Overview
 
 **拾光 Glimmer** is an AI-powered memorial video generation platform. Users upload photos and the app generates cinematic videos via multiple AI providers (Google Veo 3.1, BytePlus Seedance, Kling AI).
