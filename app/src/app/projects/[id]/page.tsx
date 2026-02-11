@@ -207,16 +207,13 @@ export default function ProjectDetailPage({
               </CardContent>
             </Card>
           ) : (
-            <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+            <div className="columns-2 md:columns-3 lg:columns-4 gap-4 space-y-4">
               {jobs.map((job) => {
                 const isPortrait = job.settings?.aspectRatio === '9:16';
                 return (
                   <Card
                     key={job.id}
-                    className={cn(
-                      'overflow-hidden hover:shadow-lg transition-shadow cursor-pointer relative group',
-                      isPortrait && 'row-span-2'
-                    )}
+                    className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer relative group break-inside-avoid mb-4"
                     onClick={() => setSelectedJob(job)}
                   >
                     <div
@@ -233,7 +230,7 @@ export default function ProjectDetailPage({
                       ) : (
                         <video
                           src={job.videoUrl}
-                          className="w-full h-full object-contain"
+                          className="w-full h-full object-cover"
                           muted
                           playsInline
                           preload="metadata"
