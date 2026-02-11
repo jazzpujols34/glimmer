@@ -3,6 +3,7 @@ export const runtime = 'edge';
 import { NextRequest, NextResponse } from 'next/server';
 import { getJob } from '@/lib/storage';
 import { r2Get } from '@/lib/r2';
+import { captureError } from '@/lib/errors';
 
 /**
  * Proxy video fetches server-side to bypass CORS restrictions on CDN URLs.
@@ -72,7 +73,7 @@ export async function GET(request: NextRequest) {
 
     return new NextResponse(cdnResponse.body, { status: 200, headers });
   } catch (error) {
-    console.error('Proxy video error:', error);
+    captureError(error, { route: '/api/proxy-video' });
     return NextResponse.json({ error: '影片代理載入失敗' }, { status: 500 });
   }
 }

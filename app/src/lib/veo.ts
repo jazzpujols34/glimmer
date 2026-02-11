@@ -1,5 +1,6 @@
 import { GoogleGenAI } from '@google/genai';
 import { buildPrompt } from './prompts';
+import { captureError } from './errors';
 import type { GenerationSettings, GenerationJob, OccasionType, ModelType } from '@/types';
 
 // === Public interfaces ===
@@ -158,7 +159,9 @@ async function checkBytePlusTasks(taskIds: string[]): Promise<TaskCheckResult> {
       if (url) videoUrls.push(url);
       else return { done: true, error: 'No video URL in BytePlus response' };
     } else if (status === 'failed' || status === 'error') {
-      return { done: true, error: data.error || data.message || 'BytePlus generation failed' };
+      const errorMsg = data.error || data.message || 'BytePlus generation failed';
+      captureError(new Error(errorMsg), { provider: 'byteplus', taskId });
+      return { done: true, error: errorMsg };
     } else {
       pending++;
     }
@@ -222,7 +225,9 @@ async function checkVeoTask(operationName: string): Promise<TaskCheckResult> {
   const response = operation.response;
   if (response?.raiMediaFilteredCount && response.raiMediaFilteredCount > 0) {
     const reasons = response.raiMediaFilteredReasons?.join(', ') || 'Unknown';
-    return { done: true, error: `Content filtered: ${reasons}` };
+    const errorMsg = `Content filtered: ${reasons}`;
+    captureError(new Error(errorMsg), { provider: 'veo', operationName });
+    return { done: true, error: errorMsg };
   }
 
   if (response?.generatedVideos && response.generatedVideos.length > 0) {
@@ -235,7 +240,9 @@ async function checkVeoTask(operationName: string): Promise<TaskCheckResult> {
   }
 
   if (operation.error) {
-    return { done: true, error: `Veo error: ${JSON.stringify(operation.error)}` };
+    const errorMsg = `Veo error: ${JSON.stringify(operation.error)}`;
+    captureError(new Error(errorMsg), { provider: 'veo', operationName });
+    return { done: true, error: errorMsg };
   }
 
   return { done: true, error: 'No videos in Veo response' };
@@ -310,7 +317,9 @@ async function checkKlingTasks(taskIds: string[]): Promise<TaskCheckResult> {
       if (videoUrl) videoUrls.push(videoUrl);
       else return { done: true, error: 'No video URL in Kling response' };
     } else if (status === 'failed') {
-      return { done: true, error: data.data?.task_status_msg || 'Kling generation failed' };
+      const errorMsg = data.data?.task_status_msg || 'Kling generation failed';
+      captureError(new Error(errorMsg), { provider: 'kling-ai', taskId });
+      return { done: true, error: errorMsg };
     } else {
       pending++;
     }

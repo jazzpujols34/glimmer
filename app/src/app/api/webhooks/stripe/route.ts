@@ -2,6 +2,7 @@ export const runtime = 'edge';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { addCredits } from '@/lib/credits';
+import { captureError } from '@/lib/errors';
 import type { PurchaseRecord } from '@/types';
 
 export async function POST(request: NextRequest) {
@@ -50,7 +51,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ received: true });
   } catch (error) {
-    console.error('Webhook processing error:', error);
+    captureError(error, { route: '/api/webhooks/stripe' });
     return NextResponse.json({ error: 'Webhook processing failed' }, { status: 500 });
   }
 }

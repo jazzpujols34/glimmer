@@ -3,6 +3,7 @@ export const runtime = 'edge';
 import { NextRequest, NextResponse } from 'next/server';
 import { isValidEmail } from '@/lib/credits';
 import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
+import { captureError } from '@/lib/errors';
 
 // Credit pack definitions — Price IDs come from environment (will switch to ECPay)
 const CREDIT_PACKS: Record<string, { credits: number; priceTWD: number; priceId: string }> = {
@@ -69,7 +70,7 @@ export async function POST(request: NextRequest) {
     const session = await res.json();
     return NextResponse.json({ url: session.url });
   } catch (error) {
-    console.error('Checkout API error:', error);
+    captureError(error, { route: '/api/checkout' });
     return NextResponse.json({ error: '發生錯誤' }, { status: 500 });
   }
 }

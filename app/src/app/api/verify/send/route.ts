@@ -5,6 +5,7 @@ import { isValidEmail, isEmailVerified } from '@/lib/credits';
 import { sendVerificationEmail } from '@/lib/email';
 import { kvPut } from '@/lib/kv';
 import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
+import { captureError } from '@/lib/errors';
 
 const VERIFY_TOKEN_TTL = 900; // 15 minutes
 
@@ -63,7 +64,7 @@ export async function POST(request: NextRequest) {
     console.log(`[Verify] Sent verification email to ${normalized}`);
     return NextResponse.json({ sent: true });
   } catch (error) {
-    console.error('Verify send error:', error);
+    captureError(error, { route: '/api/verify/send' });
     return NextResponse.json({ error: '發生錯誤' }, { status: 500 });
   }
 }

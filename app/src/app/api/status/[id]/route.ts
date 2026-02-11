@@ -7,6 +7,7 @@ import { archiveVideos } from '@/lib/r2';
 import { checkCredits } from '@/lib/credits';
 import { sendCompletionEmail } from '@/lib/email';
 import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
+import { captureError } from '@/lib/errors';
 
 export async function GET(
   request: NextRequest,
@@ -107,7 +108,7 @@ export async function GET(
       error: job.error,
     });
   } catch (error) {
-    console.error('Status API error:', error);
+    captureError(error, { route: '/api/status' });
     return NextResponse.json(
       { error: '發生錯誤' },
       { status: 500 }

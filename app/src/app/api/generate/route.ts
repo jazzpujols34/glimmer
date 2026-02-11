@@ -5,6 +5,7 @@ import { createJob, updateJob } from '@/lib/storage';
 import { createVideoTask } from '@/lib/veo';
 import { checkCredits, consumeCredit, isValidEmail } from '@/lib/credits';
 import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
+import { captureError } from '@/lib/errors';
 import type { GenerationSettings, OccasionType } from '@/types';
 import { defaultSettings } from '@/types';
 
@@ -202,7 +203,7 @@ export async function POST(request: NextRequest) {
       status: 'processing',
     });
   } catch (error) {
-    console.error('Generate API error:', error);
+    captureError(error, { route: '/api/generate' });
     return NextResponse.json(
       { error: '發生錯誤，請稍後再試' },
       { status: 500 }
