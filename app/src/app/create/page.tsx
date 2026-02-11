@@ -11,8 +11,9 @@ import { Label } from '@/components/ui/label';
 import { PhotoUploader } from '@/components/PhotoUploader';
 import { FrameUploader } from '@/components/FrameUploader';
 import { SettingsSidebar } from '@/components/SettingsSidebar';
-import type { OccasionType, GenerationSettings, CreditBalance } from '@/types';
+import type { OccasionType, GenerationSettings, CreditBalance, Project } from '@/types';
 import { defaultSettings } from '@/types';
+import { FolderOpen, ChevronDown } from 'lucide-react';
 
 const occasions: { value: OccasionType; label: string; description: string }[] = [
   { value: 'memorial', label: '追思紀念', description: '告別式、追悼會' },
@@ -47,6 +48,9 @@ function CreatePageInner() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [creditBalance, setCreditBalance] = useState<CreditBalance | null>(null);
   const [creditLoading, setCreditLoading] = useState(false);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const [projectDropdownOpen, setProjectDropdownOpen] = useState(false);
   const errorRef = useRef<HTMLDivElement>(null);
   const searchParams = useSearchParams();
 
@@ -90,15 +94,35 @@ function CreatePageInner() {
     }
   }, [error]);
 
-  // Handle verification callback from magic link
+  // Load projects list
   useEffect(() => {
+    async function loadProjects() {
+      try {
+        const res = await fetch('/api/projects');
+        if (res.ok) {
+          const data = await res.json();
+          setProjects(data.projects || []);
+        }
+      } catch { /* ignore */ }
+    }
+    loadProjects();
+  }, []);
+
+  // Handle projectId from URL and verification callback
+  useEffect(() => {
+    const projectId = searchParams.get('projectId');
+    if (projectId) {
+      setSelectedProjectId(projectId);
+    }
+
     const verified = searchParams.get('verified');
     const verifyError = searchParams.get('verify_error');
     if (verified === '1') {
       // Refresh credit balance to pick up verified status
       setCreditBalance(prev => prev ? { ...prev, verified: true } : null);
-      // Clean URL
-      router.replace('/create', { scroll: false });
+      // Clean URL but keep projectId
+      const newUrl = projectId ? `/create?projectId=${projectId}` : '/create';
+      router.replace(newUrl, { scroll: false });
     } else if (verifyError) {
       const messages: Record<string, string> = {
         expired: '驗證連結已過期，請重新發送',
@@ -147,6 +171,9 @@ function CreatePageInner() {
       formData.append('name', name);
       formData.append('occasion', occasion);
       formData.append('settings', JSON.stringify(settings));
+      if (selectedProjectId) {
+        formData.append('projectId', selectedProjectId);
+      }
 
       if (isFrameMode) {
         // First frame is photo_0, last frame (optional) is photo_1
@@ -369,6 +396,66 @@ function CreatePageInner() {
                           <div className="text-sm text-muted-foreground">{item.description}</div>
                         </button>
                       ))}
+                    </div>
+                  </div>
+
+                  {/* Project selector */}
+                  <div className="space-y-2">
+                    <Label>加入專案（選填）</Label>
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={() => setProjectDropdownOpen(!projectDropdownOpen)}
+                        className="w-full flex items-center justify-between px-4 py-2 rounded-lg border border-border bg-background hover:bg-muted/50 transition-colors text-left"
+                      >
+                        <span className="flex items-center gap-2">
+                          <FolderOpen className="w-4 h-4 text-muted-foreground" />
+                          {selectedProjectId
+                            ? projects.find(p => p.id === selectedProjectId)?.name || '選擇專案'
+                            : '不加入專案'}
+                        </span>
+                        <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${projectDropdownOpen ? 'rotate-180' : ''}`} />
+                      </button>
+                      {projectDropdownOpen && (
+                        <div className="absolute z-10 mt-1 w-full bg-background border border-border rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedProjectId(null);
+                              setProjectDropdownOpen(false);
+                            }}
+                            className="w-full px-4 py-2 text-left hover:bg-muted/50 transition-colors text-sm"
+                          >
+                            不加入專案
+                          </button>
+                          {projects.map(project => (
+                            <button
+                              key={project.id}
+                              type="button"
+                              onClick={() => {
+                                setSelectedProjectId(project.id);
+                                setProjectDropdownOpen(false);
+                              }}
+                              className={`w-full px-4 py-2 text-left hover:bg-muted/50 transition-colors text-sm ${
+                                selectedProjectId === project.id ? 'bg-primary/10 text-primary' : ''
+                              }`}
+                            >
+                              {project.name}
+                              <span className="text-xs text-muted-foreground ml-2">
+                                ({project.jobIds.length} 影片)
+                              </span>
+                            </button>
+                          ))}
+                          {projects.length === 0 && (
+                            <div className="px-4 py-2 text-sm text-muted-foreground">
+                              還沒有專案 —{' '}
+                              <Link href="/projects" className="text-primary hover:underline">
+                                建立專案
+                              </Link>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
 

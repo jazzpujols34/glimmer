@@ -5,8 +5,10 @@ import Link from 'next/link';
 import { Logo } from '@/components/Logo';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Play, Download, Calendar, Film, ArrowLeft, Trash2, Scissors, AlertCircle, X, Star } from 'lucide-react';
+import { Play, Download, Calendar, Film, ArrowLeft, Trash2, Scissors, AlertCircle, X, Star, FolderOpen } from 'lucide-react';
 import { cn } from '@/lib/utils';
+
+type GalleryFilter = 'all' | 'favorites' | 'projects';
 
 interface GalleryJob {
   id: string;
@@ -40,6 +42,7 @@ export default function GalleryPage() {
   const [selectedJob, setSelectedJob] = useState<GalleryJob | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [videoErrors, setVideoErrors] = useState<Set<string>>(new Set());
+  const [filter, setFilter] = useState<GalleryFilter>('all');
 
   // Close modal on Escape key
   const closeModal = useCallback(() => setSelectedJob(null), []);
@@ -145,51 +148,118 @@ export default function GalleryPage() {
       {/* Main content */}
       <main className="container mx-auto px-4 py-12">
         <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-12">
+          <div className="text-center mb-8">
             <h1 className="text-3xl font-bold mb-4">影片庫</h1>
             <p className="text-muted-foreground">
               瀏覽您過去生成的所有影片
             </p>
           </div>
 
-          {loading ? (
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-              {[1, 2, 3].map((i) => (
-                <Card key={i} className="overflow-hidden">
-                  <div className="aspect-video bg-muted animate-pulse" />
-                  <CardContent className="p-4 space-y-2">
-                    <div className="h-5 bg-muted animate-pulse rounded w-2/3" />
-                    <div className="h-4 bg-muted animate-pulse rounded w-1/2" />
+          {/* Tabs */}
+          <div className="flex justify-center gap-2 mb-8">
+            <Button
+              variant={filter === 'all' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setFilter('all')}
+            >
+              <Film className="w-4 h-4 mr-2" />
+              全部 ({jobs.length})
+            </Button>
+            <Button
+              variant={filter === 'favorites' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setFilter('favorites')}
+            >
+              <Star className="w-4 h-4 mr-2" />
+              收藏 ({jobs.filter(j => j.favorite).length})
+            </Button>
+            <Button
+              variant={filter === 'projects' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setFilter('projects')}
+              asChild
+            >
+              <Link href="/projects">
+                <FolderOpen className="w-4 h-4 mr-2" />
+                專案
+              </Link>
+            </Button>
+          </div>
+
+          {(() => {
+            // Filter jobs based on selected tab
+            const filteredJobs = filter === 'favorites'
+              ? jobs.filter(j => j.favorite)
+              : jobs;
+
+            if (loading) {
+              return (
+                <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                  {[1, 2, 3].map((i) => (
+                    <Card key={i} className="overflow-hidden">
+                      <div className="aspect-video bg-muted animate-pulse" />
+                      <CardContent className="p-4 space-y-2">
+                        <div className="h-5 bg-muted animate-pulse rounded w-2/3" />
+                        <div className="h-4 bg-muted animate-pulse rounded w-1/2" />
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              );
+            }
+
+            if (error) {
+              return (
+                <Card className="max-w-md mx-auto">
+                  <CardContent className="p-8 text-center">
+                    <p className="text-destructive mb-4">{error}</p>
+                    <Button onClick={() => window.location.reload()}>重試</Button>
                   </CardContent>
                 </Card>
-              ))}
-            </div>
-          ) : error ? (
-            <Card className="max-w-md mx-auto">
-              <CardContent className="p-8 text-center">
-                <p className="text-destructive mb-4">{error}</p>
-                <Button onClick={() => window.location.reload()}>重試</Button>
-              </CardContent>
-            </Card>
-          ) : jobs.length === 0 ? (
-            <Card className="max-w-md mx-auto">
-              <CardContent className="p-8 text-center">
-                <Film className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
-                <h2 className="text-xl font-semibold mb-2">還沒有影片</h2>
-                <p className="text-muted-foreground mb-2">
-                  您生成的影片會自動出現在這裡
-                </p>
-                <p className="text-muted-foreground/60 text-xs mb-6">
-                  影片連結有效期限為 24 小時，請及時下載保存
-                </p>
-                <Button asChild>
-                  <Link href="/create">開始製作</Link>
-                </Button>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-              {jobs.map((job) => {
+              );
+            }
+
+            if (jobs.length === 0) {
+              return (
+                <Card className="max-w-md mx-auto">
+                  <CardContent className="p-8 text-center">
+                    <Film className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
+                    <h2 className="text-xl font-semibold mb-2">還沒有影片</h2>
+                    <p className="text-muted-foreground mb-2">
+                      您生成的影片會自動出現在這裡
+                    </p>
+                    <p className="text-muted-foreground/60 text-xs mb-6">
+                      影片連結有效期限為 24 小時，請及時下載保存
+                    </p>
+                    <Button asChild>
+                      <Link href="/create">開始製作</Link>
+                    </Button>
+                  </CardContent>
+                </Card>
+              );
+            }
+
+            // Show empty state for favorites filter when no favorites
+            if (filteredJobs.length === 0 && filter === 'favorites') {
+              return (
+                <Card className="max-w-md mx-auto">
+                  <CardContent className="p-8 text-center">
+                    <Star className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
+                    <h2 className="text-xl font-semibold mb-2">還沒有收藏</h2>
+                    <p className="text-muted-foreground mb-4">
+                      點擊影片中的星星圖示來收藏喜愛的影片
+                    </p>
+                    <Button variant="outline" onClick={() => setFilter('all')}>
+                      查看所有影片
+                    </Button>
+                  </CardContent>
+                </Card>
+              );
+            }
+
+            return (
+              <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+                {filteredJobs.map((job) => {
                 const isPortrait = job.settings?.aspectRatio === '9:16';
                 return (
                 <Card
@@ -250,11 +320,13 @@ export default function GalleryPage() {
                         {formatDate(job.createdAt).split(' ')[0]}
                       </span>
                     </div>
-                  </CardContent>
-                </Card>
-              )})}
-            </div>
-          )}
+                    </CardContent>
+                  </Card>
+                );
+              })}
+              </div>
+            );
+          })()}
         </div>
       </main>
 
