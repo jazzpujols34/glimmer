@@ -1,4 +1,4 @@
-import type { GenerationJob, GenerationStatus, OccasionType } from '@/types';
+import type { GenerationJob, GenerationStatus, OccasionType, Project } from '@/types';
 import { kvGet, kvPut, kvDelete, kvListKeys } from './kv';
 
 /**
@@ -95,4 +95,120 @@ export async function deleteJob(id: string): Promise<boolean> {
   if (!job) return false;
   await kvDelete(`${KEY_PREFIX}${id}`);
   return true;
+}
+
+// === Project Storage ===
+
+const PROJECT_PREFIX = 'project:';
+
+export async function createProject(
+  name: string,
+  email?: string,
+  description?: string,
+): Promise<Project> {
+  const id = `project_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  const now = new Date().toISOString();
+  const project: Project = {
+    id,
+    name,
+    description,
+    email,
+    createdAt: now,
+    updatedAt: now,
+    jobIds: [],
+  };
+  await kvPut(`${PROJECT_PREFIX}${id}`, JSON.stringify(project));
+  return project;
+}
+
+export async function getProject(id: string): Promise<Project | undefined> {
+  const data = await kvGet(`${PROJECT_PREFIX}${id}`);
+  return data ? JSON.parse(data) : undefined;
+}
+
+export async function getAllProjects(email?: string): Promise<Project[]> {
+  const keys = await kvListKeys(PROJECT_PREFIX);
+  const projects: Project[] = [];
+  for (const key of keys) {
+    const data = await kvGet(key);
+    if (data) {
+      const project: Project = JSON.parse(data);
+      // If email filter provided, only return projects for that user
+      if (!email || project.email === email) {
+        projects.push(project);
+      }
+    }
+  }
+  return projects.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+}
+
+export async function updateProject(id: string, updates: Partial<Project>): Promise<Project | undefined> {
+  const project = await getProject(id);
+  if (!project) return undefined;
+  const updated = { ...project, ...updates, updatedAt: new Date().toISOString() };
+  await kvPut(`${PROJECT_PREFIX}${id}`, JSON.stringify(updated));
+  return updated;
+}
+
+export async function deleteProject(id: string): Promise<boolean> {
+  const project = await getProject(id);
+  if (!project) return false;
+  await kvDelete(`${PROJECT_PREFIX}${id}`);
+  return true;
+}
+
+export async function addJobToProject(projectId: string, jobId: string): Promise<Project | undefined> {
+  const project = await getProject(projectId);
+  if (!project) return undefined;
+
+  // Avoid duplicates
+  if (!project.jobIds.includes(jobId)) {
+    project.jobIds.push(jobId);
+    project.updatedAt = new Date().toISOString();
+
+    // Set first job as cover if none set
+    if (!project.coverJobId) {
+      project.coverJobId = jobId;
+    }
+
+    await kvPut(`${PROJECT_PREFIX}${projectId}`, JSON.stringify(project));
+  }
+
+  // Also update the job to reference the project
+  await updateJob(jobId, { projectId });
+
+  return project;
+}
+
+export async function removeJobFromProject(projectId: string, jobId: string): Promise<Project | undefined> {
+  const project = await getProject(projectId);
+  if (!project) return undefined;
+
+  project.jobIds = project.jobIds.filter(id => id !== jobId);
+  project.updatedAt = new Date().toISOString();
+
+  // Update cover if removed
+  if (project.coverJobId === jobId) {
+    project.coverJobId = project.jobIds[0];
+  }
+
+  await kvPut(`${PROJECT_PREFIX}${projectId}`, JSON.stringify(project));
+
+  // Clear project reference from job
+  await updateJob(jobId, { projectId: undefined });
+
+  return project;
+}
+
+export async function getProjectJobs(projectId: string): Promise<GenerationJob[]> {
+  const project = await getProject(projectId);
+  if (!project) return [];
+
+  const jobs: GenerationJob[] = [];
+  for (const jobId of project.jobIds) {
+    const job = await getJob(jobId);
+    if (job) jobs.push(job);
+  }
+
+  return jobs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 }

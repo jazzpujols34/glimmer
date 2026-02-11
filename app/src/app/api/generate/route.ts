@@ -1,7 +1,7 @@
 export const runtime = 'edge';
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createJob, updateJob } from '@/lib/storage';
+import { createJob, updateJob, addJobToProject, getProject } from '@/lib/storage';
 import { createVideoTask } from '@/lib/veo';
 import { checkCredits, consumeCredit, isValidEmail } from '@/lib/credits';
 import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
@@ -38,6 +38,7 @@ export async function POST(request: NextRequest) {
     const occasion = formData.get('occasion') as string;
     const settingsJson = formData.get('settings') as string;
     const email = formData.get('email') as string;
+    const projectId = formData.get('projectId') as string | null;
 
     if (!name || !occasion) {
       return NextResponse.json(
@@ -68,6 +69,17 @@ export async function POST(request: NextRequest) {
         { error: '無效的場合類型' },
         { status: 400 }
       );
+    }
+
+    // --- Input validation: projectId (optional) ---
+    if (projectId) {
+      const project = await getProject(projectId);
+      if (!project) {
+        return NextResponse.json(
+          { error: '找不到該專案' },
+          { status: 404 }
+        );
+      }
     }
 
     // Parse settings or use defaults
@@ -198,9 +210,15 @@ export async function POST(request: NextRequest) {
       console.error(`[API] Credit deduction failed for ${email} on job ${jobId}`);
     }
 
+    // Add job to project if projectId provided
+    if (projectId) {
+      await addJobToProject(projectId, jobId);
+    }
+
     return NextResponse.json({
       id: jobId,
       status: 'processing',
+      projectId: projectId || undefined,
     });
   } catch (error) {
     captureError(error, { route: '/api/generate' });

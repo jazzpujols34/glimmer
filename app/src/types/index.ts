@@ -64,6 +64,9 @@ export interface GenerationJob {
   settings?: GenerationSettings;
   email?: string;           // Email of the user who created this job
   archived?: boolean;       // true if videos have been archived to R2
+  // Project organization
+  projectId?: string;       // Reference to parent project
+  favorite?: boolean;       // Mark as favorite (keep when bulk deleting)
   // Edge-compatible: external task tracking (serverless polling)
   provider?: ModelType;
   externalTaskIds?: string[];       // BytePlus/Kling task IDs
@@ -119,4 +122,18 @@ export interface GenerationPack {
   label: string;          // "20 次生成"
   labelEn: string;        // "20 Generations"
   savings?: string;       // "省 20%"
+}
+
+// === Project System Types ===
+// Projects group multiple generation jobs together (e.g., clips for one final video)
+
+export interface Project {
+  id: string;              // project_xxx
+  name: string;            // User-defined name (e.g., "媽媽追思影片")
+  description?: string;
+  createdAt: string;
+  updatedAt: string;
+  jobIds: string[];        // References to GenerationJob IDs
+  coverJobId?: string;     // Job to use as thumbnail
+  email?: string;          // Owner's email
 }

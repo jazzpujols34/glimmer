@@ -5,7 +5,8 @@ import Link from 'next/link';
 import { Logo } from '@/components/Logo';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Play, Download, Calendar, Film, ArrowLeft, Trash2, Scissors, AlertCircle, X } from 'lucide-react';
+import { Play, Download, Calendar, Film, ArrowLeft, Trash2, Scissors, AlertCircle, X, Star } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface GalleryJob {
   id: string;
@@ -14,6 +15,8 @@ interface GalleryJob {
   videoUrl: string;
   videoUrls?: string[];
   createdAt: string;
+  favorite?: boolean;
+  projectId?: string;
   settings?: {
     model: string;
     aspectRatio: string;
@@ -101,6 +104,29 @@ export default function GalleryPage() {
     }
   };
 
+  const handleToggleFavorite = async (jobId: string, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    try {
+      const res = await fetch(`/api/gallery/${jobId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}), // Toggle
+      });
+      if (!res.ok) {
+        throw new Error('更新失敗');
+      }
+      const data = await res.json();
+      setJobs((prev) =>
+        prev.map((j) => (j.id === jobId ? { ...j, favorite: data.favorite } : j))
+      );
+      if (selectedJob?.id === jobId) {
+        setSelectedJob((prev) => prev ? { ...prev, favorite: data.favorite } : null);
+      }
+    } catch (err) {
+      alert(err instanceof Error ? err.message : '更新失敗');
+    }
+  };
+
   return (
     <div className="min-h-screen">
       {/* Header */}
@@ -162,14 +188,22 @@ export default function GalleryPage() {
               </CardContent>
             </Card>
           ) : (
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-              {jobs.map((job) => (
+            <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+              {jobs.map((job) => {
+                const isPortrait = job.settings?.aspectRatio === '9:16';
+                return (
                 <Card
                   key={job.id}
-                  className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer"
+                  className={cn(
+                    "overflow-hidden hover:shadow-lg transition-shadow cursor-pointer",
+                    isPortrait && "row-span-2"
+                  )}
                   onClick={() => setSelectedJob(job)}
                 >
-                  <div className="aspect-video bg-black relative">
+                  <div className={cn(
+                    "bg-black relative",
+                    isPortrait ? "aspect-[9/16]" : "aspect-video"
+                  )}>
                     {videoErrors.has(job.id) ? (
                       <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground gap-2">
                         <AlertCircle className="w-8 h-8" />
@@ -197,10 +231,16 @@ export default function GalleryPage() {
                         {job.videoUrls.length} 支影片
                       </div>
                     )}
+                    {/* Favorite star */}
+                    {job.favorite && (
+                      <div className="absolute top-2 left-2">
+                        <Star className="w-5 h-5 text-yellow-400 fill-yellow-400" />
+                      </div>
+                    )}
                   </div>
-                  <CardContent className="p-4">
-                    <h3 className="font-semibold truncate">{job.name}</h3>
-                    <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
+                  <CardContent className="p-3">
+                    <h3 className="font-semibold truncate text-sm">{job.name}</h3>
+                    <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
                       <span className="flex items-center gap-1">
                         <Film className="w-3 h-3" />
                         {occasionLabels[job.occasion] || job.occasion}
@@ -210,22 +250,9 @@ export default function GalleryPage() {
                         {formatDate(job.createdAt).split(' ')[0]}
                       </span>
                     </div>
-                    {job.settings && (
-                      <div className="flex gap-2 mt-2 flex-wrap">
-                        <span className="text-xs px-2 py-0.5 rounded-full bg-muted">
-                          {job.settings.resolution}
-                        </span>
-                        <span className="text-xs px-2 py-0.5 rounded-full bg-muted">
-                          {job.settings.aspectRatio}
-                        </span>
-                        <span className="text-xs px-2 py-0.5 rounded-full bg-muted">
-                          {job.settings.videoLength}s
-                        </span>
-                      </div>
-                    )}
                   </CardContent>
                 </Card>
-              ))}
+              )})}
             </div>
           )}
         </div>
@@ -305,6 +332,14 @@ export default function GalleryPage() {
                   <Scissors className="w-4 h-4 mr-2" />
                   編輯影片
                 </Link>
+              </Button>
+              <Button
+                variant={selectedJob.favorite ? "default" : "outline"}
+                size="icon"
+                onClick={() => handleToggleFavorite(selectedJob.id)}
+                title={selectedJob.favorite ? "取消收藏" : "收藏"}
+              >
+                <Star className={cn("w-4 h-4", selectedJob.favorite && "fill-current")} />
               </Button>
               <Button
                 variant="destructive"
