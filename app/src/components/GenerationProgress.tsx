@@ -24,9 +24,9 @@ const statusDescriptions: Record<GenerationStatus, string> = {
   error: '處理過程中發生問題，請稍後再試',
 };
 
-// Max polling: ~15 minutes (450 attempts * 2s)
-const MAX_POLL_ATTEMPTS = 450;
-const POLL_INTERVAL_MS = 2000;
+// Max polling: ~15 minutes (180 attempts * 5s)
+const MAX_POLL_ATTEMPTS = 180;
+const POLL_INTERVAL_MS = 5000;
 const MAX_CONSECUTIVE_ERRORS = 5;
 
 export function GenerationProgress({ jobId, onComplete, onError }: GenerationProgressProps) {
