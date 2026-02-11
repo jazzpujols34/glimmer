@@ -5,8 +5,9 @@ import Link from 'next/link';
 import { Logo } from '@/components/Logo';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Play, Download, Calendar, Film, ArrowLeft, Trash2, Scissors, AlertCircle, X, Star, FolderOpen } from 'lucide-react';
+import { Play, Download, Calendar, Film, ArrowLeft, Trash2, Scissors, AlertCircle, X, Star, FolderOpen, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import type { Project } from '@/types';
 
 type GalleryFilter = 'all' | 'favorites' | 'projects';
 
@@ -43,6 +44,9 @@ export default function GalleryPage() {
   const [deleting, setDeleting] = useState<string | null>(null);
   const [videoErrors, setVideoErrors] = useState<Set<string>>(new Set());
   const [filter, setFilter] = useState<GalleryFilter>('all');
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [projectDropdownOpen, setProjectDropdownOpen] = useState(false);
+  const [movingToProject, setMovingToProject] = useState(false);
 
   // Close modal on Escape key
   const closeModal = useCallback(() => setSelectedJob(null), []);
@@ -73,6 +77,20 @@ export default function GalleryPage() {
     }
 
     loadGallery();
+  }, []);
+
+  // Load projects for the dropdown
+  useEffect(() => {
+    async function loadProjects() {
+      try {
+        const res = await fetch('/api/projects');
+        if (res.ok) {
+          const data = await res.json();
+          setProjects(data.projects || []);
+        }
+      } catch { /* ignore */ }
+    }
+    loadProjects();
   }, []);
 
   const formatDate = (dateString: string) => {
@@ -127,6 +145,32 @@ export default function GalleryPage() {
       }
     } catch (err) {
       alert(err instanceof Error ? err.message : '更新失敗');
+    }
+  };
+
+  const handleMoveToProject = async (jobId: string, projectId: string | null) => {
+    setMovingToProject(true);
+    try {
+      const res = await fetch(`/api/gallery/${jobId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectId }),
+      });
+      if (!res.ok) {
+        throw new Error('移動失敗');
+      }
+      const data = await res.json();
+      setJobs((prev) =>
+        prev.map((j) => (j.id === jobId ? { ...j, projectId: data.projectId } : j))
+      );
+      if (selectedJob?.id === jobId) {
+        setSelectedJob((prev) => prev ? { ...prev, projectId: data.projectId } : null);
+      }
+      setProjectDropdownOpen(false);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : '移動失敗');
+    } finally {
+      setMovingToProject(false);
     }
   };
 
@@ -410,6 +454,68 @@ export default function GalleryPage() {
               >
                 <Star className={cn("w-4 h-4", selectedJob.favorite && "fill-current")} />
               </Button>
+              {/* Move to project dropdown */}
+              <div className="relative">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setProjectDropdownOpen(!projectDropdownOpen)}
+                  disabled={movingToProject}
+                  title="移動到專案"
+                >
+                  {movingToProject ? (
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary" />
+                  ) : (
+                    <FolderOpen className="w-4 h-4" />
+                  )}
+                </Button>
+                {projectDropdownOpen && (
+                  <div className="absolute bottom-full right-0 mb-2 w-48 bg-background border border-border rounded-lg shadow-lg py-1 z-10">
+                    <div className="px-3 py-2 text-xs text-muted-foreground border-b border-border">
+                      移動到專案
+                    </div>
+                    {selectedJob.projectId && (
+                      <button
+                        className="w-full px-3 py-2 text-left text-sm hover:bg-muted flex items-center gap-2"
+                        onClick={() => handleMoveToProject(selectedJob.id, null)}
+                      >
+                        <X className="w-4 h-4" />
+                        移出專案
+                      </button>
+                    )}
+                    {projects.length === 0 ? (
+                      <div className="px-3 py-2 text-sm text-muted-foreground">
+                        尚無專案
+                      </div>
+                    ) : (
+                      projects.map((project) => (
+                        <button
+                          key={project.id}
+                          className={cn(
+                            "w-full px-3 py-2 text-left text-sm hover:bg-muted flex items-center gap-2",
+                            selectedJob.projectId === project.id && "bg-muted"
+                          )}
+                          onClick={() => handleMoveToProject(selectedJob.id, project.id)}
+                          disabled={selectedJob.projectId === project.id}
+                        >
+                          <FolderOpen className="w-4 h-4" />
+                          {project.name}
+                          {selectedJob.projectId === project.id && (
+                            <span className="text-xs text-muted-foreground ml-auto">目前</span>
+                          )}
+                        </button>
+                      ))
+                    )}
+                    <Link
+                      href="/projects"
+                      className="w-full px-3 py-2 text-left text-sm hover:bg-muted flex items-center gap-2 border-t border-border text-primary"
+                    >
+                      <ChevronDown className="w-4 h-4" />
+                      管理專案
+                    </Link>
+                  </div>
+                )}
+              </div>
               <Button
                 variant="destructive"
                 size="icon"

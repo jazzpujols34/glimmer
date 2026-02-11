@@ -1,7 +1,7 @@
 export const runtime = 'edge';
 
 import { NextRequest, NextResponse } from 'next/server';
-import { deleteJob, getJob, updateJob } from '@/lib/storage';
+import { deleteJob, getJob, updateJob, addJobToProject, removeJobFromProject, getProject } from '@/lib/storage';
 import { captureError } from '@/lib/errors';
 
 export async function GET(
@@ -34,7 +34,7 @@ export async function GET(
   }
 }
 
-// PATCH /api/gallery/[id] - Toggle favorite status
+// PATCH /api/gallery/[id] - Update favorite or projectId
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -48,10 +48,40 @@ export async function PATCH(
       return NextResponse.json({ error: '找不到該影片' }, { status: 404 });
     }
 
-    // Toggle favorite if not explicitly set
-    const newFavorite = body.favorite !== undefined ? body.favorite : !job.favorite;
+    const updates: { favorite?: boolean; projectId?: string } = {};
 
-    const updated = await updateJob(id, { favorite: newFavorite });
+    // Handle favorite toggle
+    if (body.favorite !== undefined || (!('projectId' in body))) {
+      updates.favorite = body.favorite !== undefined ? body.favorite : !job.favorite;
+    }
+
+    // Handle project assignment
+    if ('projectId' in body) {
+      const newProjectId = body.projectId;
+      const oldProjectId = job.projectId;
+
+      // Validate new project exists (if not removing)
+      if (newProjectId) {
+        const project = await getProject(newProjectId);
+        if (!project) {
+          return NextResponse.json({ error: '找不到該專案' }, { status: 404 });
+        }
+      }
+
+      // Remove from old project
+      if (oldProjectId && oldProjectId !== newProjectId) {
+        await removeJobFromProject(oldProjectId, id);
+      }
+
+      // Add to new project
+      if (newProjectId && newProjectId !== oldProjectId) {
+        await addJobToProject(newProjectId, id);
+      }
+
+      updates.projectId = newProjectId ?? undefined;
+    }
+
+    const updated = await updateJob(id, updates);
     if (!updated) {
       return NextResponse.json({ error: '更新失敗' }, { status: 500 });
     }
@@ -59,6 +89,7 @@ export async function PATCH(
     return NextResponse.json({
       id: updated.id,
       favorite: updated.favorite,
+      projectId: updated.projectId,
     });
   } catch (error) {
     captureError(error, { route: '/api/gallery/[id]' });
