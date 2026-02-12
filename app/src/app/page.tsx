@@ -3,6 +3,8 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Logo } from '@/components/Logo';
 import { Card, CardContent } from '@/components/ui/card';
+import { MobileNav } from '@/components/MobileNav';
+import { HeroDemoVideo } from '@/components/HeroDemoVideo';
 
 export const metadata: Metadata = {
   title: '拾光 Glimmer — AI 回憶影片服務 | AI Memorial Video Service',
@@ -39,7 +41,7 @@ export default function LandingPage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
       {/* Navigation */}
-      <header className="border-b border-border sticky top-0 bg-background/95 backdrop-blur z-50">
+      <header className="border-b border-border sticky top-0 bg-background/95 backdrop-blur z-50 relative">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <Logo />
           <nav className="hidden sm:flex items-center gap-6 text-sm">
@@ -62,9 +64,12 @@ export default function LandingPage() {
               常見問題
             </a>
           </nav>
-          <Button size="sm" asChild>
-            <Link href="/create">開始製作</Link>
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button size="sm" asChild className="hidden sm:inline-flex">
+              <Link href="/create">開始製作</Link>
+            </Button>
+            <MobileNav />
+          </div>
         </div>
       </header>
 
@@ -99,45 +104,9 @@ export default function LandingPage() {
             </Button>
           </div>
 
-          {/* Hero visual — before/after demo mockup */}
-          <div className="max-w-3xl mx-auto pt-8">
-            <div className="relative rounded-2xl border border-border/50 bg-card/50 overflow-hidden shadow-xl">
-              {/* Browser chrome bar */}
-              <div className="flex items-center gap-2 px-4 py-3 border-b border-border/50 bg-muted/30">
-                <div className="flex gap-1.5">
-                  <div className="w-3 h-3 rounded-full bg-red-400/60" />
-                  <div className="w-3 h-3 rounded-full bg-yellow-400/60" />
-                  <div className="w-3 h-3 rounded-full bg-green-400/60" />
-                </div>
-                <div className="flex-1 text-center text-xs text-muted-foreground">glimmer.pages.dev/create</div>
-              </div>
-              {/* Before → After visualization */}
-              <div className="grid grid-cols-2 divide-x divide-border/30">
-                <div className="p-8 text-center space-y-3">
-                  <div className="w-24 h-24 mx-auto rounded-xl bg-muted/80 border border-border/50 flex items-center justify-center">
-                    <svg className="w-10 h-10 text-muted-foreground/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                  </div>
-                  <p className="text-sm font-medium">上傳一張照片</p>
-                  <p className="text-xs text-muted-foreground">Upload a photo</p>
-                </div>
-                <div className="p-8 text-center space-y-3 relative">
-                  <div className="absolute left-0 top-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-primary flex items-center justify-center z-10">
-                    <svg className="w-4 h-4 text-primary-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                    </svg>
-                  </div>
-                  <div className="w-24 h-24 mx-auto rounded-xl bg-primary/10 border border-primary/30 flex items-center justify-center">
-                    <svg className="w-10 h-10 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                    </svg>
-                  </div>
-                  <p className="text-sm font-medium text-primary">AI 生成影片</p>
-                  <p className="text-xs text-muted-foreground">AI creates cinematic video</p>
-                </div>
-              </div>
-            </div>
+          {/* Hero Demo Video */}
+          <div className="max-w-4xl mx-auto pt-8">
+            <HeroDemoVideo />
           </div>
         </div>
       </section>
@@ -821,6 +790,7 @@ function ShowcaseCard({
   description,
   descEn,
   stat,
+  videoUrl,
 }: {
   icon: React.ReactNode;
   title: string;
@@ -828,6 +798,7 @@ function ShowcaseCard({
   description: string;
   descEn: string;
   stat: string;
+  videoUrl?: string;
 }) {
   return (
     <div className="group space-y-4">
@@ -842,15 +813,38 @@ function ShowcaseCard({
           <p className="text-xs text-muted-foreground">{subtitle}</p>
         </div>
       </div>
-      <div className="aspect-video rounded-xl bg-gradient-to-br from-muted/80 to-muted/40 border border-border/50 flex flex-col items-center justify-center gap-4 p-6 text-center group-hover:border-primary/30 transition-colors">
-        <p className="text-sm text-foreground/80 leading-relaxed">{description}</p>
-        <p className="text-xs text-muted-foreground">{descEn}</p>
-        <span className="inline-flex items-center gap-1.5 text-xs font-medium text-primary bg-primary/10 px-3 py-1 rounded-full">
-          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-          </svg>
-          {stat}
-        </span>
+      <div className="aspect-video rounded-xl bg-gradient-to-br from-muted/80 to-muted/40 border border-border/50 overflow-hidden group-hover:border-primary/30 transition-colors relative">
+        {videoUrl ? (
+          <video
+            src={videoUrl}
+            className="w-full h-full object-cover"
+            muted
+            loop
+            playsInline
+            autoPlay
+            preload="metadata"
+          />
+        ) : (
+          <div className="w-full h-full flex flex-col items-center justify-center gap-4 p-6 text-center">
+            <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+              <svg className="w-8 h-8 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <p className="text-sm text-foreground/80 leading-relaxed">{description}</p>
+            <p className="text-xs text-muted-foreground">{descEn}</p>
+          </div>
+        )}
+        {/* Overlay with stat badge */}
+        <div className="absolute bottom-3 right-3">
+          <span className="inline-flex items-center gap-1.5 text-xs font-medium text-primary bg-background/90 backdrop-blur px-3 py-1 rounded-full border border-border/50">
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+            {stat}
+          </span>
+        </div>
       </div>
     </div>
   );
