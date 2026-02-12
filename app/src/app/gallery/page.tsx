@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { Logo } from '@/components/Logo';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Play, Download, Calendar, Film, ArrowLeft, Trash2, Scissors, AlertCircle, X, Star, FolderOpen, ChevronDown } from 'lucide-react';
+import { Play, Download, Calendar, Film, ArrowLeft, Trash2, Scissors, AlertCircle, X, Star, FolderOpen, ChevronDown, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Project } from '@/types';
 
@@ -47,6 +47,7 @@ export default function GalleryPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [projectDropdownOpen, setProjectDropdownOpen] = useState(false);
   const [movingToProject, setMovingToProject] = useState(false);
+  const [loadedVideos, setLoadedVideos] = useState<Set<string>>(new Set());
 
   // Close modal on Escape key
   const closeModal = useCallback(() => setSelectedJob(null), []);
@@ -102,6 +103,17 @@ export default function GalleryPage() {
       hour: '2-digit',
       minute: '2-digit',
     });
+  };
+
+  // Calculate hours remaining until 24h expiration
+  const getExpirationInfo = (createdAt: string) => {
+    const created = new Date(createdAt).getTime();
+    const expiresAt = created + 24 * 60 * 60 * 1000; // 24 hours
+    const now = Date.now();
+    const hoursRemaining = Math.max(0, Math.floor((expiresAt - now) / (60 * 60 * 1000)));
+    const isExpired = hoursRemaining <= 0;
+    const isExpiringSoon = hoursRemaining > 0 && hoursRemaining <= 6;
+    return { hoursRemaining, isExpired, isExpiringSoon };
   };
 
   const handleDelete = async (jobId: string) => {
@@ -200,22 +212,22 @@ export default function GalleryPage() {
           </div>
 
           {/* Tabs */}
-          <div className="flex justify-center gap-2 mb-8">
+          <div className="flex flex-wrap justify-center gap-2 mb-8">
             <Button
               variant={filter === 'all' ? 'default' : 'outline'}
               size="sm"
               onClick={() => setFilter('all')}
             >
-              <Film className="w-4 h-4 mr-2" />
-              全部 ({jobs.length})
+              <Film className="w-4 h-4 sm:mr-2" />
+              <span className="hidden sm:inline">全部</span> ({jobs.length})
             </Button>
             <Button
               variant={filter === 'favorites' ? 'default' : 'outline'}
               size="sm"
               onClick={() => setFilter('favorites')}
             >
-              <Star className="w-4 h-4 mr-2" />
-              收藏 ({jobs.filter(j => j.favorite).length})
+              <Star className="w-4 h-4 sm:mr-2" />
+              <span className="hidden sm:inline">收藏</span> ({jobs.filter(j => j.favorite).length})
             </Button>
             <Button
               variant={filter === 'projects' ? 'default' : 'outline'}
@@ -305,6 +317,7 @@ export default function GalleryPage() {
               <div className="columns-2 md:columns-3 lg:columns-4 gap-4 space-y-4">
                 {filteredJobs.map((job) => {
                 const isPortrait = job.settings?.aspectRatio === '9:16';
+                const expiration = getExpirationInfo(job.createdAt);
                 return (
                 <Card
                   key={job.id}
@@ -321,16 +334,28 @@ export default function GalleryPage() {
                         <span className="text-xs">影片載入失敗</span>
                       </div>
                     ) : (
-                      <video
-                        src={job.videoUrl}
-                        className="w-full h-full object-cover"
-                        muted
-                        playsInline
-                        preload="metadata"
-                        onError={() => setVideoErrors(prev => new Set(prev).add(job.id))}
-                      />
+                      <>
+                        {/* Loading skeleton - shows until video metadata loads */}
+                        {!loadedVideos.has(job.id) && (
+                          <div className="absolute inset-0 bg-muted animate-pulse flex items-center justify-center">
+                            <Film className="w-8 h-8 text-muted-foreground/50" />
+                          </div>
+                        )}
+                        <video
+                          src={job.videoUrl}
+                          className={cn(
+                            "w-full h-full object-cover transition-opacity duration-300",
+                            loadedVideos.has(job.id) ? "opacity-100" : "opacity-0"
+                          )}
+                          muted
+                          playsInline
+                          preload="metadata"
+                          onLoadedData={() => setLoadedVideos(prev => new Set(prev).add(job.id))}
+                          onError={() => setVideoErrors(prev => new Set(prev).add(job.id))}
+                        />
+                      </>
                     )}
-                    {!videoErrors.has(job.id) && (
+                    {!videoErrors.has(job.id) && loadedVideos.has(job.id) && (
                       <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                         <div className="w-10 h-10 rounded-full bg-black/50 flex items-center justify-center">
                           <Play className="w-5 h-5 text-white ml-0.5" />
@@ -348,6 +373,19 @@ export default function GalleryPage() {
                         <Star className="w-5 h-5 text-yellow-400 fill-yellow-400" />
                       </div>
                     )}
+                    {/* Expiration warning badge */}
+                    {expiration.isExpiringSoon && !expiration.isExpired && (
+                      <div className="absolute bottom-2 left-2 px-2 py-1 rounded bg-amber-500/90 text-white text-xs flex items-center gap-1">
+                        <Clock className="w-3 h-3" />
+                        {expiration.hoursRemaining}h
+                      </div>
+                    )}
+                    {expiration.isExpired && (
+                      <div className="absolute bottom-2 left-2 px-2 py-1 rounded bg-destructive/90 text-white text-xs flex items-center gap-1">
+                        <AlertCircle className="w-3 h-3" />
+                        已過期
+                      </div>
+                    )}
                   </div>
                   <CardContent className="p-3">
                     <h3 className="font-semibold truncate text-sm">{job.name}</h3>
@@ -360,6 +398,12 @@ export default function GalleryPage() {
                         <Calendar className="w-3 h-3" />
                         {formatDate(job.createdAt).split(' ')[0]}
                       </span>
+                      {expiration.isExpiringSoon && !expiration.isExpired && (
+                        <span className="flex items-center gap-1 text-amber-500">
+                          <Clock className="w-3 h-3" />
+                          剩 {expiration.hoursRemaining} 小時
+                        </span>
+                      )}
                     </div>
                     </CardContent>
                   </Card>
@@ -384,6 +428,30 @@ export default function GalleryPage() {
             className="bg-background rounded-lg max-w-4xl w-full max-h-[90vh] overflow-auto"
             onClick={(e) => e.stopPropagation()}
           >
+            {(() => {
+              const modalExpiration = getExpirationInfo(selectedJob.createdAt);
+              return (
+                <>
+                  {/* Expiration warning banner */}
+                  {modalExpiration.isExpiringSoon && !modalExpiration.isExpired && (
+                    <div className="px-4 py-2 bg-amber-500/10 border-b border-amber-500/20 flex items-center gap-2 text-amber-600 dark:text-amber-400">
+                      <Clock className="w-4 h-4" />
+                      <span className="text-sm">
+                        此影片將在 {modalExpiration.hoursRemaining} 小時後過期，請盡快下載保存
+                      </span>
+                    </div>
+                  )}
+                  {modalExpiration.isExpired && (
+                    <div className="px-4 py-2 bg-destructive/10 border-b border-destructive/20 flex items-center gap-2 text-destructive">
+                      <AlertCircle className="w-4 h-4" />
+                      <span className="text-sm">
+                        此影片連結可能已過期，如無法播放請重新生成
+                      </span>
+                    </div>
+                  )}
+                </>
+              );
+            })()}
             <div className="p-4 border-b border-border flex items-center justify-between">
               <div>
                 <h2 className="font-semibold text-lg">{selectedJob.name}</h2>
@@ -433,17 +501,19 @@ export default function GalleryPage() {
                 </div>
               </div>
             )}
-            <div className="p-4 border-t border-border flex gap-3">
-              <Button asChild className="flex-1">
+            <div className="p-4 border-t border-border flex flex-wrap gap-2 sm:gap-3">
+              <Button asChild className="flex-1 min-w-[120px]">
                 <a href={selectedJob.videoUrl} download={`${selectedJob.name}.mp4`}>
-                  <Download className="w-4 h-4 mr-2" />
-                  下載影片
+                  <Download className="w-4 h-4 sm:mr-2" />
+                  <span className="hidden sm:inline">下載影片</span>
+                  <span className="sm:hidden">下載</span>
                 </a>
               </Button>
-              <Button variant="outline" asChild className="flex-1">
+              <Button variant="outline" asChild className="flex-1 min-w-[120px]">
                 <Link href={`/edit/${selectedJob.id}`}>
-                  <Scissors className="w-4 h-4 mr-2" />
-                  編輯影片
+                  <Scissors className="w-4 h-4 sm:mr-2" />
+                  <span className="hidden sm:inline">編輯影片</span>
+                  <span className="sm:hidden">編輯</span>
                 </Link>
               </Button>
               <Button

@@ -43,21 +43,14 @@ export const metadata: Metadata = {
     title: "拾光 Glimmer — AI 回憶影片服務",
     description:
       "上傳老照片，AI 自動生成電影級回憶影片。追思、壽宴、婚禮等重要場合適用。",
-    images: [
-      {
-        url: "/assets/glimmer-logo.jpeg",
-        width: 1200,
-        height: 630,
-        alt: "拾光 Glimmer — AI 回憶影片服務",
-      },
-    ],
+    // Image auto-generated from opengraph-image.tsx
   },
   twitter: {
     card: "summary_large_image",
     title: "拾光 Glimmer — AI 回憶影片服務",
     description:
       "上傳老照片，AI 自動生成電影級回憶影片。Upload photos, AI creates cinematic memorial videos.",
-    images: ["/assets/glimmer-logo.jpeg"],
+    // Image auto-generated from twitter-image.tsx
   },
   alternates: {
     canonical: "/",
