@@ -9,14 +9,14 @@
 > Identity: email-only (no passwords, no OAuth). All models/resolutions available to all tiers.
 > Payment: ECPay (applying). Stripe checkout code exists as fallback.
 
-## Priority 1: ECPay payment integration [IN PROGRESS]
+## Priority 1: ECPay payment integration [DONE]
 Replace Stripe checkout with ECPay (綠界) for Taiwan-native payment methods.
-- Swap `/api/checkout/route.ts` to create ECPay payment form (credit card, ATM, 超商代碼, LINE Pay)
-- Swap `/api/webhooks/stripe/route.ts` to ECPay callback handler (ReturnURL + NotifyURL pattern)
-- ECPay signature verification (SHA256 CheckMacValue) via Web Crypto API (Edge-compatible)
-- Test with ECPay sandbox environment
-- Keep Stripe code on a branch as international fallback
-**Unblocks:** actual revenue, all paid features
+- ✅ Swap `/api/checkout/route.ts` to create ECPay payment form (credit card, ATM, 超商代碼, LINE Pay)
+- ✅ Swap `/api/webhooks/stripe/route.ts` to ECPay callback handler (ReturnURL + NotifyURL pattern)
+- ✅ ECPay signature verification (SHA256 CheckMacValue) via Web Crypto API (Edge-compatible)
+- ⏳ Test with ECPay sandbox environment (waiting on merchant approval)
+- ✅ Stripe code removed (commit `a043804`)
+**Status:** Code complete, blocked on ECPay merchant application approval
 
 ## Priority 2: Email verification (magic link) [DONE]
 - Magic link via Resend REST API (`lib/email.ts`)
