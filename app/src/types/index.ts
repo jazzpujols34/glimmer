@@ -137,3 +137,40 @@ export interface Project {
   coverJobId?: string;     // Job to use as thumbnail
   email?: string;          // Owner's email
 }
+
+// === Storyboard System Types ===
+// Storyboard = sequential slots filled with video clips for composing final videos
+
+export type StoryboardTransitionType = 'cut' | 'crossfade-500' | 'crossfade-1000';
+export type SlotFitMode = 'letterbox' | 'crop';
+export type SlotStatus = 'empty' | 'uploading' | 'filled';
+
+export interface StoryboardClip {
+  sourceType: 'gallery' | 'upload';
+  jobId?: string;                    // if from gallery
+  videoUrl: string;                  // CDN URL or R2 key
+  r2Key?: string;                    // R2 storage key for uploaded videos
+  duration: number;                  // clip duration in seconds
+  originalAspectRatio?: AspectRatio;
+  fitMode: SlotFitMode;              // how to handle aspect ratio mismatch
+}
+
+export interface StoryboardSlot {
+  id: string;                        // slot_xxx
+  index: number;                     // 0-based position in sequence
+  status: SlotStatus;
+  uploadProgress?: number;           // 0-100 during upload
+  clip?: StoryboardClip;
+}
+
+export interface Storyboard {
+  id: string;                        // storyboard_xxx
+  name: string;
+  aspectRatio: AspectRatio;          // target output ratio (16:9 or 9:16)
+  slotCount: number;                 // e.g., 15
+  slots: StoryboardSlot[];
+  transitions: StoryboardTransitionType[];  // length = slotCount - 1
+  createdAt: string;
+  updatedAt: string;
+  email?: string;                    // Owner's email
+}

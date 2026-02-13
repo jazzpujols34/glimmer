@@ -1,0 +1,283 @@
+'use client';
+
+import { useState, useCallback, useEffect } from 'react';
+import { SlotCard } from './SlotCard';
+import { TransitionPicker } from './TransitionPicker';
+import { AddToSlotModal } from './AddToSlotModal';
+import { Button } from '@/components/ui/button';
+import type { Storyboard, StoryboardSlot, StoryboardTransitionType, GenerationJob, StoryboardClip } from '@/types';
+
+interface StoryboardGridProps {
+  storyboard: Storyboard;
+  onUpdateSlot: (slotIndex: number, slot: Partial<StoryboardSlot>) => Promise<void>;
+  onUpdateTransition: (transitionIndex: number, transition: StoryboardTransitionType) => Promise<void>;
+  onReorderSlots: (fromIndex: number, toIndex: number) => Promise<void>;
+  galleryJobs: GenerationJob[];
+}
+
+export function StoryboardGrid({
+  storyboard,
+  onUpdateSlot,
+  onUpdateTransition,
+  onReorderSlots,
+  galleryJobs,
+}: StoryboardGridProps) {
+  const [modalOpen, setModalOpen] = useState(false);
+  const [activeSlotIndex, setActiveSlotIndex] = useState<number | null>(null);
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+
+  // Calculate remaining empty slots
+  const filledCount = storyboard.slots.filter((s) => s.status === 'filled').length;
+  const emptyCount = storyboard.slotCount - filledCount;
+
+  const handleAddClick = (slotIndex: number) => {
+    setActiveSlotIndex(slotIndex);
+    setModalOpen(true);
+  };
+
+  const handleRemoveClick = async (slotIndex: number) => {
+    await onUpdateSlot(slotIndex, {
+      status: 'empty',
+      clip: undefined,
+      uploadProgress: undefined,
+    });
+  };
+
+  const getVideoDuration = async (url: string): Promise<number> => {
+    return new Promise((resolve) => {
+      const video = document.createElement('video');
+      video.preload = 'metadata';
+      video.onloadedmetadata = () => {
+        resolve(video.duration);
+        video.src = '';
+      };
+      video.onerror = () => {
+        resolve(5); // Default to 5 seconds
+        video.src = '';
+      };
+      video.src = url;
+    });
+  };
+
+  const handleAddFromUpload = useCallback(
+    async (files: File[]) => {
+      if (activeSlotIndex === null) return;
+
+      let currentSlotIndex = activeSlotIndex;
+
+      for (const file of files) {
+        // Find next empty slot starting from activeSlotIndex
+        while (currentSlotIndex < storyboard.slotCount) {
+          if (storyboard.slots[currentSlotIndex].status === 'empty') {
+            break;
+          }
+          currentSlotIndex++;
+        }
+
+        if (currentSlotIndex >= storyboard.slotCount) break;
+
+        // Mark as uploading
+        await onUpdateSlot(currentSlotIndex, {
+          status: 'uploading',
+          uploadProgress: 0,
+        });
+
+        try {
+          // Create blob URL for local preview
+          const blobUrl = URL.createObjectURL(file);
+          const duration = await getVideoDuration(blobUrl);
+
+          // For now, store the blob URL directly (R2 upload can be added later)
+          // In production, you would upload to R2 here and get back the R2 key
+          const clip: StoryboardClip = {
+            sourceType: 'upload',
+            videoUrl: blobUrl,
+            duration,
+            fitMode: 'letterbox',
+          };
+
+          await onUpdateSlot(currentSlotIndex, {
+            status: 'filled',
+            clip,
+            uploadProgress: undefined,
+          });
+        } catch (error) {
+          console.error('Error processing upload:', error);
+          await onUpdateSlot(currentSlotIndex, {
+            status: 'empty',
+            uploadProgress: undefined,
+          });
+        }
+
+        currentSlotIndex++;
+      }
+    },
+    [activeSlotIndex, storyboard.slots, storyboard.slotCount, onUpdateSlot]
+  );
+
+  const handleAddFromGallery = useCallback(
+    async (jobs: GenerationJob[], videoIndices: number[]) => {
+      if (activeSlotIndex === null) return;
+
+      let currentSlotIndex = activeSlotIndex;
+
+      for (let i = 0; i < jobs.length; i++) {
+        const job = jobs[i];
+        const videoIndex = videoIndices[i];
+        const videoUrls = job.videoUrls || (job.videoUrl ? [job.videoUrl] : []);
+        const videoUrl = videoUrls[videoIndex];
+
+        if (!videoUrl) continue;
+
+        // Find next empty slot
+        while (currentSlotIndex < storyboard.slotCount) {
+          if (storyboard.slots[currentSlotIndex].status === 'empty') {
+            break;
+          }
+          currentSlotIndex++;
+        }
+
+        if (currentSlotIndex >= storyboard.slotCount) break;
+
+        try {
+          const duration = await getVideoDuration(videoUrl);
+
+          const clip: StoryboardClip = {
+            sourceType: 'gallery',
+            jobId: job.id,
+            videoUrl,
+            duration,
+            originalAspectRatio: job.settings?.aspectRatio,
+            fitMode: 'letterbox',
+          };
+
+          await onUpdateSlot(currentSlotIndex, {
+            status: 'filled',
+            clip,
+          });
+        } catch (error) {
+          console.error('Error adding from gallery:', error);
+        }
+
+        currentSlotIndex++;
+      }
+    },
+    [activeSlotIndex, storyboard.slots, storyboard.slotCount, onUpdateSlot]
+  );
+
+  // Drag and drop handlers
+  const handleDragStart = (index: number) => {
+    setDraggedIndex(index);
+  };
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    if (draggedIndex === null || draggedIndex === index) return;
+  };
+
+  const handleDrop = async (index: number) => {
+    if (draggedIndex === null || draggedIndex === index) {
+      setDraggedIndex(null);
+      return;
+    }
+
+    await onReorderSlots(draggedIndex, index);
+    setDraggedIndex(null);
+  };
+
+  // Calculate grid columns based on slot count
+  const getGridCols = () => {
+    if (storyboard.slotCount <= 6) return 'grid-cols-3';
+    if (storyboard.slotCount <= 12) return 'grid-cols-4';
+    return 'grid-cols-5';
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Stats Bar */}
+      <div className="flex items-center justify-between text-sm">
+        <div className="flex items-center gap-4">
+          <span className="text-muted-foreground">
+            {filledCount} / {storyboard.slotCount} 格已填入
+          </span>
+          <span className="text-muted-foreground">
+            約 {Math.round((storyboard.slots.reduce((acc, s) => acc + (s.clip?.duration || 0), 0)) * 10) / 10}s
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="px-2 py-1 bg-muted rounded text-xs">
+            {storyboard.aspectRatio}
+          </span>
+        </div>
+      </div>
+
+      {/* Grid */}
+      <div className={`grid ${getGridCols()} gap-4`}>
+        {storyboard.slots.map((slot, index) => (
+          <div key={slot.id} className="relative">
+            {/* Slot Card */}
+            <div
+              draggable={slot.status === 'filled'}
+              onDragStart={() => handleDragStart(index)}
+              onDragOver={(e) => handleDragOver(e, index)}
+              onDrop={() => handleDrop(index)}
+              onDragEnd={() => setDraggedIndex(null)}
+            >
+              <SlotCard
+                slot={slot}
+                targetAspectRatio={storyboard.aspectRatio}
+                onAddClick={() => handleAddClick(index)}
+                onRemoveClick={() => handleRemoveClick(index)}
+                isDragging={draggedIndex === index}
+              />
+            </div>
+
+            {/* Transition Picker (between slots) */}
+            {index < storyboard.slots.length - 1 && (
+              <div className="absolute -right-6 top-1/2 -translate-y-1/2 z-10">
+                <TransitionPicker
+                  value={storyboard.transitions[index]}
+                  onChange={(transition) => onUpdateTransition(index, transition)}
+                />
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* Bulk Actions */}
+      <div className="flex items-center gap-3 pt-4">
+        <Button
+          variant="outline"
+          onClick={() => {
+            // Find first empty slot
+            const firstEmpty = storyboard.slots.findIndex((s) => s.status === 'empty');
+            if (firstEmpty >= 0) {
+              handleAddClick(firstEmpty);
+            }
+          }}
+          disabled={emptyCount === 0}
+        >
+          <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+          </svg>
+          批次上傳
+        </Button>
+      </div>
+
+      {/* Add to Slot Modal */}
+      <AddToSlotModal
+        isOpen={modalOpen}
+        onClose={() => {
+          setModalOpen(false);
+          setActiveSlotIndex(null);
+        }}
+        onAddFromUpload={handleAddFromUpload}
+        onAddFromGallery={handleAddFromGallery}
+        galleryJobs={galleryJobs}
+        slotIndex={activeSlotIndex ?? 0}
+        remainingSlots={emptyCount}
+      />
+    </div>
+  );
+}

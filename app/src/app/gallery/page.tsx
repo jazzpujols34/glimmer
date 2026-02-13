@@ -192,12 +192,20 @@ export default function GalleryPage() {
       <header className="border-b border-border">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <Logo />
-          <Button variant="outline" asChild>
-            <Link href="/">
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              返回首頁
-            </Link>
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button asChild>
+              <Link href="/storyboard/new">
+                <Film className="w-4 h-4 mr-2" />
+                建立故事板
+              </Link>
+            </Button>
+            <Button variant="outline" asChild>
+              <Link href="/">
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                返回首頁
+              </Link>
+            </Button>
+          </div>
         </div>
       </header>
 

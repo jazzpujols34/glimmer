@@ -1,4 +1,13 @@
-import type { GenerationJob, GenerationStatus, OccasionType, Project } from '@/types';
+import type {
+  GenerationJob,
+  GenerationStatus,
+  OccasionType,
+  Project,
+  Storyboard,
+  StoryboardSlot,
+  StoryboardTransitionType,
+  AspectRatio,
+} from '@/types';
 import { kvGet, kvPut, kvDelete, kvListKeys } from './kv';
 
 /**
@@ -211,4 +220,166 @@ export async function getProjectJobs(projectId: string): Promise<GenerationJob[]
   }
 
   return jobs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+}
+
+// === Storyboard Storage ===
+// Storyboards are for composing multiple video clips into one final video
+
+const STORYBOARD_PREFIX = 'storyboard:';
+
+function generateSlotId(): string {
+  return `slot_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+}
+
+function createEmptySlots(count: number): StoryboardSlot[] {
+  return Array.from({ length: count }, (_, index) => ({
+    id: generateSlotId(),
+    index,
+    status: 'empty' as const,
+  }));
+}
+
+function createDefaultTransitions(count: number): StoryboardTransitionType[] {
+  // count - 1 transitions (between each pair of adjacent slots)
+  return Array.from({ length: Math.max(0, count - 1) }, () => 'cut' as const);
+}
+
+export async function createStoryboard(
+  name: string,
+  slotCount: number,
+  aspectRatio: AspectRatio = '16:9',
+  email?: string,
+): Promise<Storyboard> {
+  const id = `storyboard_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  const now = new Date().toISOString();
+
+  const storyboard: Storyboard = {
+    id,
+    name,
+    aspectRatio,
+    slotCount,
+    slots: createEmptySlots(slotCount),
+    transitions: createDefaultTransitions(slotCount),
+    createdAt: now,
+    updatedAt: now,
+    email,
+  };
+
+  await kvPut(`${STORYBOARD_PREFIX}${id}`, JSON.stringify(storyboard));
+  return storyboard;
+}
+
+export async function getStoryboard(id: string): Promise<Storyboard | undefined> {
+  const data = await kvGet(`${STORYBOARD_PREFIX}${id}`);
+  return data ? JSON.parse(data) : undefined;
+}
+
+export async function getAllStoryboards(email?: string): Promise<Storyboard[]> {
+  const keys = await kvListKeys(STORYBOARD_PREFIX);
+  const storyboards: Storyboard[] = [];
+
+  for (const key of keys) {
+    const data = await kvGet(key);
+    if (data) {
+      const storyboard: Storyboard = JSON.parse(data);
+      // If email filter provided, only return storyboards for that user
+      if (!email || storyboard.email === email) {
+        storyboards.push(storyboard);
+      }
+    }
+  }
+
+  return storyboards.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+}
+
+export async function updateStoryboard(
+  id: string,
+  updates: Partial<Omit<Storyboard, 'id' | 'createdAt'>>,
+): Promise<Storyboard | undefined> {
+  const storyboard = await getStoryboard(id);
+  if (!storyboard) return undefined;
+
+  const updated = { ...storyboard, ...updates, updatedAt: new Date().toISOString() };
+  await kvPut(`${STORYBOARD_PREFIX}${id}`, JSON.stringify(updated));
+  return updated;
+}
+
+export async function deleteStoryboard(id: string): Promise<boolean> {
+  const storyboard = await getStoryboard(id);
+  if (!storyboard) return false;
+  await kvDelete(`${STORYBOARD_PREFIX}${id}`);
+  return true;
+}
+
+export async function updateStoryboardSlot(
+  storyboardId: string,
+  slotIndex: number,
+  slotUpdate: Partial<StoryboardSlot>,
+): Promise<Storyboard | undefined> {
+  const storyboard = await getStoryboard(storyboardId);
+  if (!storyboard) return undefined;
+
+  if (slotIndex < 0 || slotIndex >= storyboard.slots.length) {
+    return undefined;
+  }
+
+  storyboard.slots[slotIndex] = {
+    ...storyboard.slots[slotIndex],
+    ...slotUpdate,
+  };
+  storyboard.updatedAt = new Date().toISOString();
+
+  await kvPut(`${STORYBOARD_PREFIX}${storyboardId}`, JSON.stringify(storyboard));
+  return storyboard;
+}
+
+export async function updateStoryboardTransition(
+  storyboardId: string,
+  transitionIndex: number,
+  transition: StoryboardTransitionType,
+): Promise<Storyboard | undefined> {
+  const storyboard = await getStoryboard(storyboardId);
+  if (!storyboard) return undefined;
+
+  if (transitionIndex < 0 || transitionIndex >= storyboard.transitions.length) {
+    return undefined;
+  }
+
+  storyboard.transitions[transitionIndex] = transition;
+  storyboard.updatedAt = new Date().toISOString();
+
+  await kvPut(`${STORYBOARD_PREFIX}${storyboardId}`, JSON.stringify(storyboard));
+  return storyboard;
+}
+
+export async function reorderStoryboardSlots(
+  storyboardId: string,
+  fromIndex: number,
+  toIndex: number,
+): Promise<Storyboard | undefined> {
+  const storyboard = await getStoryboard(storyboardId);
+  if (!storyboard) return undefined;
+
+  if (
+    fromIndex < 0 || fromIndex >= storyboard.slots.length ||
+    toIndex < 0 || toIndex >= storyboard.slots.length
+  ) {
+    return undefined;
+  }
+
+  // Swap slots
+  const slots = [...storyboard.slots];
+  const [movedSlot] = slots.splice(fromIndex, 1);
+  slots.splice(toIndex, 0, movedSlot);
+
+  // Update indices after reorder
+  slots.forEach((slot, idx) => {
+    slot.index = idx;
+  });
+
+  storyboard.slots = slots;
+  storyboard.updatedAt = new Date().toISOString();
+
+  await kvPut(`${STORYBOARD_PREFIX}${storyboardId}`, JSON.stringify(storyboard));
+  return storyboard;
 }
