@@ -103,10 +103,12 @@ export interface CreditRecord {
 }
 
 export interface PurchaseRecord {
-  id: string;             // Stripe/ECPay transaction ID
+  id: string;             // Order ID (e.g., GL1234567890ABCD)
   credits: number;        // generations purchased
   amountTWD: number;
   createdAt: string;
+  provider?: 'ecpay' | 'stripe';  // Payment provider
+  ecpayTradeNo?: string;          // ECPay transaction number
 }
 
 export interface FreeRecord {

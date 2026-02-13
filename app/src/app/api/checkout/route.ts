@@ -4,11 +4,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { isValidEmail } from '@/lib/credits';
 import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
 import { captureError } from '@/lib/errors';
+import { createPaymentFormData } from '@/lib/ecpay';
 
-// Credit pack definitions — Price IDs come from environment (will switch to ECPay)
-const CREDIT_PACKS: Record<string, { credits: number; priceTWD: number; priceId: string }> = {
-  single: { credits: 1, priceTWD: 499, priceId: process.env.PAYMENT_PRICE_SINGLE || '' },
-  pack5: { credits: 5, priceTWD: 1999, priceId: process.env.PAYMENT_PRICE_PACK5 || '' },
+// Credit pack definitions
+const CREDIT_PACKS: Record<string, { credits: number; priceTWD: number; label: string }> = {
+  single: { credits: 1, priceTWD: 499, label: '單次生成' },
+  pack5: { credits: 5, priceTWD: 1999, label: '5次生成組合包' },
 };
 
 export async function POST(request: NextRequest) {
@@ -28,49 +29,39 @@ export async function POST(request: NextRequest) {
     }
 
     const pack = CREDIT_PACKS[packId];
-    if (!pack || !pack.priceId) {
+    if (!pack) {
       return NextResponse.json({ error: '無效的方案' }, { status: 400 });
-    }
-
-    // --- Payment gateway: Stripe (will swap to ECPay) ---
-    const stripeKey = process.env.STRIPE_SECRET_KEY;
-    if (!stripeKey) {
-      return NextResponse.json({ error: '付款系統未設定' }, { status: 500 });
     }
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://glimmer.video';
 
-    // Create Stripe Checkout Session via REST API (Edge-compatible, no SDK needed)
-    const params = new URLSearchParams();
-    params.append('mode', 'payment');
-    params.append('customer_email', email.toLowerCase().trim());
-    params.append('line_items[0][price]', pack.priceId);
-    params.append('line_items[0][quantity]', '1');
-    params.append('success_url', `${appUrl}/purchase/success?session_id={CHECKOUT_SESSION_ID}`);
-    params.append('cancel_url', `${appUrl}/create`);
-    params.append('metadata[email]', email.toLowerCase().trim());
-    params.append('metadata[packId]', packId);
-    params.append('metadata[credits]', String(pack.credits));
+    // Generate unique order ID
+    const orderId = `GL${Date.now()}${Math.random().toString(36).substr(2, 4).toUpperCase()}`;
 
-    const res = await fetch('https://api.stripe.com/v1/checkout/sessions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${stripeKey}`,
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: params.toString(),
+    // Create ECPay payment
+    const { paymentUrl, formData } = await createPaymentFormData({
+      orderId,
+      amount: pack.priceTWD,
+      description: '拾光 Glimmer AI 影片生成',
+      email: email.toLowerCase().trim(),
+      itemName: `${pack.label} (${pack.credits} 次生成)`,
+      returnUrl: `${appUrl}/purchase/success`,
+      notifyUrl: `${appUrl}/api/webhooks/ecpay`,
+      clientBackUrl: `${appUrl}/create`,
     });
 
-    if (!res.ok) {
-      const errData = await res.json();
-      console.error('Checkout error:', errData);
-      return NextResponse.json({ error: '建立付款連結失敗' }, { status: 500 });
-    }
+    // Store order info for webhook validation (optional, for extra security)
+    // We use CustomField1 to pass email, and parse orderId format to get credits
 
-    const session = await res.json();
-    return NextResponse.json({ url: session.url });
+    // Return form data for client to POST to ECPay
+    return NextResponse.json({
+      paymentUrl,
+      formData,
+      orderId,
+    });
   } catch (error) {
     captureError(error, { route: '/api/checkout' });
-    return NextResponse.json({ error: '發生錯誤' }, { status: 500 });
+    console.error('Checkout error:', error);
+    return NextResponse.json({ error: '發生錯誤，請稍後再試' }, { status: 500 });
   }
 }

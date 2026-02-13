@@ -553,10 +553,30 @@ function PurchaseButton({ email, packId, label }: { email: string; packId: strin
         body: JSON.stringify({ email, packId }),
       });
       const data = await res.json();
-      if (data.url) {
-        window.location.href = data.url;
+
+      if (data.paymentUrl && data.formData) {
+        // ECPay requires form POST to payment URL
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = data.paymentUrl;
+        form.style.display = 'none';
+
+        for (const [key, value] of Object.entries(data.formData)) {
+          const input = document.createElement('input');
+          input.type = 'hidden';
+          input.name = key;
+          input.value = String(value);
+          form.appendChild(input);
+        }
+
+        document.body.appendChild(form);
+        form.submit();
+      } else if (data.error) {
+        alert(data.error);
+        setLoading(false);
       }
-    } catch { /* ignore */ } finally {
+    } catch {
+      alert('付款系統發生錯誤，請稍後再試');
       setLoading(false);
     }
   };
@@ -569,7 +589,7 @@ function PurchaseButton({ email, packId, label }: { email: string; packId: strin
       onClick={handlePurchase}
       disabled={loading}
     >
-      {loading ? '...' : label}
+      {loading ? '處理中...' : label}
     </Button>
   );
 }

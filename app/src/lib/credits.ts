@@ -48,7 +48,7 @@ export async function setEmailVerified(email: string): Promise<void> {
 
 // --- Credit Record CRUD ---
 
-async function getCreditRecord(email: string): Promise<CreditRecord> {
+export async function getCreditRecord(email: string): Promise<CreditRecord> {
   const data = await kvGet(`${CREDIT_PREFIX}${normalize(email)}`);
   if (data) return JSON.parse(data);
   return { total: 0, used: 0, purchases: [] };
