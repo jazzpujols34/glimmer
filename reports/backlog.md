@@ -77,10 +77,11 @@ Replace Stripe checkout with ECPay (綠界) for Taiwan-native payment methods.
 - DSN parsing, stack frame extraction, fire-and-forget reporting
 - Tracks: generation failures, payment webhook errors, API errors
 
-## Priority 10: OG image and social sharing
-- Proper 1200x630 social card (not logo JPEG)
-- Share buttons (LINE, Facebook) on video completion page
-- OG video meta tags for link previews
+## Priority 10: OG image and social sharing [DONE]
+- ✅ Proper 1200x630 social card (`opengraph-image.tsx`, `twitter-image.tsx`)
+- ✅ Dynamic OG image for `/generate/[id]` with video-ready preview
+- ✅ Share buttons (LINE, Facebook) on video completion page
+- ✅ Layout with OG meta tags (title, description, og:type=video.other)
 
 ## Priority 11: Analytics dashboard [PARTIAL]
 - ✅ GA4 tracking (`lib/analytics.ts`) with custom events
