@@ -83,11 +83,12 @@ Replace Stripe checkout with ECPay (綠界) for Taiwan-native payment methods.
 - ✅ Share buttons (LINE, Facebook) on video completion page
 - ✅ Layout with OG meta tags (title, description, og:type=video.other)
 
-## Priority 11: Analytics dashboard [PARTIAL]
+## Priority 11: Analytics dashboard [DONE]
 - ✅ GA4 tracking (`lib/analytics.ts`) with custom events
 - ✅ Tracks: generation start/complete, purchases, storyboard creation, video exports
-- ⏳ Admin page at /admin with charts (not started)
-- ⏳ Requires admin auth (API key or email whitelist)
+- ✅ Admin page at `/admin` with visual dashboard
+- ✅ Email whitelist auth (ADMIN_EMAILS env var)
+- ✅ Shows: jobs, users, revenue, model/occasion usage, recent activity
 
 ## Priority 12: Multi-language support (i18n)
 Add language toggle (繁中/English) across the entire app.
