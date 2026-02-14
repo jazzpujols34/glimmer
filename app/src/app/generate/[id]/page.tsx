@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { GenerationProgress } from '@/components/GenerationProgress';
 import { ChevronLeft, ChevronRight, Clock, FolderOpen } from 'lucide-react';
+import { trackGenerationComplete } from '@/lib/analytics';
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -29,6 +30,16 @@ export default function GeneratePage({ params }: PageProps) {
 
   const handleComplete = (url: string, urls: string[], analysis?: string) => {
     setResult({ url, urls, analysis });
+
+    // Track generation complete
+    try {
+      const stored = localStorage.getItem('glimmer_last_generation');
+      if (stored) {
+        const { occasion, model } = JSON.parse(stored);
+        trackGenerationComplete(occasion, model);
+        localStorage.removeItem('glimmer_last_generation');
+      }
+    } catch { /* ignore */ }
   };
 
   const handleError = (err: string) => {

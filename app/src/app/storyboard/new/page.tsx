@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Logo } from '@/components/Logo';
 import type { AspectRatio } from '@/types';
+import { trackStoryboardCreate } from '@/lib/analytics';
 
 export default function NewStoryboardPage() {
   const router = useRouter();
@@ -45,6 +46,9 @@ export default function NewStoryboardPage() {
       if (!res.ok) {
         throw new Error(data.error || '建立失敗');
       }
+
+      // Track storyboard creation
+      trackStoryboardCreate(slotCount, aspectRatio);
 
       router.push(`/storyboard/${data.storyboard.id}`);
     } catch (err) {

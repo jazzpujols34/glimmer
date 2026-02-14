@@ -6,6 +6,7 @@ import { Logo } from '@/components/Logo';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { CheckCircle2, Sparkles } from 'lucide-react';
+import { trackPurchaseComplete } from '@/lib/analytics';
 
 export default function PurchaseSuccessPage() {
   const [remaining, setRemaining] = useState<number | null>(null);
@@ -33,6 +34,17 @@ export default function PurchaseSuccessPage() {
             attempts++;
             setTimeout(checkCredits, 2000);
             return;
+          }
+          // Track purchase complete when we have credits
+          if (data.remaining > 0) {
+            try {
+              const pending = localStorage.getItem('glimmer_pending_purchase');
+              if (pending) {
+                const { packId, amount, orderId } = JSON.parse(pending);
+                trackPurchaseComplete(packId, amount, orderId);
+                localStorage.removeItem('glimmer_pending_purchase');
+              }
+            } catch { /* ignore */ }
           }
         }
       } catch { /* ignore */ }

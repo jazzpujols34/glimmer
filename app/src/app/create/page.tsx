@@ -14,6 +14,7 @@ import { SettingsSidebar } from '@/components/SettingsSidebar';
 import type { OccasionType, GenerationSettings, CreditBalance, Project } from '@/types';
 import { defaultSettings } from '@/types';
 import { FolderOpen, ChevronDown } from 'lucide-react';
+import { trackGenerationStart, trackPurchaseStart } from '@/lib/analytics';
 
 const occasions: { value: OccasionType; label: string; description: string }[] = [
   { value: 'memorial', label: '追思紀念', description: '告別式、追悼會' },
@@ -200,6 +201,11 @@ function CreatePageInner() {
         }
         throw new Error(data.error || '發生錯誤');
       }
+
+      // Track generation start
+      trackGenerationStart(occasion, settings.model);
+      // Store for completion tracking
+      localStorage.setItem('glimmer_last_generation', JSON.stringify({ occasion, model: settings.model }));
 
       router.push(`/generate/${data.id}`);
     } catch (err) {
@@ -545,6 +551,10 @@ function PurchaseButton({ email, packId, label }: { email: string; packId: strin
 
   const handlePurchase = async () => {
     setLoading(true);
+    // Track purchase start
+    const packAmount = packId === 'pack20' ? 299 : packId === 'pack50' ? 599 : 0;
+    trackPurchaseStart(packId, packAmount);
+
     try {
       localStorage.setItem('glimmer_email', email);
       const res = await fetch('/api/checkout', {
@@ -553,6 +563,10 @@ function PurchaseButton({ email, packId, label }: { email: string; packId: strin
         body: JSON.stringify({ email, packId }),
       });
       const data = await res.json();
+      // Store purchase info for completion tracking
+      if (data.orderId) {
+        localStorage.setItem('glimmer_pending_purchase', JSON.stringify({ packId, amount: packAmount, orderId: data.orderId }));
+      }
 
       if (data.paymentUrl && data.formData) {
         // ECPay requires form POST to payment URL

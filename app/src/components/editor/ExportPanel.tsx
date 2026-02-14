@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { exportVideo } from '@/lib/editor/ffmpeg-export';
 import { Download, Loader2, Film, CheckCircle } from 'lucide-react';
+import { trackVideoExport } from '@/lib/analytics';
 
 export function ExportPanel() {
   const state = useEditor();
@@ -40,6 +41,9 @@ export function ExportPanel() {
       const url = URL.createObjectURL(blob);
       setDownloadUrl(url);
       dispatch({ type: 'SET_EXPORT_PROGRESS', payload: null });
+
+      // Track video export
+      trackVideoExport('editor', state.totalDuration);
     } catch (err) {
       console.error('Export failed:', err);
       setError(err instanceof Error ? err.message : '匯出失敗');
