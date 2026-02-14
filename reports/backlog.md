@@ -71,21 +71,22 @@ Replace Stripe checkout with ECPay (綠界) for Taiwan-native payment methods.
   - `credits.test.ts` (16): email validation, credit checking, usage, purchases, idempotency, verification
 - KV mocked via `vi.mock('./kv')`
 
-## Priority 9: Error monitoring
-No error visibility in production.
-- Add Sentry or equivalent (must be Edge-compatible)
-- Track: generation failures, payment webhook errors, KV failures
-- Alert on spike in error rates
+## Priority 9: Error monitoring [DONE]
+- Sentry HTTP API integration (`lib/errors.ts`) — SDK doesn't work on Cloudflare Edge
+- `captureError()` / `captureWarning()` with structured context
+- DSN parsing, stack frame extraction, fire-and-forget reporting
+- Tracks: generation failures, payment webhook errors, API errors
 
 ## Priority 10: OG image and social sharing
 - Proper 1200x630 social card (not logo JPEG)
 - Share buttons (LINE, Facebook) on video completion page
 - OG video meta tags for link previews
 
-## Priority 11: Analytics dashboard
-Track generation counts, model usage, error rates, avg generation time.
-- Simple admin page at /admin with charts
-- Requires some form of admin auth (API key or email whitelist)
+## Priority 11: Analytics dashboard [PARTIAL]
+- ✅ GA4 tracking (`lib/analytics.ts`) with custom events
+- ✅ Tracks: generation start/complete, purchases, storyboard creation, video exports
+- ⏳ Admin page at /admin with charts (not started)
+- ⏳ Requires admin auth (API key or email whitelist)
 
 ## Priority 12: Multi-language support (i18n)
 Add language toggle (繁中/English) across the entire app.
