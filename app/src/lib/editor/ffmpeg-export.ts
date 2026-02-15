@@ -156,14 +156,23 @@ export async function exportVideo(
     audioFilters.push(`volume=${clip.volume}`);
     const af = audioFilters.join(',');
 
-    await ffmpeg.exec([
-      '-i', inputName,
-      '-vf', vf,
-      '-af', af,
-      '-c:v', 'libx264', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p',
-      '-c:a', 'aac', '-b:a', '128k',
-      '-y', outputName,
-    ]);
+    try {
+      await ffmpeg.exec([
+        '-i', inputName,
+        '-vf', vf,
+        '-af', af,
+        '-c:v', 'libx264', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p',
+        '-c:a', 'aac', '-b:a', '128k',
+        '-y', outputName,
+      ]);
+    } catch (err) {
+      console.error(`[FFmpeg] Failed to process clip ${i + 1}:`, err);
+      throw new Error(`處理片段 ${i + 1} 失敗: ${err instanceof Error ? err.message : '未知錯誤'}`);
+    }
+
+    // Immediately delete input file to free memory
+    await ffmpeg.deleteFile(inputName).catch(() => {});
+    console.log(`[FFmpeg] Processed clip ${i + 1}/${sorted.length}, freed input memory`);
 
     concatParts.push(outputName);
     partIndex++;
@@ -199,21 +208,28 @@ export async function exportVideo(
 
   onProgress(60);
 
-  // --- Concatenate all parts ---
+  // --- Concatenate all parts using stream copy (no re-encode = less memory) ---
+  console.log(`[FFmpeg] Concatenating ${concatParts.length} parts...`);
   const concatList = concatParts.map(f => `file '${f}'`).join('\n');
   await ffmpeg.writeFile('concat.txt', concatList);
 
+  // Build concat args - use stream copy if no subtitles (faster, less memory)
+  // If subtitles exist, we need to re-encode to burn them in
+  const hasSubtitles = subtitles.length > 0;
   const concatArgs = [
     '-f', 'concat', '-safe', '0', '-i', 'concat.txt',
-    '-c:v', 'libx264', '-preset', 'fast', '-pix_fmt', 'yuv420p',
-    '-c:a', 'aac', '-b:a', '128k',
   ];
 
-  // --- Subtitles (burn-in via ASS) ---
-  if (subtitles.length > 0) {
+  if (hasSubtitles) {
+    // Subtitles require re-encoding to burn-in
     const assContent = generateASS(subtitles, state);
     await ffmpeg.writeFile('subtitles.ass', assContent);
     concatArgs.push('-vf', 'ass=subtitles.ass');
+    concatArgs.push('-c:v', 'libx264', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p');
+    concatArgs.push('-c:a', 'aac', '-b:a', '128k');
+  } else {
+    // No subtitles - use stream copy (much faster, far less memory)
+    concatArgs.push('-c', 'copy');
   }
 
   const outputFile = 'output_no_music.mp4';
@@ -341,16 +357,14 @@ export async function exportVideo(
   console.log(`[FFmpeg] Output file size: ${bytes.length} bytes`);
   const blob = new Blob([bytes.buffer], { type: 'video/mp4' });
 
-  // Cleanup
+  // Cleanup remaining files
+  console.log('[FFmpeg] Cleaning up temporary files...');
   for (const part of concatParts) {
     await ffmpeg.deleteFile(part).catch(() => {});
   }
   await ffmpeg.deleteFile('concat.txt').catch(() => {});
   await ffmpeg.deleteFile(outputFile).catch(() => {});
   if (finalFile !== outputFile) await ffmpeg.deleteFile(finalFile).catch(() => {});
-  for (let i = 0; i < clips.length; i++) {
-    await ffmpeg.deleteFile(`input${i}.mp4`).catch(() => {});
-  }
   await ffmpeg.deleteFile('subtitles.ass').catch(() => {});
   await ffmpeg.deleteFile('final_with_music.mp4').catch(() => {});
   await ffmpeg.deleteFile('final_with_sfx.mp4').catch(() => {});
