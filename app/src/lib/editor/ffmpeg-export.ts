@@ -218,7 +218,14 @@ export async function exportVideo(
 
   const outputFile = 'output_no_music.mp4';
   concatArgs.push('-y', outputFile);
-  await ffmpeg.exec(concatArgs);
+
+  console.log('[FFmpeg] Concatenating clips...');
+  try {
+    await ffmpeg.exec(concatArgs);
+  } catch (err) {
+    console.error('[FFmpeg] Concatenation failed:', err);
+    throw new Error(`影片合併失敗: ${err instanceof Error ? err.message : '請重新整理頁面再試'}`);
+  }
 
   onProgress(80);
 
@@ -318,8 +325,20 @@ export async function exportVideo(
   onProgress(95);
 
   // --- Read result ---
-  const result = await ffmpeg.readFile(finalFile);
+  console.log(`[FFmpeg] Reading final file: ${finalFile}`);
+  let result: Uint8Array | string;
+  try {
+    result = await ffmpeg.readFile(finalFile);
+  } catch (err) {
+    console.error('[FFmpeg] Failed to read output file:', err);
+    throw new Error(`無法讀取匯出檔案: ${err instanceof Error ? err.message : '記憶體可能不足，請嘗試較短的影片'}`);
+  }
+
   const bytes = result instanceof Uint8Array ? new Uint8Array(result) : new TextEncoder().encode(result as string);
+  if (bytes.length === 0) {
+    throw new Error('匯出檔案為空，FFmpeg 處理可能失敗。請檢查影片來源。');
+  }
+  console.log(`[FFmpeg] Output file size: ${bytes.length} bytes`);
   const blob = new Blob([bytes.buffer], { type: 'video/mp4' });
 
   // Cleanup
