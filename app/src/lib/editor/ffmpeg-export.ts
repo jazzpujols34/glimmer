@@ -6,6 +6,10 @@ import { FFMPEG_FILTERS } from './filter-maps';
 
 let ffmpegInstance: FFmpeg | null = null;
 
+// Process clips in chunks to avoid memory exhaustion
+// 5 clips × ~5MB each = ~25MB per chunk (safe for browser)
+const CHUNK_SIZE = 5;
+
 async function getFFmpeg(onProgress?: (ratio: number) => void): Promise<FFmpeg> {
   if (ffmpegInstance && ffmpegInstance.loaded) return ffmpegInstance;
 
@@ -54,9 +58,35 @@ async function generateBlackSegment(
 }
 
 /**
+ * Concatenate a list of video files using stream copy (fast, no re-encode).
+ * Returns the output filename.
+ */
+async function concatFiles(
+  ffmpeg: FFmpeg,
+  inputFiles: string[],
+  outputFile: string,
+): Promise<void> {
+  const concatList = inputFiles.map(f => `file '${f}'`).join('\n');
+  const listFile = `concat_${outputFile}.txt`;
+  await ffmpeg.writeFile(listFile, concatList);
+
+  await ffmpeg.exec([
+    '-f', 'concat', '-safe', '0', '-i', listFile,
+    '-c', 'copy',
+    '-y', outputFile,
+  ]);
+
+  await ffmpeg.deleteFile(listFile).catch(() => {});
+}
+
+/**
  * Export the full timeline to a single MP4.
- * Strategy: build chronological segments (title, clips, gaps, outro),
- * concatenate, burn subtitles, mix music.
+ *
+ * Strategy for memory efficiency with 30+ clips:
+ * 1. Process clips in chunks of CHUNK_SIZE
+ * 2. After each chunk, concatenate into intermediate file and delete source clips
+ * 3. Finally concatenate all chunks into final output
+ * 4. Apply subtitles/music/sfx at the end
  */
 export async function exportVideo(
   state: EditorState,
@@ -67,7 +97,14 @@ export async function exportVideo(
 
   if (clips.length === 0) throw new Error('沒有影片片段可匯出');
 
-  const concatParts: string[] = [];
+  console.log(`[FFmpeg] Starting export: ${clips.length} clips, chunk size ${CHUNK_SIZE}`);
+
+  // Track all intermediate chunk files for final concatenation
+  const chunkFiles: string[] = [];
+  let chunkIndex = 0;
+
+  // Current chunk's parts (will be concatenated when chunk is full)
+  let currentChunkParts: string[] = [];
   let partIndex = 0;
 
   onProgress(5);
@@ -84,13 +121,13 @@ export async function exportVideo(
       '-t', `${dur}`,
       filename,
     ]);
-    concatParts.push(filename);
+    currentChunkParts.push(filename);
     partIndex++;
   }
 
-  // --- Process clips in chronological order, inserting gap segments ---
+  // --- Process clips in chronological order ---
   const sorted = clipsSortedByPosition(clips);
-  let cursor = titleCard ? titleCard.durationSeconds : 0; // current timeline position
+  let cursor = titleCard ? titleCard.durationSeconds : 0;
 
   for (let i = 0; i < sorted.length; i++) {
     const clip = sorted[i];
@@ -102,7 +139,7 @@ export async function exportVideo(
     if (gapDur > 0.05) {
       const gapFile = `gap${partIndex}.mp4`;
       await generateBlackSegment(ffmpeg, gapDur, gapFile);
-      concatParts.push(gapFile);
+      currentChunkParts.push(gapFile);
       partIndex++;
     }
 
@@ -114,7 +151,7 @@ export async function exportVideo(
       throw new Error(`片段 ${i + 1} 沒有影片資料，請重新載入頁面`);
     }
 
-    console.log(`[FFmpeg] Loading clip ${i + 1}: ${clip.blobUrl.substring(0, 50)}...`);
+    console.log(`[FFmpeg] Loading clip ${i + 1}/${sorted.length}...`);
     let data: Uint8Array;
     try {
       data = await fetchFile(clip.blobUrl);
@@ -126,24 +163,14 @@ export async function exportVideo(
 
     // Build filter chain
     const filters: string[] = [];
-
-    // Trim
-    const trimFilter = `trim=start=${clip.trimStart}:end=${clip.trimEnd},setpts=PTS-STARTPTS`;
-    filters.push(trimFilter);
-
-    // Speed
+    filters.push(`trim=start=${clip.trimStart}:end=${clip.trimEnd},setpts=PTS-STARTPTS`);
     if (clip.speed !== 1) {
       filters.push(`setpts=PTS/${clip.speed}`);
     }
-
-    // Visual filter
     if (clip.filter && FFMPEG_FILTERS[clip.filter]) {
       filters.push(FFMPEG_FILTERS[clip.filter]);
     }
-
-    // Scale to consistent size
     filters.push('scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:-1:-1:color=black');
-
     const vf = filters.join(',');
 
     // Audio processing
@@ -170,26 +197,48 @@ export async function exportVideo(
       throw new Error(`處理片段 ${i + 1} 失敗: ${err instanceof Error ? err.message : '未知錯誤'}`);
     }
 
-    // Immediately delete input file to free memory
+    // Delete input immediately to free memory
     await ffmpeg.deleteFile(inputName).catch(() => {});
-    console.log(`[FFmpeg] Processed clip ${i + 1}/${sorted.length}, freed input memory`);
 
-    concatParts.push(outputName);
+    currentChunkParts.push(outputName);
     partIndex++;
-
     cursor = clipStart + clipDur;
 
-    onProgress(5 + Math.round((i + 1) / sorted.length * 50));
+    // Check if we should finalize this chunk (every CHUNK_SIZE clips)
+    // But don't create a chunk if this is the last clip and we have few parts
+    const clipsProcessed = i + 1;
+    const isLastClip = i === sorted.length - 1;
+    const shouldCreateChunk = currentChunkParts.length >= CHUNK_SIZE ||
+      (isLastClip && currentChunkParts.length > 0 && chunkFiles.length > 0);
+
+    if (shouldCreateChunk && !isLastClip) {
+      // Concatenate current chunk parts into intermediate file
+      const chunkFile = `chunk${chunkIndex}.mp4`;
+      console.log(`[FFmpeg] Creating chunk ${chunkIndex + 1}: ${currentChunkParts.length} parts`);
+      await concatFiles(ffmpeg, currentChunkParts, chunkFile);
+
+      // Delete the source parts to free memory
+      for (const part of currentChunkParts) {
+        await ffmpeg.deleteFile(part).catch(() => {});
+      }
+
+      chunkFiles.push(chunkFile);
+      currentChunkParts = [];
+      chunkIndex++;
+      console.log(`[FFmpeg] Chunk ${chunkIndex} created, memory freed`);
+    }
+
+    onProgress(5 + Math.round(clipsProcessed / sorted.length * 50));
   }
 
-  // --- Gap before outro? ---
+  // --- Gap before outro and outro card ---
   if (outroCard) {
     const outroStart = getOutroStart(state);
     const gapBeforeOutro = outroStart - cursor;
     if (gapBeforeOutro > 0.05) {
       const gapFile = `gap_outro${partIndex}.mp4`;
       await generateBlackSegment(ffmpeg, gapBeforeOutro, gapFile);
-      concatParts.push(gapFile);
+      currentChunkParts.push(gapFile);
       partIndex++;
     }
 
@@ -203,44 +252,71 @@ export async function exportVideo(
       '-t', `${dur}`,
       filename,
     ]);
-    concatParts.push(filename);
+    currentChunkParts.push(filename);
   }
 
   onProgress(60);
 
-  // --- Concatenate all parts using stream copy (no re-encode = less memory) ---
-  console.log(`[FFmpeg] Concatenating ${concatParts.length} parts...`);
-  const concatList = concatParts.map(f => `file '${f}'`).join('\n');
-  await ffmpeg.writeFile('concat.txt', concatList);
+  // --- Final concatenation ---
+  // If we have chunk files, add remaining parts as final chunk, then concat all chunks
+  // If no chunk files, just concat current parts directly
+  let videoOnlyFile: string;
 
-  // Build concat args - use stream copy if no subtitles (faster, less memory)
-  // If subtitles exist, we need to re-encode to burn them in
-  const hasSubtitles = subtitles.length > 0;
-  const concatArgs = [
-    '-f', 'concat', '-safe', '0', '-i', 'concat.txt',
-  ];
+  if (chunkFiles.length > 0) {
+    // Add remaining parts as the last chunk
+    if (currentChunkParts.length > 0) {
+      const lastChunkFile = `chunk${chunkIndex}.mp4`;
+      console.log(`[FFmpeg] Creating final chunk: ${currentChunkParts.length} parts`);
+      await concatFiles(ffmpeg, currentChunkParts, lastChunkFile);
+      for (const part of currentChunkParts) {
+        await ffmpeg.deleteFile(part).catch(() => {});
+      }
+      chunkFiles.push(lastChunkFile);
+    }
 
-  if (hasSubtitles) {
-    // Subtitles require re-encoding to burn-in
-    const assContent = generateASS(subtitles, state);
-    await ffmpeg.writeFile('subtitles.ass', assContent);
-    concatArgs.push('-vf', 'ass=subtitles.ass');
-    concatArgs.push('-c:v', 'libx264', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p');
-    concatArgs.push('-c:a', 'aac', '-b:a', '128k');
+    // Concatenate all chunks
+    videoOnlyFile = 'video_concatenated.mp4';
+    console.log(`[FFmpeg] Concatenating ${chunkFiles.length} chunks...`);
+    await concatFiles(ffmpeg, chunkFiles, videoOnlyFile);
+
+    // Delete chunk files
+    for (const chunk of chunkFiles) {
+      await ffmpeg.deleteFile(chunk).catch(() => {});
+    }
+    console.log(`[FFmpeg] All chunks merged, memory freed`);
   } else {
-    // No subtitles - use stream copy (much faster, far less memory)
-    concatArgs.push('-c', 'copy');
+    // Few clips, no chunking needed - concat directly
+    videoOnlyFile = 'video_concatenated.mp4';
+    console.log(`[FFmpeg] Concatenating ${currentChunkParts.length} parts directly...`);
+    await concatFiles(ffmpeg, currentChunkParts, videoOnlyFile);
+
+    // Delete source parts
+    for (const part of currentChunkParts) {
+      await ffmpeg.deleteFile(part).catch(() => {});
+    }
   }
 
-  const outputFile = 'output_no_music.mp4';
-  concatArgs.push('-y', outputFile);
+  onProgress(70);
 
-  console.log('[FFmpeg] Concatenating clips...');
-  try {
-    await ffmpeg.exec(concatArgs);
-  } catch (err) {
-    console.error('[FFmpeg] Concatenation failed:', err);
-    throw new Error(`影片合併失敗: ${err instanceof Error ? err.message : '請重新整理頁面再試'}`);
+  // --- Apply subtitles if present (requires re-encoding) ---
+  let outputFile = videoOnlyFile;
+  if (subtitles.length > 0) {
+    const assContent = generateASS(subtitles, state);
+    await ffmpeg.writeFile('subtitles.ass', assContent);
+
+    const withSubsFile = 'video_with_subs.mp4';
+    console.log(`[FFmpeg] Burning in ${subtitles.length} subtitles...`);
+    await ffmpeg.exec([
+      '-i', videoOnlyFile,
+      '-vf', 'ass=subtitles.ass',
+      '-c:v', 'libx264', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p',
+      '-c:a', 'copy',
+      '-y', withSubsFile,
+    ]);
+
+    await ffmpeg.deleteFile(videoOnlyFile).catch(() => {});
+    await ffmpeg.deleteFile('subtitles.ass').catch(() => {});
+    outputFile = withSubsFile;
   }
 
   onProgress(80);
@@ -262,13 +338,11 @@ export async function exportVideo(
 
       musicInputs.push('-i', musicFilename);
       const delayMs = Math.round(mc.timelinePosition * 1000);
-      // Input index is i+1 (0 is the video file)
       musicFilterParts.push(
         `[${i + 1}:a]atrim=start=${mc.trimStart}:end=${mc.trimEnd},asetpts=PTS-STARTPTS,adelay=${delayMs}|${delayMs},volume=${mc.volume}[mc${i}]`
       );
     }
 
-    // Mix all music clips with original audio
     const musicLabels = musicClips.map((_, i) => `[mc${i}]`).join('');
     const mixFilter = musicFilterParts.join(';') +
       `;[0:a]${musicLabels}amix=inputs=${musicClips.length + 1}:duration=first:dropout_transition=2[aout]`;
@@ -283,13 +357,10 @@ export async function exportVideo(
       '-y', finalFile,
     ]);
 
-    // Cleanup music temp files
     for (const f of musicCleanup) {
       await ffmpeg.deleteFile(f).catch(() => {});
     }
-    if (prevFile !== outputFile) {
-      await ffmpeg.deleteFile(prevFile).catch(() => {});
-    }
+    await ffmpeg.deleteFile(prevFile).catch(() => {});
   }
 
   // --- Mix SFX if present ---
@@ -308,11 +379,9 @@ export async function exportVideo(
 
       sfxInputs.push('-i', sfxFilename);
       const delayMs = Math.round(sfxItem.startTime * 1000);
-      // Input index is i+1 (0 is the video file)
       sfxFilterParts.push(`[${i + 1}:a]adelay=${delayMs}|${delayMs},volume=${sfxItem.volume}[sfx${i}]`);
     }
 
-    // Mix all SFX with original audio
     const sfxLabels = sfx.map((_, i) => `[sfx${i}]`).join('');
     const mixFilter = sfxFilterParts.join(';') +
       `;[0:a]${sfxLabels}amix=inputs=${sfx.length + 1}:duration=first:dropout_transition=2[aout]`;
@@ -329,13 +398,10 @@ export async function exportVideo(
 
     finalFile = sfxOutFile;
 
-    // Cleanup SFX temp files
     for (const f of sfxCleanup) {
       await ffmpeg.deleteFile(f).catch(() => {});
     }
-    if (prevFile !== outputFile) {
-      await ffmpeg.deleteFile(prevFile).catch(() => {});
-    }
+    await ffmpeg.deleteFile(prevFile).catch(() => {});
   }
 
   onProgress(95);
@@ -354,20 +420,11 @@ export async function exportVideo(
   if (bytes.length === 0) {
     throw new Error('匯出檔案為空，FFmpeg 處理可能失敗。請檢查影片來源。');
   }
-  console.log(`[FFmpeg] Output file size: ${bytes.length} bytes`);
+  console.log(`[FFmpeg] Export complete! Output size: ${(bytes.length / 1024 / 1024).toFixed(2)} MB`);
   const blob = new Blob([bytes.buffer], { type: 'video/mp4' });
 
-  // Cleanup remaining files
-  console.log('[FFmpeg] Cleaning up temporary files...');
-  for (const part of concatParts) {
-    await ffmpeg.deleteFile(part).catch(() => {});
-  }
-  await ffmpeg.deleteFile('concat.txt').catch(() => {});
-  await ffmpeg.deleteFile(outputFile).catch(() => {});
-  if (finalFile !== outputFile) await ffmpeg.deleteFile(finalFile).catch(() => {});
-  await ffmpeg.deleteFile('subtitles.ass').catch(() => {});
-  await ffmpeg.deleteFile('final_with_music.mp4').catch(() => {});
-  await ffmpeg.deleteFile('final_with_sfx.mp4').catch(() => {});
+  // Final cleanup
+  await ffmpeg.deleteFile(finalFile).catch(() => {});
 
   onProgress(100);
   return blob;
