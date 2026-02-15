@@ -9,6 +9,17 @@ import { sendCompletionEmail } from '@/lib/email';
 import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
 import { captureError } from '@/lib/errors';
 
+/**
+ * Transform video URL to proxy URL if it's an R2 key (not starting with http)
+ */
+function getVideoUrl(jobId: string, url: string | undefined): string {
+  if (!url) return '';
+  if (!url.startsWith('http')) {
+    return `/api/proxy-video?jobId=${jobId}&index=0`;
+  }
+  return url;
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ batchId: string }> }
@@ -103,7 +114,7 @@ export async function GET(
                 segmentIndex: job.segmentIndex ?? segments.length,
                 status: 'complete',
                 progress: 100,
-                videoUrl: finalUrls[0],
+                videoUrl: getVideoUrl(jobId, finalUrls[0]),
               });
 
               // Send completion email for first segment only (as notification)
@@ -141,7 +152,7 @@ export async function GET(
           segmentIndex: job.segmentIndex ?? segments.length,
           status: job.status,
           progress: job.status === 'complete' ? 100 : job.progress,
-          videoUrl: job.videoUrl,
+          videoUrl: getVideoUrl(jobId, job.videoUrl),
           error: job.error,
         });
       }

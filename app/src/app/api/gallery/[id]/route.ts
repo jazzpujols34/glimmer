@@ -4,6 +4,22 @@ import { NextRequest, NextResponse } from 'next/server';
 import { deleteJob, getJob, updateJob, addJobToProject, removeJobFromProject, getProject } from '@/lib/storage';
 import { captureError } from '@/lib/errors';
 
+/**
+ * Transform video URL to proxy URL if it's an R2 key (not starting with http)
+ */
+function getVideoUrl(jobId: string, url: string | undefined, index: number = 0): string {
+  if (!url) return '';
+  if (!url.startsWith('http')) {
+    return `/api/proxy-video?jobId=${jobId}&index=${index}`;
+  }
+  return url;
+}
+
+function getVideoUrls(jobId: string, urls: string[] | undefined): string[] {
+  if (!urls || urls.length === 0) return [];
+  return urls.map((url, index) => getVideoUrl(jobId, url, index));
+}
+
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -21,8 +37,8 @@ export async function GET(
       id: job.id,
       name: job.name,
       occasion: job.occasion,
-      videoUrl: job.videoUrl,
-      videoUrls: job.videoUrls,
+      videoUrl: getVideoUrl(job.id, job.videoUrl, 0),
+      videoUrls: getVideoUrls(job.id, job.videoUrls),
       createdAt: job.createdAt,
       settings: job.settings,
       favorite: job.favorite,
