@@ -171,3 +171,5 @@ Pay-per-video credits (not subscriptions). Email-only identity (no passwords/OAu
 - **[2026-02-02] Editor**: Debounce auto-save (1s) and skip UI-only actions (`SET_PLAYHEAD`, `SET_PLAYING`, `SELECT_CLIP`, etc.) to avoid unnecessary writes. Track which action triggered the state change via a ref, not by comparing state diffs.
 
 - **[2026-02-02] Testing**: Vitest with `vi.mock('./kv')` cleanly isolates modules that depend on Cloudflare bindings. Mock the lowest abstraction layer (KV helpers) rather than `getRequestContext()` — tests then exercise real business logic.
+
+- **[2026-02-15] Cloudflare Pages**: EVERY new route (page or API) MUST have `export const runtime = 'edge';` or Cloudflare Pages build fails. For `'use client'` pages, add a `layout.tsx` in the same directory that exports the runtime config (client components can't export server config). **Checklist when creating new routes:** (1) API route → add `export const runtime = 'edge';` at top, (2) Client page → create sibling `layout.tsx` with runtime export, (3) Server page → add runtime export directly. Build locally before pushing to catch this.
