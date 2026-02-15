@@ -86,7 +86,7 @@ export function trackStoryboardCreate(slotCount: number, aspectRatio: string): v
 }
 
 /** Track video export */
-export function trackVideoExport(source: 'editor' | 'storyboard', duration: number): void {
+export function trackVideoExport(source: 'editor' | 'storyboard' | 'server', duration: number): void {
   trackEvent({
     action: 'video_export',
     category: 'export',
