@@ -11,6 +11,7 @@ async function getFFmpeg(onProgress?: (ratio: number) => void): Promise<FFmpeg> 
 
   const ffmpeg = new FFmpeg();
   ffmpeg.on('log', ({ message }) => {
+    console.log('[FFmpeg]', message);
     // Extract progress from FFmpeg output
     const match = message.match(/time=(\d+):(\d+):(\d+\.\d+)/);
     if (match && onProgress) {
@@ -20,9 +21,16 @@ async function getFFmpeg(onProgress?: (ratio: number) => void): Promise<FFmpeg> 
   });
 
   // Load single-threaded (avoids COOP/COEP header requirement)
-  await ffmpeg.load();
-  ffmpegInstance = ffmpeg;
-  return ffmpeg;
+  try {
+    console.log('[FFmpeg] Loading FFmpeg.wasm...');
+    await ffmpeg.load();
+    console.log('[FFmpeg] FFmpeg.wasm loaded successfully');
+    ffmpegInstance = ffmpeg;
+    return ffmpeg;
+  } catch (err) {
+    console.error('[FFmpeg] Failed to load FFmpeg.wasm:', err);
+    throw new Error(`FFmpeg 載入失敗: ${err instanceof Error ? err.message : '請重新整理頁面再試'}`);
+  }
 }
 
 /**
@@ -102,7 +110,18 @@ export async function exportVideo(
     const inputName = `input${i}.mp4`;
     const outputName = `clip${partIndex}.mp4`;
 
-    const data = await fetchFile(clip.blobUrl);
+    if (!clip.blobUrl) {
+      throw new Error(`片段 ${i + 1} 沒有影片資料，請重新載入頁面`);
+    }
+
+    console.log(`[FFmpeg] Loading clip ${i + 1}: ${clip.blobUrl.substring(0, 50)}...`);
+    let data: Uint8Array;
+    try {
+      data = await fetchFile(clip.blobUrl);
+    } catch (err) {
+      console.error(`[FFmpeg] Failed to fetch clip ${i + 1}:`, err);
+      throw new Error(`無法載入片段 ${i + 1}，影片可能已過期，請重新載入頁面`);
+    }
     await ffmpeg.writeFile(inputName, data);
 
     // Build filter chain
