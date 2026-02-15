@@ -15,7 +15,7 @@ import { LanguageToggle } from '@/components/LanguageToggle';
 import { useTranslation, type TranslationKey } from '@/lib/i18n';
 import type { OccasionType, GenerationSettings, CreditBalance, Project } from '@/types';
 import { defaultSettings } from '@/types';
-import { FolderOpen, ChevronDown } from 'lucide-react';
+import { FolderOpen, ChevronDown, Layers } from 'lucide-react';
 import { trackGenerationStart, trackPurchaseStart } from '@/lib/analytics';
 
 const occasionKeys: { value: OccasionType; labelKey: TranslationKey; descKey: TranslationKey }[] = [
@@ -55,11 +55,16 @@ function CreatePageInner() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [projectDropdownOpen, setProjectDropdownOpen] = useState(false);
+  const [batchMode, setBatchMode] = useState(false);
   const errorRef = useRef<HTMLDivElement>(null);
   const searchParams = useSearchParams();
 
   const isFrameMode = settings.taskType === 'first-last-frame';
   const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+
+  // Batch mode requires at least 2 photos and not in frame mode
+  const canEnableBatch = !isFrameMode && photos.length >= 2;
+  const batchSegments = batchMode && canEnableBatch ? photos.length - 1 : 0;
 
   // Check credits when email changes (debounced)
   useEffect(() => {
@@ -151,8 +156,13 @@ function CreatePageInner() {
       setError('請輸入主角姓名');
       return;
     }
-    if (creditBalance && creditBalance.remaining <= 0) {
-      setError('點數不足，請先購買點數');
+    // Check credits - batch mode needs N-1 credits
+    const creditsNeeded = batchMode && canEnableBatch ? batchSegments : 1;
+    if (creditBalance && creditBalance.remaining < creditsNeeded) {
+      setError(batchMode
+        ? `點數不足，批次生成需要 ${creditsNeeded} 點，您目前有 ${creditBalance.remaining} 點`
+        : '點數不足，請先購買點數'
+      );
       return;
     }
     if (isFrameMode) {
@@ -191,7 +201,9 @@ function CreatePageInner() {
         });
       }
 
-      const res = await fetch('/api/generate', {
+      // Use batch endpoint if batch mode is enabled
+      const endpoint = batchMode && canEnableBatch ? '/api/generate-batch' : '/api/generate';
+      const res = await fetch(endpoint, {
         method: 'POST',
         body: formData,
       });
@@ -210,7 +222,12 @@ function CreatePageInner() {
       // Store for completion tracking
       localStorage.setItem('glimmer_last_generation', JSON.stringify({ occasion, model: settings.model }));
 
-      router.push(`/generate/${data.id}`);
+      // Redirect to batch page or generate page
+      if (batchMode && data.batchId) {
+        router.push(`/batch/${data.batchId}`);
+      } else {
+        router.push(`/generate/${data.id}`);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : '發生錯誤，請稍後再試');
     } finally {
@@ -495,6 +512,55 @@ function CreatePageInner() {
                     )}
                   </div>
 
+                  {/* Batch Mode Toggle - shows when 2+ photos uploaded */}
+                  {canEnableBatch && (
+                    <div className="p-4 rounded-lg border border-border bg-card space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <Layers className="w-5 h-5 text-primary" />
+                          <div>
+                            <p className="font-medium">批次生成模式</p>
+                            <p className="text-sm text-muted-foreground">
+                              將 {photos.length} 張照片連接成 {photos.length - 1} 段影片
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          role="switch"
+                          aria-checked={batchMode}
+                          onClick={() => setBatchMode(!batchMode)}
+                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                            batchMode ? 'bg-primary' : 'bg-muted'
+                          }`}
+                        >
+                          <span
+                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                              batchMode ? 'translate-x-6' : 'translate-x-1'
+                            }`}
+                          />
+                        </button>
+                      </div>
+                      {batchMode && (
+                        <div className="text-sm space-y-2 pt-2 border-t border-border">
+                          <p className="text-muted-foreground">
+                            每對相鄰照片會生成一段過渡影片：
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            {photos.slice(0, -1).map((_, i) => (
+                              <span key={i} className="px-2 py-1 rounded bg-primary/10 text-primary text-xs">
+                                照片 {i + 1} → {i + 2}
+                              </span>
+                            ))}
+                          </div>
+                          <p className="text-amber-600 dark:text-amber-400 font-medium">
+                            將使用 {batchSegments} 點數
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   {/* Error */}
                   {error && (
                     <div ref={errorRef} className="p-3 rounded-lg bg-destructive/10 text-destructive text-sm" role="alert">
@@ -507,7 +573,12 @@ function CreatePageInner() {
                     type="submit"
                     size="lg"
                     className="w-full"
-                    disabled={isSubmitting || !isValidEmail || (creditBalance?.remaining ?? 1) <= 0 || (isFrameMode ? !firstFrame : photos.length < 1)}
+                    disabled={
+                      isSubmitting ||
+                      !isValidEmail ||
+                      (creditBalance?.remaining ?? 1) < (batchMode && canEnableBatch ? batchSegments : 1) ||
+                      (isFrameMode ? !firstFrame : photos.length < 1)
+                    }
                   >
                     {isSubmitting ? (
                       <>

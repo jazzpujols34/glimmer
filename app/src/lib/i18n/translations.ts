@@ -106,6 +106,21 @@ export const translations = {
     'storyboard.slots': '{n} 格',
     'storyboard.backToGallery': '返回影片庫',
 
+    // Batch
+    'batch.title': '批次生成',
+    'batch.mode': '批次生成模式',
+    'batch.description': '將 {count} 張照片連接成 {segments} 段影片',
+    'batch.segmentPreview': '每對相鄰照片會生成一段過渡影片',
+    'batch.photoTransition': '照片 {from} → {to}',
+    'batch.creditsNeeded': '將使用 {count} 點數',
+    'batch.segment': '段落 {n}',
+    'batch.viewProject': '查看專案',
+    'batch.downloadAll': '下載全部',
+    'batch.partialComplete': '部分完成',
+    'batch.completed': '{count} / {total} 完成',
+    'batch.failed': '{count} 失敗',
+    'batch.backToCreate': '返回製作',
+
     // Common
     'common.loading': '載入中...',
     'common.error': '發生錯誤',
@@ -258,6 +273,21 @@ export const translations = {
     'storyboard.minutes': 'About {n} minutes',
     'storyboard.slots': '{n} slots',
     'storyboard.backToGallery': 'Back to Gallery',
+
+    // Batch
+    'batch.title': 'Batch Generation',
+    'batch.mode': 'Batch Generation Mode',
+    'batch.description': 'Connect {count} photos into {segments} video segments',
+    'batch.segmentPreview': 'Each pair of adjacent photos generates a transition video',
+    'batch.photoTransition': 'Photo {from} → {to}',
+    'batch.creditsNeeded': 'Will use {count} credits',
+    'batch.segment': 'Segment {n}',
+    'batch.viewProject': 'View Project',
+    'batch.downloadAll': 'Download All',
+    'batch.partialComplete': 'Partially Complete',
+    'batch.completed': '{count} / {total} completed',
+    'batch.failed': '{count} failed',
+    'batch.backToCreate': 'Back to Create',
 
     // Common
     'common.loading': 'Loading...',

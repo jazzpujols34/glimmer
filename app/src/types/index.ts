@@ -67,6 +67,9 @@ export interface GenerationJob {
   // Project organization
   projectId?: string;       // Reference to parent project
   favorite?: boolean;       // Mark as favorite (keep when bulk deleting)
+  // Batch generation
+  batchId?: string;         // Reference to parent batch
+  segmentIndex?: number;    // 0-based index in batch (0 = first segment)
   // Edge-compatible: external task tracking (serverless polling)
   provider?: ModelType;
   externalTaskIds?: string[];       // BytePlus/Kling task IDs
@@ -175,4 +178,25 @@ export interface Storyboard {
   createdAt: string;
   updatedAt: string;
   email?: string;                    // Owner's email
+}
+
+// === Batch Generation Types ===
+// Batch = generate N-1 video segments from N photos using first-last-frame mode
+
+export type BatchStatus = 'queued' | 'processing' | 'partial' | 'complete' | 'error';
+
+export interface BatchJob {
+  id: string;                        // batch_xxx
+  status: BatchStatus;
+  email: string;
+  name: string;
+  occasion: OccasionType;
+  settings: GenerationSettings;
+  segmentJobIds: string[];           // References to GenerationJob IDs
+  projectId: string;                 // Auto-created project ID
+  totalSegments: number;             // N-1 segments (N photos)
+  completedSegments: number;         // How many segments are done
+  failedSegments: number;            // How many segments failed
+  createdAt: string;
+  updatedAt?: string;
 }

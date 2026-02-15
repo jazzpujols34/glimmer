@@ -7,6 +7,9 @@ import type {
   StoryboardSlot,
   StoryboardTransitionType,
   AspectRatio,
+  BatchJob,
+  BatchStatus,
+  GenerationSettings,
 } from '@/types';
 import { kvGet, kvPut, kvDelete, kvListKeys } from './kv';
 
@@ -382,4 +385,130 @@ export async function reorderStoryboardSlots(
 
   await kvPut(`${STORYBOARD_PREFIX}${storyboardId}`, JSON.stringify(storyboard));
   return storyboard;
+}
+
+// === Batch Generation Storage ===
+// Batch = N photos → N-1 video segments using first-last-frame mode
+
+const BATCH_PREFIX = 'batch:';
+
+export async function createBatch(
+  name: string,
+  email: string,
+  occasion: OccasionType,
+  settings: GenerationSettings,
+  totalSegments: number,
+  projectId: string,
+): Promise<BatchJob> {
+  const id = `batch_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  const now = new Date().toISOString();
+
+  const batch: BatchJob = {
+    id,
+    status: 'queued',
+    email,
+    name,
+    occasion,
+    settings,
+    segmentJobIds: [],
+    projectId,
+    totalSegments,
+    completedSegments: 0,
+    failedSegments: 0,
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  await kvPut(`${BATCH_PREFIX}${id}`, JSON.stringify(batch));
+  return batch;
+}
+
+export async function getBatch(id: string): Promise<BatchJob | undefined> {
+  const data = await kvGet(`${BATCH_PREFIX}${id}`);
+  return data ? JSON.parse(data) : undefined;
+}
+
+export async function updateBatch(
+  id: string,
+  updates: Partial<Omit<BatchJob, 'id' | 'createdAt'>>,
+): Promise<BatchJob | undefined> {
+  const batch = await getBatch(id);
+  if (!batch) return undefined;
+
+  const updated = { ...batch, ...updates, updatedAt: new Date().toISOString() };
+  await kvPut(`${BATCH_PREFIX}${id}`, JSON.stringify(updated));
+  return updated;
+}
+
+export async function addSegmentToBatch(
+  batchId: string,
+  jobId: string,
+): Promise<BatchJob | undefined> {
+  const batch = await getBatch(batchId);
+  if (!batch) return undefined;
+
+  if (!batch.segmentJobIds.includes(jobId)) {
+    batch.segmentJobIds.push(jobId);
+    batch.updatedAt = new Date().toISOString();
+    await kvPut(`${BATCH_PREFIX}${batchId}`, JSON.stringify(batch));
+  }
+
+  return batch;
+}
+
+export async function updateBatchStatus(batchId: string): Promise<BatchJob | undefined> {
+  const batch = await getBatch(batchId);
+  if (!batch) return undefined;
+
+  // Count completed and failed segments
+  let completed = 0;
+  let failed = 0;
+  let processing = 0;
+
+  for (const jobId of batch.segmentJobIds) {
+    const job = await getJob(jobId);
+    if (!job) continue;
+
+    if (job.status === 'complete') {
+      completed++;
+    } else if (job.status === 'error') {
+      failed++;
+    } else {
+      processing++;
+    }
+  }
+
+  // Determine batch status
+  let status: BatchStatus;
+  if (processing > 0) {
+    status = 'processing';
+  } else if (failed === batch.segmentJobIds.length) {
+    status = 'error';
+  } else if (completed === batch.segmentJobIds.length) {
+    status = 'complete';
+  } else if (failed > 0 && completed > 0) {
+    status = 'partial';
+  } else {
+    status = 'processing';
+  }
+
+  return updateBatch(batchId, {
+    status,
+    completedSegments: completed,
+    failedSegments: failed,
+  });
+}
+
+export async function getBatchJobs(batchId: string): Promise<GenerationJob[]> {
+  const batch = await getBatch(batchId);
+  if (!batch) return [];
+
+  const jobs: GenerationJob[] = [];
+  for (const jobId of batch.segmentJobIds) {
+    const job = await getJob(jobId);
+    if (job) jobs.push(job);
+  }
+
+  // Sort by segment index
+  return jobs.sort((a, b) => (a.segmentIndex ?? 0) - (b.segmentIndex ?? 0));
 }
