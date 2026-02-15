@@ -97,9 +97,16 @@ Replace Stripe checkout with ECPay (綠界) for Taiwan-native payment methods.
 - ✅ LocalStorage persistence for language preference
 - ✅ Applied to landing page, create page, gallery page
 
-## Priority 13: Batch generation
-Allow uploading multiple photos and generating one video per photo
-in a single batch job. Show progress for all jobs on a batch status page.
+## Priority 13: Batch generation [DONE]
+- ✅ Upload N photos → generate N-1 video segments (first-last-frame mode)
+- ✅ BatchJob type in `types/index.ts`, batch CRUD in `storage.ts`
+- ✅ `/api/generate-batch` endpoint with credit check (1 credit per segment)
+- ✅ `/api/batch-status/[batchId]` for polling progress
+- ✅ `/batch/[batchId]` page with progress grid, video preview modal
+- ✅ Batch toggle on create page with visual photo transition preview
+- ✅ Auto-creates project to group all batch segments
+- ✅ Partial failure handling (some segments can fail while others succeed)
+- ✅ Bilingual i18n translations
 
 ## Future / Phase 2
 - **B2B dashboard**: Business accounts with sub-users, unified billing, usage reports
