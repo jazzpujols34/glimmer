@@ -90,9 +90,12 @@ Replace Stripe checkout with ECPay (綠界) for Taiwan-native payment methods.
 - ✅ Email whitelist auth (ADMIN_EMAILS env var)
 - ✅ Shows: jobs, users, revenue, model/occasion usage, recent activity
 
-## Priority 12: Multi-language support (i18n)
-Add language toggle (繁中/English) across the entire app.
-Use next-intl or a simple context-based approach.
+## Priority 12: Multi-language support (i18n) [DONE]
+- ✅ i18n infrastructure with React Context (`lib/i18n/context.tsx`)
+- ✅ Translation files for zh-TW and en (`lib/i18n/translations.ts`)
+- ✅ LanguageToggle component with browser language detection
+- ✅ LocalStorage persistence for language preference
+- ✅ Applied to landing page, create page, gallery page
 
 ## Priority 13: Batch generation
 Allow uploading multiple photos and generating one video per photo
