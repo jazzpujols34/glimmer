@@ -11,17 +11,19 @@ import { Label } from '@/components/ui/label';
 import { PhotoUploader } from '@/components/PhotoUploader';
 import { FrameUploader } from '@/components/FrameUploader';
 import { SettingsSidebar } from '@/components/SettingsSidebar';
+import { LanguageToggle } from '@/components/LanguageToggle';
+import { useTranslation, type TranslationKey } from '@/lib/i18n';
 import type { OccasionType, GenerationSettings, CreditBalance, Project } from '@/types';
 import { defaultSettings } from '@/types';
 import { FolderOpen, ChevronDown } from 'lucide-react';
 import { trackGenerationStart, trackPurchaseStart } from '@/lib/analytics';
 
-const occasions: { value: OccasionType; label: string; description: string }[] = [
-  { value: 'memorial', label: '追思紀念', description: '告別式、追悼會' },
-  { value: 'birthday', label: '壽宴慶生', description: '大壽、生日派對' },
-  { value: 'wedding', label: '婚禮紀念', description: '婚禮、週年紀念' },
-  { value: 'pet', label: '寵物紀念', description: '毛孩回憶、寵物紀念' },
-  { value: 'other', label: '其他場合', description: '畢業、退休等' },
+const occasionKeys: { value: OccasionType; labelKey: TranslationKey; descKey: TranslationKey }[] = [
+  { value: 'memorial', labelKey: 'occasion.memorial', descKey: 'occasion.memorialDesc' },
+  { value: 'birthday', labelKey: 'occasion.birthday', descKey: 'occasion.birthdayDesc' },
+  { value: 'wedding', labelKey: 'occasion.wedding', descKey: 'occasion.weddingDesc' },
+  { value: 'pet', labelKey: 'occasion.pet', descKey: 'occasion.petDesc' },
+  { value: 'other', labelKey: 'occasion.other', descKey: 'occasion.otherDesc' },
 ];
 
 export default function CreatePage() {
@@ -34,6 +36,7 @@ export default function CreatePage() {
 
 function CreatePageInner() {
   const router = useRouter();
+  const t = useTranslation();
   const [email, setEmail] = useState(() => {
     if (typeof window !== 'undefined') return localStorage.getItem('glimmer_email') || '';
     return '';
@@ -223,9 +226,10 @@ function CreatePageInner() {
           <Logo />
           <div className="flex items-center gap-2 sm:gap-4">
             <nav className="flex items-center gap-3 sm:gap-6 text-sm">
-              <Link href="/" className="text-muted-foreground hover:text-foreground transition-colors">首頁</Link>
-              <Link href="/gallery" className="text-muted-foreground hover:text-foreground transition-colors">影片庫</Link>
+              <Link href="/" className="text-muted-foreground hover:text-foreground transition-colors">{t('nav.home')}</Link>
+              <Link href="/gallery" className="text-muted-foreground hover:text-foreground transition-colors">{t('nav.gallery')}</Link>
             </nav>
+            <LanguageToggle />
             <Button
               variant="outline"
               size="sm"
@@ -236,7 +240,7 @@ function CreatePageInner() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
               </svg>
-              <span className="hidden sm:inline">設定</span>
+              <span className="hidden sm:inline">{t('create.settings')}</span>
             </Button>
           </div>
         </div>
@@ -249,11 +253,11 @@ function CreatePageInner() {
           <section className="container mx-auto px-4 py-8 md:py-12">
             <div className="max-w-3xl mx-auto text-center space-y-4">
               <h1 className="text-3xl md:text-5xl font-bold tracking-tight">
-                讓珍貴回憶
-                <span className="text-primary">活過來</span>
+                {t('hero.title1')}
+                <span className="text-primary">{t('hero.title2')}</span>
               </h1>
               <p className="text-lg text-muted-foreground">
-                AI 驅動的回憶影片服務，將老照片轉化為動人的影片
+                {t('create.subtitle')}
               </p>
             </div>
           </section>
@@ -293,7 +297,7 @@ function CreatePageInner() {
                   onClick={() => setSettingsOpen(true)}
                   className="px-2 py-1 rounded-full bg-muted text-muted-foreground hover:bg-primary/10 hover:text-primary transition-colors"
                 >
-                  調整設定 →
+                  {t('create.adjustSettings')} →
                 </button>
               </div>
             </div>
@@ -303,16 +307,16 @@ function CreatePageInner() {
           <section className="container mx-auto px-4 pb-20">
             <Card className="max-w-2xl mx-auto">
               <CardHeader>
-                <CardTitle>建立回憶影片</CardTitle>
+                <CardTitle>{t('create.title')}</CardTitle>
                 <CardDescription>
-                  上傳照片，我們的 AI 將為您製作一支感動人心的影片
+                  {t('create.subtitle')}
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <form onSubmit={handleSubmit} className="space-y-6">
                   {/* Email */}
                   <div className="space-y-2">
-                    <Label htmlFor="email">Email 地址</Label>
+                    <Label htmlFor="email">{t('create.email')}</Label>
                     <Input
                       id="email"
                       type="email"
@@ -325,27 +329,27 @@ function CreatePageInner() {
                     {email && isValidEmail && (
                       <div className="p-3 rounded-lg border border-border bg-card text-sm">
                         {creditLoading ? (
-                          <p className="text-muted-foreground">查詢額度中...</p>
+                          <p className="text-muted-foreground">{t('credits.checking')}</p>
                         ) : creditBalance ? (
                           creditBalance.remaining > 0 ? (
                             creditBalance.isAdmin ? (
                               // Admin user
                               <p className="text-purple-600 dark:text-purple-400 font-medium">
-                                👑 管理員 — 無限生成次數
+                                👑 {t('credits.admin')}
                               </p>
                             ) : (
                               // Show remaining generations
                               <div className="space-y-1">
                                 <p className="text-green-600 dark:text-green-400 font-medium">
-                                  剩餘 {creditBalance.remaining} 次生成
+                                  {t('credits.remaining', { count: creditBalance.remaining })}
                                 </p>
                                 <p className="text-xs text-muted-foreground">
                                   {creditBalance.freeTotal - creditBalance.freeUsed > 0
-                                    ? `免費: ${creditBalance.freeTotal - creditBalance.freeUsed} 次`
+                                    ? t('credits.free', { count: creditBalance.freeTotal - creditBalance.freeUsed })
                                     : ''}
                                   {creditBalance.freeTotal - creditBalance.freeUsed > 0 && creditBalance.paidTotal - creditBalance.paidUsed > 0 ? ' + ' : ''}
                                   {creditBalance.paidTotal - creditBalance.paidUsed > 0
-                                    ? `已購: ${creditBalance.paidTotal - creditBalance.paidUsed} 次`
+                                    ? t('credits.paid', { count: creditBalance.paidTotal - creditBalance.paidUsed })
                                     : ''}
                                 </p>
                               </div>
@@ -353,7 +357,7 @@ function CreatePageInner() {
                           ) : (
                             <div className="space-y-3">
                               <p className="text-amber-600 dark:text-amber-400 font-medium">
-                                生成次數已用完 — 購買更多次數
+                                {t('credits.exhausted')}
                               </p>
                               <div className="flex gap-2 flex-wrap">
                                 <PurchaseButton email={email} packId="pack20" label="20 次 NT$299" />
@@ -362,7 +366,7 @@ function CreatePageInner() {
                             </div>
                           )
                         ) : (
-                          <p className="text-muted-foreground">輸入 Email 以查詢額度</p>
+                          <p className="text-muted-foreground">{t('credits.enterEmail')}</p>
                         )}
                       </div>
                     )}
@@ -370,10 +374,10 @@ function CreatePageInner() {
 
                   {/* Name */}
                   <div className="space-y-2">
-                    <Label htmlFor="name">{occasion === 'pet' ? '寵物名字' : '主角姓名'}</Label>
+                    <Label htmlFor="name">{occasion === 'pet' ? t('create.petName') : t('create.name')}</Label>
                     <Input
                       id="name"
-                      placeholder={occasion === 'pet' ? '例如：Lucky、小花' : '例如：王小明'}
+                      placeholder={occasion === 'pet' ? t('create.petNamePlaceholder') : t('create.namePlaceholder')}
                       value={name}
                       onChange={(e) => setName(e.target.value)}
                     />
@@ -381,9 +385,9 @@ function CreatePageInner() {
 
                   {/* Occasion */}
                   <div className="space-y-2">
-                    <Label>場合類型</Label>
-                    <div className="grid grid-cols-2 gap-3" role="radiogroup" aria-label="場合類型">
-                      {occasions.map((item) => (
+                    <Label>{t('create.occasionType')}</Label>
+                    <div className="grid grid-cols-2 gap-3" role="radiogroup" aria-label={t('create.occasionType')}>
+                      {occasionKeys.map((item) => (
                         <button
                           key={item.value}
                           type="button"
@@ -398,8 +402,8 @@ function CreatePageInner() {
                             }
                           `}
                         >
-                          <div className="font-medium">{item.label}</div>
-                          <div className="text-sm text-muted-foreground">{item.description}</div>
+                          <div className="font-medium">{t(item.labelKey)}</div>
+                          <div className="text-sm text-muted-foreground">{t(item.descKey)}</div>
                         </button>
                       ))}
                     </div>
@@ -407,7 +411,7 @@ function CreatePageInner() {
 
                   {/* Project selector */}
                   <div className="space-y-2">
-                    <Label>加入專案（選填）</Label>
+                    <Label>{t('create.addToProject')}</Label>
                     <div className="relative">
                       <button
                         type="button"
@@ -417,8 +421,8 @@ function CreatePageInner() {
                         <span className="flex items-center gap-2">
                           <FolderOpen className="w-4 h-4 text-muted-foreground" />
                           {selectedProjectId
-                            ? projects.find(p => p.id === selectedProjectId)?.name || '選擇專案'
-                            : '不加入專案'}
+                            ? projects.find(p => p.id === selectedProjectId)?.name || t('create.noProject')
+                            : t('create.noProject')}
                         </span>
                         <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${projectDropdownOpen ? 'rotate-180' : ''}`} />
                       </button>
@@ -432,7 +436,7 @@ function CreatePageInner() {
                             }}
                             className="w-full px-4 py-2 text-left hover:bg-muted/50 transition-colors text-sm"
                           >
-                            不加入專案
+                            {t('create.noProject')}
                           </button>
                           {projects.map(project => (
                             <button
@@ -448,15 +452,15 @@ function CreatePageInner() {
                             >
                               {project.name}
                               <span className="text-xs text-muted-foreground ml-2">
-                                ({project.jobIds.length} 影片)
+                                ({project.jobIds.length} videos)
                               </span>
                             </button>
                           ))}
                           {projects.length === 0 && (
                             <div className="px-4 py-2 text-sm text-muted-foreground">
-                              還沒有專案 —{' '}
+                              {t('create.noProjects')} —{' '}
                               <Link href="/projects" className="text-primary hover:underline">
-                                建立專案
+                                {t('create.createProject')}
                               </Link>
                             </div>
                           )}
@@ -474,7 +478,7 @@ function CreatePageInner() {
 
                   {/* Photo Upload */}
                   <div className="space-y-2">
-                    <Label>{isFrameMode ? '上傳首末幀圖片' : '上傳照片'}</Label>
+                    <Label>{isFrameMode ? t('create.uploadFrames') : t('create.uploadPhotos')}</Label>
                     {isFrameMode ? (
                       <FrameUploader
                         firstFrame={firstFrame}
@@ -511,15 +515,15 @@ function CreatePageInner() {
                           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                         </svg>
-                        處理中...
+                        {t('create.processing')}
                       </>
                     ) : (
-                      '開始製作影片'
+                      t('create.submit')
                     )}
                   </Button>
 
                   <p className="text-xs text-muted-foreground text-center">
-                    點擊「開始製作」即表示您同意我們的服務條款和隱私政策
+                    {t('create.terms')}
                   </p>
                 </form>
               </CardContent>
@@ -529,7 +533,7 @@ function CreatePageInner() {
           {/* Footer */}
           <footer className="border-t border-border py-8 mt-auto">
             <div className="container mx-auto px-4 text-center text-sm text-muted-foreground">
-              <p>&copy; 2026 拾光 Glimmer. All rights reserved.</p>
+              <p>{t('footer.copyright')}</p>
             </div>
           </footer>
         </main>

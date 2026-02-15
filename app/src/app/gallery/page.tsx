@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { Logo } from '@/components/Logo';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { LanguageToggle } from '@/components/LanguageToggle';
+import { useTranslation } from '@/lib/i18n';
 import { Play, Download, Calendar, Film, ArrowLeft, Trash2, Scissors, AlertCircle, X, Star, FolderOpen, ChevronDown, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Project } from '@/types';
@@ -37,6 +39,7 @@ const occasionLabels: Record<string, string> = {
 };
 
 export default function GalleryPage() {
+  const t = useTranslation();
   const [jobs, setJobs] = useState<GalleryJob[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -193,16 +196,17 @@ export default function GalleryPage() {
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <Logo />
           <div className="flex items-center gap-2">
+            <LanguageToggle />
             <Button asChild>
               <Link href="/storyboard/new">
                 <Film className="w-4 h-4 mr-2" />
-                建立故事板
+                {t('gallery.createStoryboard')}
               </Link>
             </Button>
             <Button variant="outline" asChild>
               <Link href="/">
                 <ArrowLeft className="w-4 h-4 mr-2" />
-                返回首頁
+                {t('nav.home')}
               </Link>
             </Button>
           </div>
@@ -213,9 +217,9 @@ export default function GalleryPage() {
       <main className="container mx-auto px-4 py-12">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold mb-4">影片庫</h1>
+            <h1 className="text-3xl font-bold mb-4">{t('gallery.title')}</h1>
             <p className="text-muted-foreground">
-              瀏覽您過去生成的所有影片
+              {t('gallery.subtitle')}
             </p>
           </div>
 
@@ -288,15 +292,15 @@ export default function GalleryPage() {
                 <Card className="max-w-md mx-auto">
                   <CardContent className="p-8 text-center">
                     <Film className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
-                    <h2 className="text-xl font-semibold mb-2">還沒有影片</h2>
+                    <h2 className="text-xl font-semibold mb-2">{t('gallery.empty')}</h2>
                     <p className="text-muted-foreground mb-2">
-                      您生成的影片會自動出現在這裡
+                      {t('gallery.emptyDesc')}
                     </p>
                     <p className="text-muted-foreground/60 text-xs mb-6">
-                      影片連結有效期限為 24 小時，請及時下載保存
+                      {t('generate.expirationDesc')}
                     </p>
                     <Button asChild>
-                      <Link href="/create">開始製作</Link>
+                      <Link href="/create">{t('gallery.createFirst')}</Link>
                     </Button>
                   </CardContent>
                 </Card>
@@ -615,7 +619,7 @@ export default function GalleryPage() {
       {/* Footer */}
       <footer className="border-t border-border py-8 mt-auto">
         <div className="container mx-auto px-4 text-center text-sm text-muted-foreground">
-          <p>&copy; 2026 拾光 Glimmer. All rights reserved.</p>
+          <p>{t('footer.copyright')}</p>
         </div>
       </footer>
     </div>

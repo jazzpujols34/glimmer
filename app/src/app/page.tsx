@@ -5,6 +5,7 @@ import { Logo } from '@/components/Logo';
 import { Card, CardContent } from '@/components/ui/card';
 import { MobileNav } from '@/components/MobileNav';
 import { HeroDemoVideo } from '@/components/HeroDemoVideo';
+import { LanguageToggle } from '@/components/LanguageToggle';
 
 export const metadata: Metadata = {
   title: '拾光 Glimmer — AI 回憶影片服務 | AI Memorial Video Service',
@@ -65,6 +66,7 @@ export default function LandingPage() {
             </a>
           </nav>
           <div className="flex items-center gap-2">
+            <LanguageToggle />
             <Button size="sm" asChild className="hidden sm:inline-flex">
               <Link href="/create">開始製作</Link>
             </Button>
