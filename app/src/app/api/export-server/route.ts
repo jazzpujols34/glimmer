@@ -1,7 +1,6 @@
 export const runtime = 'edge';
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getJob } from '@/lib/storage';
 import { captureError } from '@/lib/errors';
 
 /**
@@ -15,7 +14,7 @@ import { captureError } from '@/lib/errors';
  */
 
 interface ClipExportData {
-  index: number;
+  sourceUrl: string;  // R2 key or CDN URL
   trimStart: number;
   trimEnd: number;
   speed: number;
@@ -82,29 +81,26 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get job data to verify it exists and is complete
-    const job = await getJob(jobId);
-    if (!job) {
-      return NextResponse.json(
-        { error: 'Job not found' },
-        { status: 404 }
-      );
-    }
-
-    if (job.status !== 'complete') {
-      return NextResponse.json(
-        { error: 'Job videos not ready' },
-        { status: 400 }
-      );
-    }
-
-    // Build clip data with proxy URLs that Cloud Run can access
+    // Build clip data with accessible URLs for Cloud Run
     const clipDataForService = clips.map((clip) => {
-      // Cloud Run will fetch videos via our proxy endpoint
-      const proxyUrl = `${BASE_URL}/api/proxy-video?jobId=${encodeURIComponent(jobId)}&index=${clip.index}`;
+      let videoUrl: string;
+
+      if (clip.sourceUrl.startsWith('http')) {
+        // CDN URL - use directly
+        videoUrl = clip.sourceUrl;
+      } else if (clip.sourceUrl.startsWith('/api/proxy-video')) {
+        // Already a proxy URL - make it absolute
+        videoUrl = `${BASE_URL}${clip.sourceUrl}`;
+      } else {
+        // R2 key - need to find the video index and use proxy
+        // Extract index from R2 key pattern: videos/{jobId}/{index}.mp4
+        const match = clip.sourceUrl.match(/videos\/[^/]+\/(\d+)\.mp4/);
+        const videoIndex = match ? match[1] : '0';
+        videoUrl = `${BASE_URL}/api/proxy-video?jobId=${encodeURIComponent(jobId)}&index=${videoIndex}`;
+      }
 
       return {
-        url: proxyUrl,
+        url: videoUrl,
         trimStart: clip.trimStart,
         trimEnd: clip.trimEnd,
         speed: clip.speed,

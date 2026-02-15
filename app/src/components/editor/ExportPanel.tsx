@@ -80,8 +80,8 @@ export function ExportPanel() {
       // Build export request
       const exportRequest = {
         jobId: state.jobId,
-        clips: state.clips.map((clip, index) => ({
-          index,
+        clips: state.clips.map((clip) => ({
+          sourceUrl: clip.sourceUrl,  // The actual video source (R2 key or CDN URL)
           trimStart: clip.trimStart,
           trimEnd: clip.trimEnd,
           speed: clip.speed,
