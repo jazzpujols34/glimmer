@@ -82,19 +82,23 @@ export async function POST(request: NextRequest) {
     }
 
     // Build clip data with accessible URLs for Cloud Run
-    const clipDataForService = clips.map((clip) => {
+    const clipDataForService = clips.map((clip, idx) => {
       let videoUrl: string;
+      const sourceUrl = clip.sourceUrl || '';
 
-      if (clip.sourceUrl.startsWith('http')) {
+      if (!sourceUrl) {
+        console.warn(`[export-server] Clip ${idx} has no sourceUrl, using fallback`);
+        videoUrl = `${BASE_URL}/api/proxy-video?jobId=${encodeURIComponent(jobId)}&index=0`;
+      } else if (sourceUrl.startsWith('http')) {
         // CDN URL - use directly
-        videoUrl = clip.sourceUrl;
-      } else if (clip.sourceUrl.startsWith('/api/proxy-video')) {
+        videoUrl = sourceUrl;
+      } else if (sourceUrl.startsWith('/api/proxy-video')) {
         // Already a proxy URL - make it absolute
-        videoUrl = `${BASE_URL}${clip.sourceUrl}`;
+        videoUrl = `${BASE_URL}${sourceUrl}`;
       } else {
         // R2 key - need to find the video index and use proxy
         // Extract index from R2 key pattern: videos/{jobId}/{index}.mp4
-        const match = clip.sourceUrl.match(/videos\/[^/]+\/(\d+)\.mp4/);
+        const match = sourceUrl.match(/videos\/[^/]+\/(\d+)\.mp4/);
         const videoIndex = match ? match[1] : '0';
         videoUrl = `${BASE_URL}/api/proxy-video?jobId=${encodeURIComponent(jobId)}&index=${videoIndex}`;
       }
