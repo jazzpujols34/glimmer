@@ -118,16 +118,40 @@ export function AddClipsDialog({ open, onClose }: AddClipsDialogProps) {
         clips.push(...galleryClips);
       }
 
-      // Process local files
+      // Process local files - upload to R2 for server export compatibility
       if (localFiles.length > 0) {
         const localClips = await Promise.all(
-          localFiles.map(async (file): Promise<TimelineClip> => {
+          localFiles.map(async (file, idx): Promise<TimelineClip> => {
             const blobUrl = URL.createObjectURL(file);
             const duration = await getVideoDuration(blobUrl);
 
+            // Upload to R2 for server export capability
+            let sourceUrl = `local://${file.name}`;
+            try {
+              const formData = new FormData();
+              formData.append('file', file);
+              formData.append('jobId', state.jobId);
+
+              const uploadRes = await fetch('/api/upload-clip', {
+                method: 'POST',
+                body: formData,
+              });
+
+              if (uploadRes.ok) {
+                const uploadData = await uploadRes.json();
+                sourceUrl = uploadData.r2Key; // e.g., "uploads/{jobId}/{uuid}.mp4"
+                console.log(`[AddClips] Uploaded local file ${idx + 1}/${localFiles.length} to R2: ${sourceUrl}`);
+              } else {
+                console.warn(`[AddClips] R2 upload failed for ${file.name}, using local reference`);
+              }
+            } catch (err) {
+              console.warn(`[AddClips] R2 upload error for ${file.name}:`, err);
+              // Fall back to local:// - will work with browser export only
+            }
+
             return {
               id: generateId(),
-              sourceUrl: `local://${file.name}`,
+              sourceUrl,
               blobUrl,
               originalDuration: duration,
               trimStart: 0,

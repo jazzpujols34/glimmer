@@ -114,6 +114,9 @@ export async function POST(request: NextRequest) {
       } else if (sourceUrl.startsWith('/api/proxy-video')) {
         // Already a proxy URL - make it absolute
         videoUrl = `${BASE_URL}${sourceUrl}`;
+      } else if (sourceUrl.startsWith('uploads/')) {
+        // Uploaded local file stored in R2 - use proxy-r2 endpoint
+        videoUrl = `${BASE_URL}/api/proxy-r2?key=${encodeURIComponent(sourceUrl)}`;
       } else {
         // R2 key - need to find the video index and use proxy
         // Extract jobId from R2 key pattern: videos/{jobId}/{index}.mp4
@@ -121,6 +124,9 @@ export async function POST(request: NextRequest) {
         if (r2Match) {
           const [, r2JobId, r2Index] = r2Match;
           videoUrl = `${BASE_URL}/api/proxy-video?jobId=${encodeURIComponent(r2JobId)}&index=${r2Index}`;
+        } else if (sourceUrl.includes('/')) {
+          // Some other R2 key format - try direct R2 proxy
+          videoUrl = `${BASE_URL}/api/proxy-r2?key=${encodeURIComponent(sourceUrl)}`;
         } else {
           // Unknown format - try using current job as fallback
           console.warn(`[export-server] Clip ${idx} has unknown sourceUrl format: ${sourceUrl}`);

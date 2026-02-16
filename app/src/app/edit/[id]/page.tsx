@@ -136,9 +136,12 @@ function EditorLoader({ jobId }: { jobId: string }) {
             // For now, fetch directly (might work for some CDNs)
             // Better: parse jobId from URL or use a generic proxy
             fetchUrl = sourceUrl;
-          } else if (sourceUrl.startsWith('/api/proxy-video')) {
+          } else if (sourceUrl.startsWith('/api/proxy-video') || sourceUrl.startsWith('/api/proxy-r2')) {
             // Already a proxy URL
             fetchUrl = sourceUrl;
+          } else if (sourceUrl.startsWith('uploads/')) {
+            // Uploaded local file stored in R2
+            fetchUrl = `/api/proxy-r2?key=${encodeURIComponent(sourceUrl)}`;
           } else if (sourceUrl.startsWith('local://')) {
             // Local file - can't restore, return empty blobUrl
             console.warn(`[Restore] Cannot restore local file: ${sourceUrl}`);
