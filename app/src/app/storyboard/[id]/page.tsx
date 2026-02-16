@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Logo } from '@/components/Logo';
 import { StoryboardGrid } from '@/components/storyboard/StoryboardGrid';
+import { StoryboardExportModal } from '@/components/storyboard/StoryboardExportModal';
 import type { Storyboard, StoryboardSlot, StoryboardTransitionType, GenerationJob } from '@/types';
 
 export default function StoryboardEditorPage() {
@@ -18,6 +19,7 @@ export default function StoryboardEditorPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
 
   // Fetch storyboard and gallery jobs
   useEffect(() => {
@@ -245,7 +247,7 @@ export default function StoryboardEditorPage() {
               </svg>
               預覽
             </Button>
-            <Button size="sm" disabled={!canExport}>
+            <Button size="sm" disabled={!canExport} onClick={() => setShowExportModal(true)}>
               <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
               </svg>
@@ -298,6 +300,14 @@ export default function StoryboardEditorPage() {
           </span>
         </div>
       </div>
+
+      {/* Export Modal */}
+      {showExportModal && storyboard && (
+        <StoryboardExportModal
+          storyboard={storyboard}
+          onClose={() => setShowExportModal(false)}
+        />
+      )}
     </div>
   );
 }
