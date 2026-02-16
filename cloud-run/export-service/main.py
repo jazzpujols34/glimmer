@@ -235,6 +235,37 @@ def run_ffmpeg(args: list[str], description: str = "FFmpeg") -> bool:
         return False
 
 
+def probe_has_audio(file_path: str) -> bool:
+    """Check if a video file has an audio stream using ffprobe."""
+    try:
+        result = subprocess.run(
+            ["ffprobe", "-v", "quiet", "-select_streams", "a",
+             "-show_entries", "stream=codec_type", "-of", "csv=p=0",
+             file_path],
+            capture_output=True, text=True, timeout=30,
+        )
+        # If output contains "audio", the file has an audio stream
+        return "audio" in result.stdout
+    except Exception as e:
+        print(f"[Probe] Error checking audio for {file_path}: {e}")
+        # Assume no audio if probe fails - safer to add silent audio
+        return False
+
+
+def get_video_duration(file_path: str) -> float:
+    """Get video duration in seconds using ffprobe."""
+    try:
+        result = subprocess.run(
+            ["ffprobe", "-v", "quiet", "-show_entries", "format=duration",
+             "-of", "default=noprint_wrappers=1:nokey=1", file_path],
+            capture_output=True, text=True, timeout=30,
+        )
+        return float(result.stdout.strip())
+    except Exception as e:
+        print(f"[Probe] Error getting duration for {file_path}: {e}")
+        return 10.0  # Default fallback
+
+
 async def process_export(request: ExportRequest, work_dir: Path) -> tuple[bool, str, Optional[Path]]:
     """
     Process the export request and return (success, message, output_path).
@@ -253,6 +284,29 @@ async def process_export(request: ExportRequest, work_dir: Path) -> tuple[bool, 
         input_path = clips_dir / f"input_{i}.mp4"
         if not await download_file(clip.url, str(input_path)):
             return False, f"Failed to download clip {i + 1}", None
+
+        # Check if input has audio stream
+        has_audio = probe_has_audio(str(input_path))
+        print(f"[Export] Clip {i + 1} has audio: {has_audio}")
+
+        # If no audio, add silent audio track first
+        if not has_audio:
+            duration = get_video_duration(str(input_path))
+            input_with_audio = clips_dir / f"input_{i}_with_audio.mp4"
+            success = run_ffmpeg([
+                "-i", str(input_path),
+                "-f", "lavfi", "-t", str(duration), "-i", "anullsrc=r=44100:cl=stereo",
+                "-c:v", "copy",
+                "-c:a", "aac", "-b:a", "128k",
+                "-shortest",
+                str(input_with_audio),
+            ], f"Add silent audio to clip {i + 1}")
+
+            if not success:
+                print(f"[Export] Warning: Failed to add silent audio to clip {i + 1}, trying without audio filters")
+            else:
+                input_path.unlink(missing_ok=True)
+                input_path = input_with_audio
 
         # Build filter chain
         vf_parts = [
@@ -367,10 +421,11 @@ async def process_export(request: ExportRequest, work_dir: Path) -> tuple[bool, 
 
     # Re-encode during concat to ensure compatible output
     # Using -c copy caused corrupted output when codec params didn't match exactly
+    # Use -map 0:a:0? (optional) as safety net in case any clip still lacks audio
     concat_output = work_dir / "concatenated.mp4"
     success = run_ffmpeg([
         "-f", "concat", "-safe", "0", "-i", str(concat_list_path),
-        "-map", "0:v:0", "-map", "0:a:0",  # Explicit stream selection
+        "-map", "0:v:0", "-map", "0:a:0?",  # Optional audio mapping - won't fail if missing
         *COMMON_VIDEO_ARGS,
         *COMMON_AUDIO_ARGS,
         "-movflags", "+faststart",  # Enable progressive download
