@@ -2,6 +2,7 @@ export const runtime = 'edge';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { r2Put } from '@/lib/r2';
+import { captureError } from '@/lib/errors';
 
 /**
  * Upload a video clip to R2 storage for server-side export.
@@ -78,7 +79,7 @@ export async function POST(request: NextRequest) {
       size: file.size,
     });
   } catch (error) {
-    console.error('[upload-clip] Error:', error);
+    captureError(error, { route: '/api/upload-clip' });
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Upload failed' },
       { status: 500 }

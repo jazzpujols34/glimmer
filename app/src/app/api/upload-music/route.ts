@@ -2,6 +2,7 @@ export const runtime = 'edge';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { r2Put } from '@/lib/r2';
+import { captureError } from '@/lib/errors';
 
 const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
 
@@ -69,7 +70,7 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('[upload-music] Error:', error);
+    captureError(error, { route: '/api/upload-music' });
     return NextResponse.json(
       { error: error instanceof Error ? error.message : '上傳失敗' },
       { status: 500 }

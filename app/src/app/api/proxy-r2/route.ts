@@ -2,6 +2,7 @@ export const runtime = 'edge';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { r2Get } from '@/lib/r2';
+import { captureError } from '@/lib/errors';
 
 /**
  * Proxy R2 objects for external access (e.g., Cloud Run export service).
@@ -40,7 +41,7 @@ export async function GET(request: NextRequest) {
 
     return new NextResponse(r2Object.body, { status: 200, headers });
   } catch (error) {
-    console.error('[proxy-r2] Error:', error);
+    captureError(error, { route: '/api/proxy-r2' });
     return NextResponse.json({ error: 'Failed to fetch object' }, { status: 500 });
   }
 }

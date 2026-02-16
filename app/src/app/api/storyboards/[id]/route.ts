@@ -7,6 +7,7 @@ import {
   updateStoryboardTransition,
   reorderStoryboardSlots,
 } from '@/lib/storage';
+import { captureError } from '@/lib/errors';
 import type { StoryboardSlot, StoryboardTransitionType, StoryboardTitleCard, StoryboardMusic } from '@/types';
 
 export const runtime = 'edge';
@@ -30,7 +31,7 @@ export async function GET(request: Request, { params }: RouteParams) {
 
     return NextResponse.json({ storyboard });
   } catch (error) {
-    console.error('Error fetching storyboard:', error);
+    captureError(error, { route: '/api/storyboards/[id]' });
     return NextResponse.json(
       { error: '無法取得故事板' },
       { status: 500 }
@@ -156,7 +157,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       }
     }
   } catch (error) {
-    console.error('Error updating storyboard:', error);
+    captureError(error, { route: '/api/storyboards/[id]' });
     return NextResponse.json(
       { error: '更新故事板失敗' },
       { status: 500 }
@@ -179,7 +180,7 @@ export async function DELETE(request: Request, { params }: RouteParams) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Error deleting storyboard:', error);
+    captureError(error, { route: '/api/storyboards/[id]' });
     return NextResponse.json(
       { error: '刪除故事板失敗' },
       { status: 500 }

@@ -3,6 +3,7 @@ export const runtime = 'edge';
 import { NextRequest, NextResponse } from 'next/server';
 import { checkCredits, isValidEmail } from '@/lib/credits';
 import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
+import { captureError } from '@/lib/errors';
 
 export async function GET(request: NextRequest) {
   try {
@@ -25,7 +26,7 @@ export async function GET(request: NextRequest) {
     const balance = await checkCredits(email);
     return NextResponse.json(balance);
   } catch (error) {
-    console.error('Credits API error:', error);
+    captureError(error, { route: '/api/credits' });
     return NextResponse.json({ error: '發生錯誤' }, { status: 500 });
   }
 }

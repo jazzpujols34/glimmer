@@ -2,6 +2,7 @@ export const runtime = 'edge';
 
 import { NextResponse } from 'next/server';
 import { getCompletedJobs } from '@/lib/storage';
+import { captureError } from '@/lib/errors';
 
 /**
  * Transform video URL to proxy URL if it's an R2 key (not starting with http)
@@ -44,7 +45,7 @@ export async function GET() {
       })),
     });
   } catch (error) {
-    console.error('Gallery API error:', error);
+    captureError(error, { route: '/api/gallery' });
     return NextResponse.json(
       { error: '無法載入影片庫' },
       { status: 500 }

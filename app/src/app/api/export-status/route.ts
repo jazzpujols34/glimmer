@@ -1,6 +1,7 @@
 export const runtime = 'edge';
 
 import { NextRequest, NextResponse } from 'next/server';
+import { captureError } from '@/lib/errors';
 
 const CLOUD_RUN_URL = process.env.EXPORT_SERVICE_URL;
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://glimmer.video';
@@ -51,7 +52,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(result);
   } catch (error) {
-    console.error('[export-status] Error:', error);
+    captureError(error, { route: '/api/export-status' });
     return NextResponse.json(
       { error: 'Failed to check export status' },
       { status: 500 }

@@ -3,6 +3,7 @@ export const runtime = 'edge';
 import { NextRequest, NextResponse } from 'next/server';
 import { setEmailVerified } from '@/lib/credits';
 import { kvGet, kvDelete } from '@/lib/kv';
+import { captureError } from '@/lib/errors';
 
 export async function GET(request: NextRequest) {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://glimmer.video';
@@ -39,7 +40,7 @@ export async function GET(request: NextRequest) {
     console.log(`[Verify] Email verified: ${normalized}`);
     return NextResponse.redirect(`${appUrl}/create?verified=1`);
   } catch (error) {
-    console.error('Verify confirm error:', error);
+    captureError(error, { route: '/api/verify/confirm' });
     return NextResponse.redirect(`${appUrl}/create?verify_error=error`);
   }
 }

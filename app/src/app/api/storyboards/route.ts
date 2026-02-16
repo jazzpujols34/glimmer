@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createStoryboard, getAllStoryboards } from '@/lib/storage';
+import { captureError } from '@/lib/errors';
 import type { AspectRatio } from '@/types';
 
 export const runtime = 'edge';
@@ -13,7 +14,7 @@ export async function GET(request: Request) {
     const storyboards = await getAllStoryboards(email);
     return NextResponse.json({ storyboards });
   } catch (error) {
-    console.error('Error fetching storyboards:', error);
+    captureError(error, { route: '/api/storyboards' });
     return NextResponse.json(
       { error: '無法取得故事板列表' },
       { status: 500 }
@@ -59,7 +60,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ storyboard }, { status: 201 });
   } catch (error) {
-    console.error('Error creating storyboard:', error);
+    captureError(error, { route: '/api/storyboards' });
     return NextResponse.json(
       { error: '建立故事板失敗' },
       { status: 500 }

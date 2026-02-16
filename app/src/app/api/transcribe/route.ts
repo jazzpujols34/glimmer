@@ -2,6 +2,7 @@ export const runtime = 'edge';
 
 import { NextResponse } from 'next/server';
 import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
+import { captureError } from '@/lib/errors';
 
 /**
  * POST /api/transcribe
@@ -70,7 +71,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ segments });
   } catch (error) {
-    console.error('Transcribe error:', error);
+    captureError(error, { route: '/api/transcribe' });
     return NextResponse.json({ error: '語音轉文字處理失敗' }, { status: 500 });
   }
 }

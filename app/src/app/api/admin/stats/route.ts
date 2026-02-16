@@ -2,6 +2,7 @@ export const runtime = 'edge';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { kvListKeys, kvGet } from '@/lib/kv';
+import { captureError } from '@/lib/errors';
 import type { GenerationJob, CreditRecord } from '@/types';
 
 // Admin emails - same as in credits.ts
@@ -135,7 +136,7 @@ export async function GET(request: NextRequest) {
       generatedAt: now.toISOString(),
     });
   } catch (error) {
-    console.error('Admin stats error:', error);
+    captureError(error, { route: '/api/admin/stats' });
     return NextResponse.json({ error: 'Failed to fetch stats' }, { status: 500 });
   }
 }
