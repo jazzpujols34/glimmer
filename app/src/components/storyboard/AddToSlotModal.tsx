@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import type { GenerationJob } from '@/types';
 
@@ -8,7 +8,7 @@ interface AddToSlotModalProps {
   isOpen: boolean;
   onClose: () => void;
   onAddFromUpload: (files: File[]) => void;
-  onAddFromGallery: (jobs: GenerationJob[], videoIndices: number[]) => void;
+  onAddFromGallery: (jobs: GenerationJob[], videoIndices: number[]) => Promise<void>;
   galleryJobs: GenerationJob[];
   slotIndex: number;
   remainingSlots: number;
@@ -26,7 +26,28 @@ export function AddToSlotModal({
   const [activeTab, setActiveTab] = useState<'upload' | 'gallery'>('upload');
   const [selectedVideos, setSelectedVideos] = useState<{ jobId: string; videoIndex: number }[]>([]);
   const [dragOver, setDragOver] = useState(false);
+  const [isAdding, setIsAdding] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Handle Escape key to close modal
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
+  // Reset state when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setSelectedVideos([]);
+      setError(null);
+      setIsAdding(false);
+    }
+  }, [isOpen]);
 
   const handleFileSelect = useCallback(
     (files: FileList | null) => {
@@ -68,7 +89,7 @@ export function AddToSlotModal({
     });
   };
 
-  const handleAddFromGallery = () => {
+  const handleAddFromGallery = async () => {
     if (selectedVideos.length === 0) return;
 
     const jobsToAdd: GenerationJob[] = [];
@@ -82,8 +103,17 @@ export function AddToSlotModal({
       }
     }
 
-    onAddFromGallery(jobsToAdd, indices);
-    onClose();
+    setIsAdding(true);
+    setError(null);
+    try {
+      await onAddFromGallery(jobsToAdd, indices);
+      onClose();
+    } catch (err) {
+      console.error('Error adding from gallery:', err);
+      setError(err instanceof Error ? err.message : '新增影片失敗，請重試');
+    } finally {
+      setIsAdding(false);
+    }
   };
 
   if (!isOpen) return null;
@@ -100,7 +130,11 @@ export function AddToSlotModal({
           <h2 className="text-lg font-semibold">
             新增影片到第 {slotIndex + 1} 格
           </h2>
-          <button onClick={onClose} className="p-1 hover:bg-muted rounded">
+          <button
+            onClick={onClose}
+            className="p-1 hover:bg-muted rounded"
+            aria-label="關閉"
+          >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -226,9 +260,28 @@ export function AddToSlotModal({
 
         {/* Footer */}
         {activeTab === 'gallery' && selectedVideos.length > 0 && (
-          <div className="p-4 border-t border-border">
-            <Button onClick={handleAddFromGallery} className="w-full">
-              加入 {selectedVideos.length} 個影片
+          <div className="p-4 border-t border-border space-y-2">
+            {error && (
+              <div className="text-sm text-destructive bg-destructive/10 rounded-lg px-3 py-2">
+                {error}
+              </div>
+            )}
+            <Button
+              onClick={handleAddFromGallery}
+              className="w-full"
+              disabled={isAdding}
+            >
+              {isAdding ? (
+                <>
+                  <svg className="w-4 h-4 mr-2 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                  新增中...
+                </>
+              ) : (
+                `加入 ${selectedVideos.length} 個影片`
+              )}
             </Button>
           </div>
         )}

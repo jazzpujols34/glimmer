@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { SlotCard } from './SlotCard';
 import { TransitionPicker } from './TransitionPicker';
 import { AddToSlotModal } from './AddToSlotModal';
@@ -26,6 +26,17 @@ export function StoryboardGrid({
   const [activeSlotIndex, setActiveSlotIndex] = useState<number | null>(null);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
 
+  // Track blob URLs for cleanup to prevent memory leaks
+  const blobUrlsRef = useRef<Map<number, string>>(new Map());
+
+  // Cleanup blob URLs on unmount
+  useEffect(() => {
+    return () => {
+      blobUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
+      blobUrlsRef.current.clear();
+    };
+  }, []);
+
   // Calculate remaining empty slots
   const filledCount = storyboard.slots.filter((s) => s.status === 'filled').length;
   const emptyCount = storyboard.slotCount - filledCount;
@@ -36,6 +47,13 @@ export function StoryboardGrid({
   };
 
   const handleRemoveClick = async (slotIndex: number) => {
+    // Revoke blob URL if exists to prevent memory leak
+    const blobUrl = blobUrlsRef.current.get(slotIndex);
+    if (blobUrl) {
+      URL.revokeObjectURL(blobUrl);
+      blobUrlsRef.current.delete(slotIndex);
+    }
+
     await onUpdateSlot(slotIndex, {
       status: 'empty',
       clip: undefined,
@@ -83,8 +101,16 @@ export function StoryboardGrid({
         });
 
         try {
+          // Revoke old blob URL if slot is being reused
+          const oldBlobUrl = blobUrlsRef.current.get(currentSlotIndex);
+          if (oldBlobUrl) {
+            URL.revokeObjectURL(oldBlobUrl);
+          }
+
           // Create blob URL for local preview
           const blobUrl = URL.createObjectURL(file);
+          blobUrlsRef.current.set(currentSlotIndex, blobUrl);
+
           const duration = await getVideoDuration(blobUrl);
 
           // For now, store the blob URL directly (R2 upload can be added later)
@@ -116,10 +142,11 @@ export function StoryboardGrid({
   );
 
   const handleAddFromGallery = useCallback(
-    async (jobs: GenerationJob[], videoIndices: number[]) => {
+    async (jobs: GenerationJob[], videoIndices: number[]): Promise<void> => {
       if (activeSlotIndex === null) return;
 
       let currentSlotIndex = activeSlotIndex;
+      let addedCount = 0;
 
       for (let i = 0; i < jobs.length; i++) {
         const job = jobs[i];
@@ -139,27 +166,29 @@ export function StoryboardGrid({
 
         if (currentSlotIndex >= storyboard.slotCount) break;
 
-        try {
-          const duration = await getVideoDuration(videoUrl);
+        // This will throw if it fails, propagating error to caller
+        const duration = await getVideoDuration(videoUrl);
 
-          const clip: StoryboardClip = {
-            sourceType: 'gallery',
-            jobId: job.id,
-            videoUrl,
-            duration,
-            originalAspectRatio: job.settings?.aspectRatio,
-            fitMode: 'letterbox',
-          };
+        const clip: StoryboardClip = {
+          sourceType: 'gallery',
+          jobId: job.id,
+          videoUrl,
+          duration,
+          originalAspectRatio: job.settings?.aspectRatio,
+          fitMode: 'letterbox',
+        };
 
-          await onUpdateSlot(currentSlotIndex, {
-            status: 'filled',
-            clip,
-          });
-        } catch (error) {
-          console.error('Error adding from gallery:', error);
-        }
+        await onUpdateSlot(currentSlotIndex, {
+          status: 'filled',
+          clip,
+        });
 
+        addedCount++;
         currentSlotIndex++;
+      }
+
+      if (addedCount === 0 && jobs.length > 0) {
+        throw new Error('無法新增任何影片');
       }
     },
     [activeSlotIndex, storyboard.slots, storyboard.slotCount, onUpdateSlot]

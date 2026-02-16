@@ -18,11 +18,26 @@ export function StoryboardPreviewModal({ storyboard, onClose }: StoryboardPrevie
   const [playing, setPlaying] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [progress, setProgress] = useState(0);
+  const [videoError, setVideoError] = useState(false);
+  const [musicError, setMusicError] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
   const cardTimerRef = useRef<NodeJS.Timeout | null>(null);
   const cardStartRef = useRef<number>(0);
+
+  // Handle Escape key to close modal
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+      if (e.key === ' ') {
+        e.preventDefault();
+        setPlaying(p => !p);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
 
   // Build playlist
   const playlist: PlaylistItem[] = [];
@@ -129,13 +144,18 @@ export function StoryboardPreviewModal({ storyboard, onClose }: StoryboardPrevie
 
     if (playing) {
       if (currentItem.type === 'clip') {
-        videoRef.current?.play();
+        videoRef.current?.play().catch(() => {
+          // Autoplay may be blocked, user needs to interact
+          console.warn('Video autoplay blocked');
+        });
       } else {
         playCard(currentItem.duration);
       }
       // Start music
-      if (audioRef.current) {
-        audioRef.current.play();
+      if (audioRef.current && !musicError) {
+        audioRef.current.play().catch((err) => {
+          console.warn('Music autoplay blocked:', err);
+        });
       }
     } else {
       if (currentItem.type === 'clip') {
@@ -148,10 +168,13 @@ export function StoryboardPreviewModal({ storyboard, onClose }: StoryboardPrevie
         audioRef.current.pause();
       }
     }
-  }, [playing, currentItem, playCard]);
+  }, [playing, currentItem, playCard, musicError]);
 
   // Handle index change
   useEffect(() => {
+    // Reset video error when changing clips
+    setVideoError(false);
+
     if (!currentItem || !playing) return;
 
     stopCardTimer();
@@ -233,6 +256,7 @@ export function StoryboardPreviewModal({ storyboard, onClose }: StoryboardPrevie
         <button
           onClick={onClose}
           className="p-2 text-white/70 hover:text-white transition-colors"
+          aria-label="關閉預覽"
         >
           <X className="w-6 h-6" />
         </button>
@@ -241,13 +265,32 @@ export function StoryboardPreviewModal({ storyboard, onClose }: StoryboardPrevie
       {/* Main content */}
       <div className="flex-1 flex items-center justify-center">
         {currentItem?.type === 'clip' ? (
-          <video
-            ref={videoRef}
-            src={getPlayableUrl(currentItem.videoUrl)}
-            className="max-w-full max-h-full object-contain"
-            onEnded={handleVideoEnded}
-            playsInline
-          />
+          videoError ? (
+            <div className="text-white text-center">
+              <svg className="w-16 h-16 mx-auto mb-4 text-white/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+              <p className="text-lg mb-2">影片載入失敗</p>
+              <button
+                onClick={() => {
+                  setVideoError(false);
+                  goToNext();
+                }}
+                className="text-sm text-white/70 hover:text-white underline"
+              >
+                跳過此片段
+              </button>
+            </div>
+          ) : (
+            <video
+              ref={videoRef}
+              src={getPlayableUrl(currentItem.videoUrl)}
+              className="max-w-full max-h-full object-contain"
+              onEnded={handleVideoEnded}
+              onError={() => setVideoError(true)}
+              playsInline
+            />
+          )
         ) : currentItem ? (
           <div
             className="w-full h-full flex flex-col items-center justify-center"
@@ -283,7 +326,22 @@ export function StoryboardPreviewModal({ storyboard, onClose }: StoryboardPrevie
           src={musicUrl}
           loop
           style={{ display: 'none' }}
+          onError={() => {
+            console.error('Music failed to load:', musicUrl);
+            setMusicError(true);
+          }}
         />
+      )}
+
+      {/* Music error indicator */}
+      {musicError && (
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 bg-yellow-500/90 text-black px-3 py-1 rounded-full text-xs flex items-center gap-1">
+          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
+          </svg>
+          音樂載入失敗
+        </div>
       )}
 
       {/* Controls */}
@@ -302,6 +360,7 @@ export function StoryboardPreviewModal({ storyboard, onClose }: StoryboardPrevie
             onClick={restart}
             className="p-2 text-white/70 hover:text-white transition-colors"
             title="重新開始"
+            aria-label="重新開始預覽"
           >
             <SkipBack className="w-6 h-6" />
           </button>
@@ -309,6 +368,7 @@ export function StoryboardPreviewModal({ storyboard, onClose }: StoryboardPrevie
           <button
             onClick={togglePlay}
             className="p-4 bg-white rounded-full text-black hover:bg-white/90 transition-colors"
+            aria-label={playing ? '暫停' : '播放'}
           >
             {playing ? (
               <Pause className="w-6 h-6" />
@@ -317,7 +377,7 @@ export function StoryboardPreviewModal({ storyboard, onClose }: StoryboardPrevie
             )}
           </button>
 
-          <div className="text-white/70 text-sm min-w-[80px] text-center">
+          <div className="text-white/70 text-sm min-w-[80px] text-center" aria-live="polite">
             {currentIndex + 1} / {totalItems}
           </div>
         </div>

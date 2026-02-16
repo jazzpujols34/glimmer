@@ -113,6 +113,11 @@ export default function StoryboardEditorPage() {
   const [showTitleCardModal, setShowTitleCardModal] = useState(false);
   const [showMusicModal, setShowMusicModal] = useState(false);
 
+  // Track in-flight updates to prevent race conditions
+  const updatingSlots = useRef<Set<number>>(new Set());
+  const updatingTransitions = useRef<Set<number>>(new Set());
+  const isReordering = useRef(false);
+
   // Sync storyboard to server (for undo/redo)
   const syncToServer = useCallback(async (s: Storyboard) => {
     setSaving(true);
@@ -201,6 +206,12 @@ export default function StoryboardEditorPage() {
     async (slotIndex: number, slotUpdate: Partial<StoryboardSlot>) => {
       if (!storyboard) return;
 
+      // Prevent duplicate updates for the same slot
+      if (updatingSlots.current.has(slotIndex)) {
+        console.warn(`Slot ${slotIndex} is already being updated, skipping`);
+        return;
+      }
+
       // Create new state for history
       const newSlots = [...storyboard.slots];
       newSlots[slotIndex] = { ...newSlots[slotIndex], ...slotUpdate };
@@ -209,6 +220,7 @@ export default function StoryboardEditorPage() {
       // Push to history (triggers UI update)
       setStoryboard(newStoryboard);
 
+      updatingSlots.current.add(slotIndex);
       setSaving(true);
       try {
         const res = await fetch(`/api/storyboards/${storyboardId}`, {
@@ -237,6 +249,7 @@ export default function StoryboardEditorPage() {
           setStoryboardDirect(data.storyboard);
         }
       } finally {
+        updatingSlots.current.delete(slotIndex);
         setSaving(false);
       }
     },
@@ -247,6 +260,11 @@ export default function StoryboardEditorPage() {
     async (transitionIndex: number, transition: StoryboardTransitionType) => {
       if (!storyboard) return;
 
+      // Prevent duplicate updates for the same transition
+      if (updatingTransitions.current.has(transitionIndex)) {
+        return;
+      }
+
       // Create new state for history
       const newTransitions = [...storyboard.transitions];
       newTransitions[transitionIndex] = transition;
@@ -255,6 +273,7 @@ export default function StoryboardEditorPage() {
       // Push to history
       setStoryboard(newStoryboard);
 
+      updatingTransitions.current.add(transitionIndex);
       setSaving(true);
       try {
         const res = await fetch(`/api/storyboards/${storyboardId}`, {
@@ -276,6 +295,7 @@ export default function StoryboardEditorPage() {
       } catch (err) {
         console.error('Error updating transition:', err);
       } finally {
+        updatingTransitions.current.delete(transitionIndex);
         setSaving(false);
       }
     },
@@ -285,6 +305,12 @@ export default function StoryboardEditorPage() {
   const handleReorderSlots = useCallback(
     async (fromIndex: number, toIndex: number) => {
       if (!storyboard) return;
+
+      // Prevent concurrent reorder operations
+      if (isReordering.current) {
+        console.warn('Reorder already in progress, skipping');
+        return;
+      }
 
       // Optimistic reorder for history
       const newSlots = [...storyboard.slots];
@@ -297,6 +323,7 @@ export default function StoryboardEditorPage() {
       // Push to history
       setStoryboard(newStoryboard);
 
+      isReordering.current = true;
       setSaving(true);
       try {
         const res = await fetch(`/api/storyboards/${storyboardId}`, {
@@ -317,7 +344,14 @@ export default function StoryboardEditorPage() {
         setStoryboardDirect(data.storyboard);
       } catch (err) {
         console.error('Error reordering slots:', err);
+        // Revert on error - refetch
+        const res = await fetch(`/api/storyboards/${storyboardId}`);
+        if (res.ok) {
+          const data = await res.json();
+          setStoryboardDirect(data.storyboard);
+        }
       } finally {
+        isReordering.current = false;
         setSaving(false);
       }
     },
