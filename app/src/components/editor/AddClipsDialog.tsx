@@ -127,6 +127,7 @@ export function AddClipsDialog({ open, onClose }: AddClipsDialogProps) {
 
             // Upload to R2 for server export capability
             let sourceUrl = `local://${file.name}`;
+            console.log(`[AddClips] Starting R2 upload for file ${idx + 1}/${localFiles.length}: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)}MB)`);
             try {
               const formData = new FormData();
               formData.append('file', file);
@@ -137,15 +138,17 @@ export function AddClipsDialog({ open, onClose }: AddClipsDialogProps) {
                 body: formData,
               });
 
-              if (uploadRes.ok) {
-                const uploadData = await uploadRes.json();
+              const uploadData = await uploadRes.json();
+              console.log(`[AddClips] Upload response for ${file.name}:`, uploadRes.status, uploadData);
+
+              if (uploadRes.ok && uploadData.r2Key) {
                 sourceUrl = uploadData.r2Key; // e.g., "uploads/{jobId}/{uuid}.mp4"
-                console.log(`[AddClips] Uploaded local file ${idx + 1}/${localFiles.length} to R2: ${sourceUrl}`);
+                console.log(`[AddClips] ✅ Uploaded to R2: ${sourceUrl}`);
               } else {
-                console.warn(`[AddClips] R2 upload failed for ${file.name}, using local reference`);
+                console.warn(`[AddClips] ❌ R2 upload failed for ${file.name}:`, uploadData.error || 'Unknown error');
               }
             } catch (err) {
-              console.warn(`[AddClips] R2 upload error for ${file.name}:`, err);
+              console.error(`[AddClips] ❌ R2 upload error for ${file.name}:`, err);
               // Fall back to local:// - will work with browser export only
             }
 

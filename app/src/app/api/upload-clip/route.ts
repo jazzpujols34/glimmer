@@ -15,16 +15,26 @@ import { r2Put } from '@/lib/r2';
 const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB limit
 
 export async function POST(request: NextRequest) {
+  console.log('[upload-clip] Request received');
   try {
     const formData = await request.formData();
     const file = formData.get('file') as File | null;
     const jobId = formData.get('jobId') as string | null;
 
+    console.log('[upload-clip] Parsed formData:', {
+      hasFile: !!file,
+      fileName: file?.name,
+      fileSize: file?.size,
+      jobId
+    });
+
     if (!file) {
+      console.log('[upload-clip] Error: Missing file');
       return NextResponse.json({ error: 'Missing file' }, { status: 400 });
     }
 
     if (!jobId) {
+      console.log('[upload-clip] Error: Missing jobId');
       return NextResponse.json({ error: 'Missing jobId' }, { status: 400 });
     }
 
