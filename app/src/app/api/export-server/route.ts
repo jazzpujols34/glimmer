@@ -82,13 +82,32 @@ export async function POST(request: NextRequest) {
     }
 
     // Build clip data with accessible URLs for Cloud Run
-    const clipDataForService = clips.map((clip, idx) => {
+    const clipDataForService: Array<{
+      url: string;
+      trimStart: number;
+      trimEnd: number;
+      speed: number;
+      volume: number;
+      filter: string | null;
+    }> = [];
+
+    for (let idx = 0; idx < clips.length; idx++) {
+      const clip = clips[idx];
       let videoUrl: string;
       const sourceUrl = clip.sourceUrl || '';
 
+      console.log(`[export-server] Clip ${idx}: sourceUrl=${sourceUrl.substring(0, 80)}...`);
+
       if (!sourceUrl) {
         console.warn(`[export-server] Clip ${idx} has no sourceUrl, using fallback`);
-        videoUrl = `${BASE_URL}/api/proxy-video?jobId=${encodeURIComponent(jobId)}&index=0`;
+        videoUrl = `${BASE_URL}/api/proxy-video?jobId=${encodeURIComponent(jobId)}&index=${idx}`;
+      } else if (sourceUrl.startsWith('local://')) {
+        // Local file - cannot be exported server-side!
+        console.error(`[export-server] Clip ${idx} is a local file: ${sourceUrl}`);
+        return NextResponse.json(
+          { error: `片段 ${idx + 1} 是本機檔案，無法使用伺服器匯出。請使用瀏覽器匯出，或從影片庫選擇片段。` },
+          { status: 400 }
+        );
       } else if (sourceUrl.startsWith('http')) {
         // CDN URL - use directly
         videoUrl = sourceUrl;
@@ -97,21 +116,27 @@ export async function POST(request: NextRequest) {
         videoUrl = `${BASE_URL}${sourceUrl}`;
       } else {
         // R2 key - need to find the video index and use proxy
-        // Extract index from R2 key pattern: videos/{jobId}/{index}.mp4
-        const match = sourceUrl.match(/videos\/[^/]+\/(\d+)\.mp4/);
-        const videoIndex = match ? match[1] : '0';
-        videoUrl = `${BASE_URL}/api/proxy-video?jobId=${encodeURIComponent(jobId)}&index=${videoIndex}`;
+        // Extract jobId from R2 key pattern: videos/{jobId}/{index}.mp4
+        const r2Match = sourceUrl.match(/videos\/([^/]+)\/(\d+)\.mp4/);
+        if (r2Match) {
+          const [, r2JobId, r2Index] = r2Match;
+          videoUrl = `${BASE_URL}/api/proxy-video?jobId=${encodeURIComponent(r2JobId)}&index=${r2Index}`;
+        } else {
+          // Unknown format - try using current job as fallback
+          console.warn(`[export-server] Clip ${idx} has unknown sourceUrl format: ${sourceUrl}`);
+          videoUrl = `${BASE_URL}/api/proxy-video?jobId=${encodeURIComponent(jobId)}&index=${idx}`;
+        }
       }
 
-      return {
+      clipDataForService.push({
         url: videoUrl,
         trimStart: clip.trimStart,
         trimEnd: clip.trimEnd,
         speed: clip.speed,
         volume: clip.volume,
         filter: clip.filter,
-      };
-    });
+      });
+    }
 
     // Build music URLs
     const musicDataForService = musicClips.map((mc) => {

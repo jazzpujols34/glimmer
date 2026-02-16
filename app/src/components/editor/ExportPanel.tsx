@@ -69,6 +69,13 @@ export function ExportPanel() {
   };
 
   const handleServerExport = async () => {
+    // Check for local files - they can't be exported server-side
+    const localFileClips = state.clips.filter(c => c.sourceUrl?.startsWith('local://'));
+    if (localFileClips.length > 0) {
+      setError(`有 ${localFileClips.length} 個本機檔案無法使用伺服器匯出。請使用瀏覽器匯出，或從影片庫選擇片段。`);
+      return;
+    }
+
     setExporting(true);
     setProgress(0);
     setError(null);
@@ -77,6 +84,12 @@ export function ExportPanel() {
     dispatch({ type: 'SET_EXPORT_PROGRESS', payload: 5 });
 
     try {
+      // Debug: log sourceUrls
+      console.log('[ExportPanel] Clips to export:', state.clips.map((c, i) => ({
+        index: i,
+        sourceUrl: c.sourceUrl?.substring(0, 80),
+      })));
+
       // Build export request
       const exportRequest = {
         jobId: state.jobId,
@@ -205,6 +218,8 @@ export function ExportPanel() {
   };
 
   const showServerRecommendation = state.clips.length > SERVER_EXPORT_THRESHOLD;
+  const hasLocalFiles = state.clips.some(c => c.sourceUrl?.startsWith('local://'));
+  const localFileCount = state.clips.filter(c => c.sourceUrl?.startsWith('local://')).length;
 
   return (
     <div className="p-4 space-y-5 overflow-y-auto">
@@ -237,11 +252,20 @@ export function ExportPanel() {
         <div className="space-y-3">
           <p className="text-xs font-medium">匯出方式</p>
 
-          {showServerRecommendation && (
+          {showServerRecommendation && !hasLocalFiles && (
             <div className="flex items-start gap-2 p-2 rounded-md bg-amber-500/10 border border-amber-500/20">
               <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
               <p className="text-xs text-amber-700">
                 您有 {state.clips.length} 個片段，建議使用伺服器匯出以避免瀏覽器記憶體不足。
+              </p>
+            </div>
+          )}
+
+          {hasLocalFiles && exportMode === 'server' && (
+            <div className="flex items-start gap-2 p-2 rounded-md bg-red-500/10 border border-red-500/20">
+              <AlertTriangle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
+              <p className="text-xs text-red-700">
+                有 {localFileCount} 個本機檔案無法使用伺服器匯出。請使用瀏覽器匯出。
               </p>
             </div>
           )}

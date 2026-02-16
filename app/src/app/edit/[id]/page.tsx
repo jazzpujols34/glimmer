@@ -124,14 +124,49 @@ function EditorLoader({ jobId }: { jobId: string }) {
     setShowRestore(false);
 
     try {
-      // Re-create blobUrls for video clips by fetching via proxy
+      // Re-create blobUrls for video clips by fetching from their actual sourceUrl
       const restoredClips: TimelineClip[] = await Promise.all(
-        savedSession.clips.map(async (clip, index) => {
-          const proxyUrl = `/api/proxy-video?jobId=${encodeURIComponent(jobId)}&index=${index}`;
-          const blob = await fetchVideoBlob(proxyUrl);
-          const blobUrl = URL.createObjectURL(blob);
-          blobUrlsRef.current.push(blobUrl);
-          return { ...clip, blobUrl } as TimelineClip;
+        savedSession.clips.map(async (clip) => {
+          let fetchUrl: string;
+          const sourceUrl = clip.sourceUrl || '';
+
+          if (sourceUrl.startsWith('http')) {
+            // CDN URL - fetch via proxy to handle CORS
+            // We need to find which job this clip belongs to and its index
+            // For now, fetch directly (might work for some CDNs)
+            // Better: parse jobId from URL or use a generic proxy
+            fetchUrl = sourceUrl;
+          } else if (sourceUrl.startsWith('/api/proxy-video')) {
+            // Already a proxy URL
+            fetchUrl = sourceUrl;
+          } else if (sourceUrl.startsWith('local://')) {
+            // Local file - can't restore, return empty blobUrl
+            console.warn(`[Restore] Cannot restore local file: ${sourceUrl}`);
+            return { ...clip, blobUrl: '' } as TimelineClip;
+          } else if (sourceUrl) {
+            // R2 key - extract jobId and index from pattern: videos/{jobId}/{index}.mp4
+            const r2Match = sourceUrl.match(/videos\/([^/]+)\/(\d+)\.mp4/);
+            if (r2Match) {
+              const [, r2JobId, r2Index] = r2Match;
+              fetchUrl = `/api/proxy-video?jobId=${encodeURIComponent(r2JobId)}&index=${r2Index}`;
+            } else {
+              // Fallback to current job
+              fetchUrl = `/api/proxy-video?jobId=${encodeURIComponent(jobId)}&index=0`;
+            }
+          } else {
+            // No sourceUrl - fallback
+            fetchUrl = `/api/proxy-video?jobId=${encodeURIComponent(jobId)}&index=0`;
+          }
+
+          try {
+            const blob = await fetchVideoBlob(fetchUrl);
+            const blobUrl = URL.createObjectURL(blob);
+            blobUrlsRef.current.push(blobUrl);
+            return { ...clip, blobUrl } as TimelineClip;
+          } catch (err) {
+            console.error(`[Restore] Failed to fetch clip: ${sourceUrl}`, err);
+            return { ...clip, blobUrl: '' } as TimelineClip;
+          }
         })
       );
 

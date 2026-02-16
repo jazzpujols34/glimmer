@@ -1,0 +1,15 @@
+# Wrangler config for local development with Cloudflare Pages
+# Run: npm run dev:cf (uses wrangler pages dev)
+
+name = "glimmer"
+compatibility_date = "2024-01-01"
+
+# KV Namespace for local dev
+[[kv_namespaces]]
+binding = "GLIMMER_KV"
+id = "local-kv"  # Will use .wrangler/state for local persistence
+
+# R2 Bucket for local dev
+[[r2_buckets]]
+binding = "GLIMMER_R2"
+bucket_name = "glimmer-videos"
