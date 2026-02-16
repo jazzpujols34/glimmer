@@ -81,7 +81,7 @@ export function ExportPanel() {
       const exportRequest = {
         jobId: state.jobId,
         clips: state.clips.map((clip) => ({
-          sourceUrl: clip.sourceUrl,  // The actual video source (R2 key or CDN URL)
+          sourceUrl: clip.sourceUrl,
           trimStart: clip.trimStart,
           trimEnd: clip.trimEnd,
           speed: clip.speed,
@@ -112,29 +112,64 @@ export function ExportPanel() {
       setProgress(10);
       dispatch({ type: 'SET_EXPORT_PROGRESS', payload: 10 });
 
-      const response = await fetch('/api/export-server', {
+      // Start async export
+      const startResponse = await fetch('/api/export-server', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(exportRequest),
       });
 
-      const result = await response.json();
+      const startResult = await startResponse.json();
 
-      if (!response.ok || !result.success) {
-        throw new Error(result.error || '伺服器匯出失敗');
+      if (!startResponse.ok || !startResult.success) {
+        throw new Error(startResult.error || '伺服器匯出失敗');
       }
 
-      setProgress(100);
-      dispatch({ type: 'SET_EXPORT_PROGRESS', payload: null });
-      setServerExportStatus(null);
+      const { exportId } = startResult;
+      setServerExportStatus('伺服器處理中...');
+      setProgress(20);
 
-      // Set download URL (this is a server URL, not a blob)
-      if (result.downloadUrl) {
-        setDownloadUrl(result.downloadUrl);
-        trackVideoExport('server', state.totalDuration);
-      } else {
-        throw new Error('未收到下載連結');
+      // Poll for completion
+      let pollCount = 0;
+      const maxPolls = 120; // 10 minutes with 5s interval
+      const pollInterval = 5000;
+
+      while (pollCount < maxPolls) {
+        await new Promise(resolve => setTimeout(resolve, pollInterval));
+        pollCount++;
+
+        // Simulate progress (20% to 90% over polling period)
+        const simulatedProgress = Math.min(90, 20 + (pollCount / maxPolls) * 70);
+        setProgress(simulatedProgress);
+        dispatch({ type: 'SET_EXPORT_PROGRESS', payload: simulatedProgress });
+
+        const statusResponse = await fetch(`/api/export-status?exportId=${exportId}`);
+        const statusResult = await statusResponse.json();
+
+        if (statusResult.status === 'complete') {
+          setProgress(100);
+          dispatch({ type: 'SET_EXPORT_PROGRESS', payload: null });
+          setServerExportStatus(null);
+
+          if (statusResult.downloadUrl) {
+            setDownloadUrl(statusResult.downloadUrl);
+            trackVideoExport('server', state.totalDuration);
+          } else {
+            throw new Error('未收到下載連結');
+          }
+          return;
+        }
+
+        if (statusResult.status === 'error') {
+          throw new Error(statusResult.error || '匯出失敗');
+        }
+
+        // Still processing, update status message
+        setServerExportStatus(`伺服器處理中... (${Math.round(simulatedProgress)}%)`);
       }
+
+      // Timeout after max polls
+      throw new Error('匯出逾時，請重試或減少片段數量');
 
     } catch (err) {
       console.error('Server export failed:', err);

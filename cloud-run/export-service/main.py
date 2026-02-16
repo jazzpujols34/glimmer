@@ -103,6 +103,25 @@ class ExportResponse(BaseModel):
     fileSizeMB: Optional[float] = None
 
 
+class AsyncExportResponse(BaseModel):
+    exportId: str
+    status: str  # 'processing', 'complete', 'error'
+
+
+class ExportStatusResponse(BaseModel):
+    exportId: str
+    status: str  # 'processing', 'complete', 'error'
+    r2Key: Optional[str] = None
+    error: Optional[str] = None
+    durationSeconds: Optional[float] = None
+    fileSizeMB: Optional[float] = None
+
+
+# In-memory store for async export status (simple solution for single instance)
+# For production scale, use Redis or Firestore
+export_status_store: dict[str, dict] = {}
+
+
 # --- FFmpeg Processing ---
 
 # Common encoding args to ensure identical codec params across all clips
@@ -469,6 +488,102 @@ def cleanup_work_dir(work_dir: Path):
 async def health_check():
     """Health check endpoint."""
     return {"status": "healthy", "service": "glimmer-export"}
+
+
+async def process_export_async(export_id: str, request: ExportRequest, work_dir: Path):
+    """Background task to process export and update status."""
+    try:
+        success, message, output_path = await process_export(request, work_dir)
+
+        if not success or not output_path:
+            export_status_store[export_id] = {
+                "status": "error",
+                "error": message,
+            }
+            cleanup_work_dir(work_dir)
+            return
+
+        # Get file stats
+        file_size = output_path.stat().st_size
+        file_size_mb = file_size / (1024 * 1024)
+
+        # Get duration
+        try:
+            result = subprocess.run(
+                ["ffprobe", "-v", "error", "-show_entries", "format=duration",
+                 "-of", "default=noprint_wrappers=1:nokey=1", str(output_path)],
+                capture_output=True, text=True, timeout=30,
+            )
+            duration = float(result.stdout.strip())
+        except:
+            duration = None
+
+        # Upload to R2
+        r2_key = f"exports/{request.jobId}/{export_id}.mp4"
+        if not upload_to_r2(output_path, r2_key):
+            export_status_store[export_id] = {
+                "status": "error",
+                "error": "Failed to upload to storage",
+            }
+            cleanup_work_dir(work_dir)
+            return
+
+        # Update status to complete
+        export_status_store[export_id] = {
+            "status": "complete",
+            "r2Key": r2_key,
+            "durationSeconds": duration,
+            "fileSizeMB": round(file_size_mb, 2),
+        }
+
+        print(f"[Export Async] Complete: {export_id}, {file_size_mb:.2f} MB")
+        cleanup_work_dir(work_dir)
+
+    except Exception as e:
+        print(f"[Export Async] Error: {e}")
+        export_status_store[export_id] = {
+            "status": "error",
+            "error": str(e),
+        }
+        cleanup_work_dir(work_dir)
+
+
+@app.post("/export-async", response_model=AsyncExportResponse)
+async def export_video_async(request: ExportRequest, background_tasks: BackgroundTasks):
+    """
+    Start async video export. Returns immediately with exportId.
+    Poll /export-status/{exportId} to check completion.
+    """
+    export_id = str(uuid.uuid4())[:8]
+    work_dir = Path(f"/tmp/exports/{request.jobId}_{export_id}")
+    work_dir.mkdir(parents=True, exist_ok=True)
+
+    print(f"[Export Async] Starting job {request.jobId} with {len(request.clips)} clips, exportId={export_id}")
+
+    # Initialize status
+    export_status_store[export_id] = {"status": "processing"}
+
+    # Start background processing
+    background_tasks.add_task(process_export_async, export_id, request, work_dir)
+
+    return AsyncExportResponse(exportId=export_id, status="processing")
+
+
+@app.get("/export-status/{export_id}", response_model=ExportStatusResponse)
+async def get_export_status(export_id: str):
+    """Check status of an async export."""
+    if export_id not in export_status_store:
+        raise HTTPException(status_code=404, detail="Export not found")
+
+    status_data = export_status_store[export_id]
+    return ExportStatusResponse(
+        exportId=export_id,
+        status=status_data.get("status", "unknown"),
+        r2Key=status_data.get("r2Key"),
+        error=status_data.get("error"),
+        durationSeconds=status_data.get("durationSeconds"),
+        fileSizeMB=status_data.get("fileSizeMB"),
+    )
 
 
 @app.post("/export", response_model=ExportResponse)

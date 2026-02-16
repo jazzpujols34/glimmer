@@ -152,23 +152,17 @@ export async function POST(request: NextRequest) {
       resolution: '1280x720',
     };
 
-    console.log(`[export-server] Calling Cloud Run service at ${CLOUD_RUN_URL}...`);
+    console.log(`[export-server] Calling Cloud Run async service at ${CLOUD_RUN_URL}...`);
 
-    // Call Cloud Run service with timeout
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 540000); // 9 min timeout
-
+    // Call Cloud Run async endpoint - returns immediately with exportId
     try {
-      const response = await fetch(`${CLOUD_RUN_URL}/export`, {
+      const response = await fetch(`${CLOUD_RUN_URL}/export-async`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(cloudRunRequest),
-        signal: controller.signal,
       });
-
-      clearTimeout(timeoutId);
 
       if (!response.ok) {
         const errorText = await response.text();
@@ -180,34 +174,16 @@ export async function POST(request: NextRequest) {
       }
 
       const result = await response.json();
-      console.log(`[export-server] Cloud Run response:`, result);
+      console.log(`[export-server] Cloud Run async response:`, result);
 
-      if (!result.success) {
-        return NextResponse.json(
-          { error: result.error || '匯出失敗' },
-          { status: 500 }
-        );
-      }
-
-      // Build download URL via our proxy (Cloud Run uploaded to R2)
-      const downloadUrl = result.r2Key
-        ? `${BASE_URL}/api/export-download?key=${encodeURIComponent(result.r2Key)}`
-        : undefined;
-
+      // Return exportId for client to poll
       return NextResponse.json({
         success: true,
-        downloadUrl,
-        durationSeconds: result.durationSeconds,
-        fileSizeMB: result.fileSizeMB,
+        exportId: result.exportId,
+        status: 'processing',
       });
     } catch (fetchError) {
-      clearTimeout(timeoutId);
-      if (fetchError instanceof Error && fetchError.name === 'AbortError') {
-        return NextResponse.json(
-          { error: '匯出逾時，影片可能太長。請嘗試減少片段數量。' },
-          { status: 504 }
-        );
-      }
+      console.error(`[export-server] Fetch error:`, fetchError);
       throw fetchError;
     }
 
