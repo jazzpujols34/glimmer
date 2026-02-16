@@ -168,6 +168,21 @@ export interface StoryboardSlot {
   clip?: StoryboardClip;
 }
 
+export interface StoryboardTitleCard {
+  text: string;
+  subtitle?: string;
+  durationSeconds: number;           // default 3
+  backgroundColor: string;           // hex, default #000000
+  textColor: string;                 // hex, default #FFFFFF
+}
+
+export interface StoryboardMusic {
+  type: 'bundled' | 'uploaded';
+  src: string;                       // filename for bundled, R2 key for uploaded
+  name: string;                      // display name
+  volume: number;                    // 0-1, default 0.3
+}
+
 export interface Storyboard {
   id: string;                        // storyboard_xxx
   name: string;
@@ -178,6 +193,9 @@ export interface Storyboard {
   createdAt: string;
   updatedAt: string;
   email?: string;                    // Owner's email
+  titleCard?: StoryboardTitleCard;   // Intro card at start
+  outroCard?: StoryboardTitleCard;   // Outro card at end
+  music?: StoryboardMusic;           // Background music track
 }
 
 // === Batch Generation Types ===

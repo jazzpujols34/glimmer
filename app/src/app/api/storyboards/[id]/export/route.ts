@@ -124,16 +124,54 @@ export async function POST(
     // Determine resolution based on aspect ratio
     const resolution = storyboard.aspectRatio === '16:9' ? '1280x720' : '720x1280';
 
+    // Calculate total duration for music
+    const totalDuration = clips.reduce((sum, clip) => sum + clip.trimEnd, 0)
+      + (storyboard.titleCard?.durationSeconds || 0)
+      + (storyboard.outroCard?.durationSeconds || 0);
+
+    // Build music clips array
+    const musicClips: Array<{
+      url: string;
+      timelinePosition: number;
+      trimStart: number;
+      trimEnd: number;
+      volume: number;
+    }> = [];
+
+    if (storyboard.music) {
+      let musicUrl: string;
+      if (storyboard.music.type === 'bundled') {
+        musicUrl = `${BASE_URL}/audio/bundled/${storyboard.music.src}`;
+      } else {
+        // Uploaded music - use R2 proxy
+        musicUrl = `${BASE_URL}/api/proxy-r2?key=${encodeURIComponent(storyboard.music.src)}`;
+      }
+
+      musicClips.push({
+        url: musicUrl,
+        timelinePosition: 0,
+        trimStart: 0,
+        trimEnd: totalDuration,
+        volume: storyboard.music.volume,
+      });
+
+      console.log(`[storyboard-export] Including music: ${storyboard.music.name}, volume ${storyboard.music.volume}`);
+    }
+
     // Build Cloud Run request
     const cloudRunRequest = {
       jobId: storyboardId,
       clips,
       subtitles: [],
-      musicClips: [],
+      musicClips,
+      titleCard: storyboard.titleCard,
+      outroCard: storyboard.outroCard,
       resolution,
     };
 
     console.log(`[storyboard-export] Calling Cloud Run with ${clips.length} clips, resolution ${resolution}`);
+    if (storyboard.titleCard) console.log(`[storyboard-export] Including title card: ${storyboard.titleCard.text}`);
+    if (storyboard.outroCard) console.log(`[storyboard-export] Including outro card: ${storyboard.outroCard.text}`);
 
     // Call Cloud Run async endpoint
     const response = await fetch(`${CLOUD_RUN_URL}/export-async`, {

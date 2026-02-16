@@ -7,7 +7,7 @@ import {
   updateStoryboardTransition,
   reorderStoryboardSlots,
 } from '@/lib/storage';
-import type { StoryboardSlot, StoryboardTransitionType } from '@/types';
+import type { StoryboardSlot, StoryboardTransitionType, StoryboardTitleCard, StoryboardMusic } from '@/types';
 
 export const runtime = 'edge';
 
@@ -96,6 +96,41 @@ export async function PATCH(request: Request, { params }: RouteParams) {
         if (!updated) {
           return NextResponse.json({ error: '重新排序失敗' }, { status: 400 });
         }
+        return NextResponse.json({ storyboard: updated });
+      }
+
+      case 'updateTitleCard': {
+        const { titleCard } = data as { titleCard: StoryboardTitleCard | null };
+        const updated = await updateStoryboard(id, { titleCard: titleCard || undefined });
+        return NextResponse.json({ storyboard: updated });
+      }
+
+      case 'updateOutroCard': {
+        const { outroCard } = data as { outroCard: StoryboardTitleCard | null };
+        const updated = await updateStoryboard(id, { outroCard: outroCard || undefined });
+        return NextResponse.json({ storyboard: updated });
+      }
+
+      case 'updateMusic': {
+        const { music } = data as { music: StoryboardMusic | null };
+        const updated = await updateStoryboard(id, { music: music || undefined });
+        return NextResponse.json({ storyboard: updated });
+      }
+
+      case 'fullUpdate': {
+        // Full storyboard update for undo/redo sync
+        const { storyboard: fullStoryboard } = data as { storyboard: typeof storyboard };
+        if (!fullStoryboard) {
+          return NextResponse.json({ error: '缺少 storyboard 資料' }, { status: 400 });
+        }
+        const updated = await updateStoryboard(id, {
+          slots: fullStoryboard.slots,
+          transitions: fullStoryboard.transitions,
+          titleCard: fullStoryboard.titleCard,
+          outroCard: fullStoryboard.outroCard,
+          music: fullStoryboard.music,
+          name: fullStoryboard.name,
+        });
         return NextResponse.json({ storyboard: updated });
       }
 
