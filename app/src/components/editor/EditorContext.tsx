@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useReducer, useEffect, useRef, type ReactNode, type Dispatch } from 'react';
+import { createContext, useContext, useReducer, useEffect, useRef, useCallback, type ReactNode, type Dispatch } from 'react';
 import { saveEditorState } from '@/lib/editor/auto-save';
 import type { EditorState, EditorAction, TimelineClip, MusicClip, Transition, TrackStates } from '@/types/editor';
 import {
@@ -13,6 +13,24 @@ import {
   getSnapRightDelta,
   rippleDeleteClips,
 } from '@/lib/editor/timeline-utils';
+
+// --- Undo/Redo History ---
+
+const MAX_HISTORY_SIZE = 50;
+
+interface HistoryState {
+  past: EditorState[];
+  present: EditorState;
+  future: EditorState[];
+}
+
+// Actions that should NOT be recorded in undo history
+const NON_UNDOABLE_ACTIONS = new Set([
+  'SET_PLAYHEAD', 'SET_PLAYING', 'SELECT_CLIP', 'SELECT_ALL_CLIPS',
+  'DESELECT_ALL', 'SELECT_SUBTITLE', 'SELECT_MUSIC_CLIP',
+  'SET_ACTIVE_PANEL', 'SET_EXPORT_PROGRESS', 'INIT', 'RESTORE',
+  'UNDO', 'REDO',
+]);
 
 // --- Default track states ---
 
@@ -569,6 +587,11 @@ function editorReducer(state: EditorState, action: EditorAction): EditorState {
       break;
     }
 
+    // UNDO and REDO are handled by historyReducer wrapper, not here
+    case 'UNDO':
+    case 'REDO':
+      return state;
+
     default:
       return state;
   }
@@ -578,28 +601,122 @@ function editorReducer(state: EditorState, action: EditorAction): EditorState {
   return next;
 }
 
+// --- History Reducer ---
+// Wraps editorReducer to track past/future states for undo/redo
+
+function createInitialHistory(): HistoryState {
+  return {
+    past: [],
+    present: createInitialState(),
+    future: [],
+  };
+}
+
+function historyReducer(history: HistoryState, action: EditorAction): HistoryState {
+  const { past, present, future } = history;
+
+  switch (action.type) {
+    case 'UNDO': {
+      if (past.length === 0) return history;
+      const previous = past[past.length - 1];
+      const newPast = past.slice(0, -1);
+      return {
+        past: newPast,
+        present: previous,
+        future: [present, ...future],
+      };
+    }
+
+    case 'REDO': {
+      if (future.length === 0) return history;
+      const next = future[0];
+      const newFuture = future.slice(1);
+      return {
+        past: [...past, present],
+        present: next,
+        future: newFuture,
+      };
+    }
+
+    default: {
+      const newPresent = editorReducer(present, action);
+
+      // If state didn't change, don't add to history
+      if (newPresent === present) return history;
+
+      // If it's a non-undoable action, just update present without history
+      if (NON_UNDOABLE_ACTIONS.has(action.type)) {
+        return { ...history, present: newPresent };
+      }
+
+      // Otherwise, push current state to past and clear future
+      const newPast = [...past, present];
+      // Limit history size
+      if (newPast.length > MAX_HISTORY_SIZE) {
+        newPast.shift();
+      }
+
+      return {
+        past: newPast,
+        present: newPresent,
+        future: [],
+      };
+    }
+  }
+}
+
 // --- Context ---
 
 const EditorStateContext = createContext<EditorState | null>(null);
 const EditorDispatchContext = createContext<Dispatch<EditorAction> | null>(null);
+const EditorHistoryContext = createContext<{ canUndo: boolean; canRedo: boolean } | null>(null);
 
 // Actions that don't modify persistent state (skip auto-save for these)
 const UI_ONLY_ACTIONS = new Set([
   'SET_PLAYHEAD', 'SET_PLAYING', 'SELECT_CLIP', 'SELECT_ALL_CLIPS',
   'DESELECT_ALL', 'SELECT_SUBTITLE', 'SELECT_MUSIC_CLIP',
-  'SET_ACTIVE_PANEL', 'SET_EXPORT_PROGRESS',
+  'SET_ACTIVE_PANEL', 'SET_EXPORT_PROGRESS', 'UNDO', 'REDO',
 ]);
 
 export function EditorProvider({ children }: { children: ReactNode }) {
-  const [state, dispatch] = useReducer(editorReducer, undefined, createInitialState);
+  const [history, dispatch] = useReducer(historyReducer, undefined, createInitialHistory);
+  const state = history.present;
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastActionRef = useRef<string>('');
 
   // Wrap dispatch to track which actions trigger saves
-  const wrappedDispatch: Dispatch<EditorAction> = (action) => {
+  const wrappedDispatch: Dispatch<EditorAction> = useCallback((action) => {
     lastActionRef.current = action.type;
     dispatch(action);
-  };
+  }, []);
+
+  // Keyboard shortcuts for undo/redo
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignore if user is typing in an input/textarea
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        return;
+      }
+
+      // Cmd+Z (Mac) or Ctrl+Z (Windows) for undo
+      if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        wrappedDispatch({ type: 'UNDO' });
+      }
+      // Cmd+Shift+Z (Mac) or Ctrl+Shift+Z / Ctrl+Y (Windows) for redo
+      else if ((e.metaKey || e.ctrlKey) && e.key === 'z' && e.shiftKey) {
+        e.preventDefault();
+        wrappedDispatch({ type: 'REDO' });
+      }
+      else if (e.ctrlKey && e.key === 'y') {
+        e.preventDefault();
+        wrappedDispatch({ type: 'REDO' });
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [wrappedDispatch]);
 
   // Auto-save: debounced 1s after persistent state changes
   useEffect(() => {
@@ -617,10 +734,17 @@ export function EditorProvider({ children }: { children: ReactNode }) {
     };
   }, [state]);
 
+  const historyInfo = {
+    canUndo: history.past.length > 0,
+    canRedo: history.future.length > 0,
+  };
+
   return (
     <EditorStateContext.Provider value={state}>
       <EditorDispatchContext.Provider value={wrappedDispatch}>
-        {children}
+        <EditorHistoryContext.Provider value={historyInfo}>
+          {children}
+        </EditorHistoryContext.Provider>
       </EditorDispatchContext.Provider>
     </EditorStateContext.Provider>
   );
@@ -635,5 +759,11 @@ export function useEditor(): EditorState {
 export function useEditorDispatch(): Dispatch<EditorAction> {
   const ctx = useContext(EditorDispatchContext);
   if (!ctx) throw new Error('useEditorDispatch must be used within EditorProvider');
+  return ctx;
+}
+
+export function useEditorHistory(): { canUndo: boolean; canRedo: boolean } {
+  const ctx = useContext(EditorHistoryContext);
+  if (!ctx) throw new Error('useEditorHistory must be used within EditorProvider');
   return ctx;
 }

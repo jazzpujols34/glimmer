@@ -1,8 +1,9 @@
 FROM python:3.11-slim
 
-# Install FFmpeg
+# Install FFmpeg and CJK fonts for Chinese text rendering
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
+    fonts-noto-cjk \
     && rm -rf /var/lib/apt/lists/*
 
 # Set working directory

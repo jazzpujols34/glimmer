@@ -1,6 +1,10 @@
 /**
  * Shared KV abstraction: Cloudflare KV when deployed, in-memory Map for local dev.
  * Used by storage.ts (jobs) and credits.ts (credit system).
+ *
+ * NOTE: In local dev with Turbopack, each route runs in its own isolate,
+ * so in-memory storage doesn't persist across routes. For full local testing,
+ * use `npm run build && npm start` instead of `npm run dev`.
  */
 
 // --- KV access (Cloudflare Pages) ---

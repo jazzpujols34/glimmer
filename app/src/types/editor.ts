@@ -189,4 +189,7 @@ export type EditorAction =
   // Snap & Ripple
   | { type: 'SNAP_CLIPS_LEFT' }
   | { type: 'SNAP_CLIPS_RIGHT' }
-  | { type: 'RIPPLE_DELETE' };
+  | { type: 'RIPPLE_DELETE' }
+  // Undo/Redo
+  | { type: 'UNDO' }
+  | { type: 'REDO' };

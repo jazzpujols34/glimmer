@@ -115,9 +115,15 @@ export async function POST(request: NextRequest) {
 
     // Build music URLs
     const musicDataForService = musicClips.map((mc) => {
-      const musicUrl = mc.type === 'bundled'
-        ? `${BASE_URL}/audio/bundled/${mc.src}`
-        : mc.src;  // uploaded files already have full URL
+      let musicUrl: string;
+      if (mc.type === 'bundled') {
+        // mc.src is just filename like "gentle-piano.mp3", not full path
+        const filename = mc.src.replace(/^\/audio\/bundled\//, '').replace(/^audio\/bundled\//, '');
+        musicUrl = `${BASE_URL}/audio/bundled/${filename}`;
+      } else {
+        // uploaded files already have full URL
+        musicUrl = mc.src;
+      }
 
       return {
         url: musicUrl,
