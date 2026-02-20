@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import { Logo } from '@/components/Logo';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -17,6 +17,8 @@ import {
   ArrowLeft,
   Play,
   AlertCircle,
+  Sparkles,
+  Music,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -42,18 +44,31 @@ interface BatchStatusResponse {
   createdAt: string;
 }
 
+interface QuickStatusResponse {
+  quickId: string;
+  status: 'generating' | 'exporting' | 'complete' | 'error';
+  exportStatus?: string;
+  exportProgress?: number;
+  videoUrl?: string;
+  error?: string;
+}
+
 export default function BatchPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const batchId = params.batchId as string;
+  const quickId = searchParams.get('quick');
   const t = useTranslation();
 
   const [batch, setBatch] = useState<BatchStatusResponse | null>(null);
+  const [quick, setQuick] = useState<QuickStatusResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedSegment, setSelectedSegment] = useState<SegmentStatus | null>(null);
 
   const fetchStatus = useCallback(async () => {
     try {
+      // Fetch batch status
       const res = await fetch(`/api/batch-status/${batchId}`);
       if (!res.ok) {
         const data = await res.json();
@@ -61,13 +76,23 @@ export default function BatchPage() {
       }
       const data: BatchStatusResponse = await res.json();
       setBatch(data);
+
+      // If this is a quick job, also fetch quick status for export progress
+      if (quickId) {
+        const quickRes = await fetch(`/api/quick-status/${quickId}`);
+        if (quickRes.ok) {
+          const quickData: QuickStatusResponse = await quickRes.json();
+          setQuick(quickData);
+        }
+      }
+
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');
     } finally {
       setLoading(false);
     }
-  }, [batchId]);
+  }, [batchId, quickId]);
 
   // Initial fetch
   useEffect(() => {
@@ -77,11 +102,18 @@ export default function BatchPage() {
   // Poll while processing
   useEffect(() => {
     if (!batch) return;
-    if (batch.status === 'complete' || batch.status === 'error') return;
+
+    // For quick jobs, continue polling until export is done
+    if (quickId && quick) {
+      if (quick.status === 'complete' || quick.status === 'error') return;
+    } else {
+      // Regular batch - stop when batch is done
+      if (batch.status === 'complete' || batch.status === 'error') return;
+    }
 
     const interval = setInterval(fetchStatus, 3000);
     return () => clearInterval(interval);
-  }, [batch, fetchStatus]);
+  }, [batch, quick, quickId, fetchStatus]);
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -230,6 +262,74 @@ export default function BatchPage() {
               </p>
             </CardContent>
           </Card>
+
+          {/* Quick Job Export Progress */}
+          {quickId && quick && (
+            <Card className="mb-8">
+              <CardContent className="p-6">
+                {/* Export phase indicator */}
+                <div className="flex items-center justify-center gap-3 mb-4">
+                  {quick.status === 'complete' ? (
+                    <CheckCircle className="w-6 h-6 text-green-500" />
+                  ) : quick.status === 'error' ? (
+                    <XCircle className="w-6 h-6 text-destructive" />
+                  ) : quick.status === 'exporting' ? (
+                    <Music className="w-6 h-6 text-primary animate-pulse" />
+                  ) : (
+                    <Sparkles className="w-6 h-6 text-primary animate-pulse" />
+                  )}
+                  <span className="font-medium">
+                    {quick.status === 'generating' && '生成片段中...'}
+                    {quick.status === 'exporting' && '合成影片中...'}
+                    {quick.status === 'complete' && '影片完成！'}
+                    {quick.status === 'error' && '發生錯誤'}
+                  </span>
+                </div>
+
+                {/* Export progress bar */}
+                {quick.status === 'exporting' && (
+                  <>
+                    <div className="h-2 bg-muted rounded-full overflow-hidden mb-2">
+                      <div
+                        className="h-full bg-primary transition-all duration-500"
+                        style={{ width: `${quick.exportProgress || 0}%` }}
+                      />
+                    </div>
+                    <p className="text-xs text-muted-foreground text-center">
+                      匯出進度 {quick.exportProgress || 0}%
+                    </p>
+                  </>
+                )}
+
+                {/* Error message */}
+                {quick.status === 'error' && quick.error && (
+                  <p className="text-sm text-destructive text-center">
+                    {quick.error}
+                  </p>
+                )}
+
+                {/* Final video preview and download */}
+                {quick.status === 'complete' && quick.videoUrl && (
+                  <div className="mt-4 space-y-4">
+                    <div className="aspect-video bg-black rounded-lg overflow-hidden">
+                      <video
+                        src={quick.videoUrl}
+                        controls
+                        className="w-full h-full"
+                        preload="metadata"
+                      />
+                    </div>
+                    <Button asChild className="w-full" size="lg">
+                      <a href={quick.videoUrl} download={`${batch.name}.mp4`}>
+                        <Download className="w-5 h-5 mr-2" />
+                        下載完整影片
+                      </a>
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
           {/* Segment grid */}
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 mb-8">

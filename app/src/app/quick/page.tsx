@@ -132,8 +132,8 @@ function QuickPageInner() {
         throw new Error(data.error || '生成失敗');
       }
 
-      // Redirect to progress page
-      router.push(`/quick/${data.quickId}`);
+      // Redirect to batch progress page (reuse existing page to save bundle size)
+      router.push(`/batch/${data.batchId}?quick=${data.quickId}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : '發生錯誤');
       setIsSubmitting(false);

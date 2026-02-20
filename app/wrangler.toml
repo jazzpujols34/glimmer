@@ -2,7 +2,8 @@
 # Run: npm run dev:cf (uses wrangler pages dev)
 
 name = "glimmer"
-compatibility_date = "2024-01-01"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
 
 # KV Namespace for local dev
 [[kv_namespaces]]
