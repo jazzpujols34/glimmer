@@ -10,6 +10,8 @@ import type {
   BatchJob,
   BatchStatus,
   GenerationSettings,
+  QuickJob,
+  QuickJobStatus,
 } from '@/types';
 import { kvGet, kvPut, kvDelete, kvListKeys } from './kv';
 
@@ -511,4 +513,54 @@ export async function getBatchJobs(batchId: string): Promise<GenerationJob[]> {
 
   // Sort by segment index
   return jobs.sort((a, b) => (a.segmentIndex ?? 0) - (b.segmentIndex ?? 0));
+}
+
+// === Quick Template Storage ===
+// Quick = one-click video generation with templates
+
+const QUICK_PREFIX = 'quick:';
+
+export async function createQuickJob(
+  email: string,
+  templateId: string,
+  name: string,
+  batchId: string,
+  date?: string,
+  message?: string,
+): Promise<QuickJob> {
+  const id = `quick_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  const now = new Date().toISOString();
+
+  const quick: QuickJob = {
+    id,
+    status: 'generating',
+    email,
+    templateId,
+    name,
+    date,
+    message,
+    batchId,
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  await kvPut(`${QUICK_PREFIX}${id}`, JSON.stringify(quick));
+  return quick;
+}
+
+export async function getQuickJob(id: string): Promise<QuickJob | undefined> {
+  const data = await kvGet(`${QUICK_PREFIX}${id}`);
+  return data ? JSON.parse(data) : undefined;
+}
+
+export async function updateQuickJob(
+  id: string,
+  updates: Partial<Omit<QuickJob, 'id' | 'createdAt'>>,
+): Promise<QuickJob | undefined> {
+  const quick = await getQuickJob(id);
+  if (!quick) return undefined;
+
+  const updated = { ...quick, ...updates, updatedAt: new Date().toISOString() };
+  await kvPut(`${QUICK_PREFIX}${id}`, JSON.stringify(updated));
+  return updated;
 }

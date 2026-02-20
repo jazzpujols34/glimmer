@@ -218,3 +218,32 @@ export interface BatchJob {
   createdAt: string;
   updatedAt?: string;
 }
+
+// === Quick Template Types ===
+// Quick = one-click video generation with pre-configured templates
+
+export type QuickJobStatus = 'generating' | 'exporting' | 'complete' | 'error';
+
+export interface QuickJob {
+  id: string;                        // quick_xxx
+  status: QuickJobStatus;
+  email: string;
+  templateId: string;
+
+  // User inputs
+  name: string;
+  date?: string;
+  message?: string;
+
+  // Generation tracking
+  batchId: string;                   // Reference to BatchJob
+  storyboardId?: string;             // Created after generation complete
+  exportId?: string;                 // Cloud Run export ID
+
+  // Results
+  videoR2Key?: string;               // Final video in R2
+  error?: string;
+
+  createdAt: string;
+  updatedAt?: string;
+}

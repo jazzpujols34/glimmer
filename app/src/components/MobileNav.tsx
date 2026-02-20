@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
+import { Sparkles } from 'lucide-react';
 
 const navItems = [
   { href: '#showcase', label: '作品展示' },
@@ -50,10 +51,16 @@ export function MobileNav() {
                 {item.label}
               </a>
             ))}
-            <div className="pt-2 mt-2 border-t border-border">
+            <div className="pt-2 mt-2 border-t border-border space-y-2">
               <Button className="w-full" asChild>
+                <Link href="/quick" onClick={() => setIsOpen(false)}>
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  快速生成
+                </Link>
+              </Button>
+              <Button variant="outline" className="w-full" asChild>
                 <Link href="/create" onClick={() => setIsOpen(false)}>
-                  開始製作
+                  進階製作
                 </Link>
               </Button>
             </div>

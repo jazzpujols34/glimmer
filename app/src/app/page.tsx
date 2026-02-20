@@ -6,6 +6,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { MobileNav } from '@/components/MobileNav';
 import { HeroDemoVideo } from '@/components/HeroDemoVideo';
 import { LanguageToggle } from '@/components/LanguageToggle';
+import { Sparkles } from 'lucide-react';
 
 export const metadata: Metadata = {
   title: '拾光 Glimmer — AI 回憶影片服務 | AI Memorial Video Service',
@@ -64,11 +65,15 @@ export default function LandingPage() {
             <a href="#faq" className="text-muted-foreground hover:text-foreground transition-colors">
               常見問題
             </a>
+            <Link href="/quick" className="text-primary font-medium hover:text-primary/80 transition-colors flex items-center gap-1">
+              <Sparkles className="w-4 h-4" />
+              快速生成
+            </Link>
           </nav>
           <div className="flex items-center gap-2">
             <LanguageToggle />
             <Button size="sm" asChild className="hidden sm:inline-flex">
-              <Link href="/create">開始製作</Link>
+              <Link href="/quick">快速生成</Link>
             </Button>
             <MobileNav />
           </div>
