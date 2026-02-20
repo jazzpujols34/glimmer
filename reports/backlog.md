@@ -108,9 +108,15 @@ Replace Stripe checkout with ECPay (綠界) for Taiwan-native payment methods.
 - ✅ Partial failure handling (some segments can fail while others succeed)
 - ✅ Bilingual i18n translations
 
+## Priority 14: Video watermark for free tier [DONE]
+- ✅ FFmpeg drawtext overlay "Made with 拾光 Glimmer" in Cloud Run export service
+- ✅ Watermark applied for free tier users only
+- ✅ Paid users (paidTotal > 0) and admins get no watermark
+- ✅ Email passed through editor context → API → Cloud Run
+- ✅ Works for both editor exports and storyboard exports
+
 ## Future / Phase 2
 - **B2B dashboard**: Business accounts with sub-users, unified billing, usage reports
 - **Full auth (NextAuth.js)**: Only if B2B dashboard or multi-device sync demands it
 - **ECPay/NewebPay local payment**: 超商代碼, ATM transfer, LINE Pay (once ECPay approved)
-- **Video watermark for free tier**: "Made with 拾光 Glimmer" overlay via FFmpeg
 - **Editor mobile UX**: Timeline editor is desktop-optimized
