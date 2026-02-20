@@ -21,6 +21,7 @@ interface JobData {
   videoUrl: string;
   videoUrls?: string[];
   createdAt: string;
+  email?: string;
   settings?: {
     model: string;
     aspectRatio: string;
@@ -106,6 +107,7 @@ function EditorLoader({ jobId }: { jobId: string }) {
           jobId: job.id,
           jobName: job.name || '未命名影片',
           clips,
+          email: job.email,
         },
       });
 

@@ -93,6 +93,7 @@ export function ExportPanel() {
       // Build export request
       const exportRequest = {
         jobId: state.jobId,
+        email: state.email,  // For watermark decision based on user tier
         clips: state.clips.map((clip) => ({
           sourceUrl: clip.sourceUrl,
           trimStart: clip.trimStart,

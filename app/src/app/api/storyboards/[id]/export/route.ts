@@ -3,6 +3,7 @@ export const runtime = 'edge';
 import { NextRequest, NextResponse } from 'next/server';
 import { getStoryboard } from '@/lib/storage';
 import { captureError } from '@/lib/errors';
+import { checkCredits } from '@/lib/credits';
 
 const CLOUD_RUN_URL = process.env.EXPORT_SERVICE_URL;
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://glimmer.video';
@@ -158,6 +159,17 @@ export async function POST(
       console.log(`[storyboard-export] Including music: ${storyboard.music.name}, volume ${storyboard.music.volume}`);
     }
 
+    // Determine if watermark should be applied (free tier users only)
+    let applyWatermark = true;  // Default: apply watermark
+    if (storyboard.email) {
+      const credits = await checkCredits(storyboard.email);
+      // No watermark for: admins, or users who have ever purchased credits
+      if (credits.isAdmin || credits.paidTotal > 0) {
+        applyWatermark = false;
+      }
+    }
+    console.log(`[storyboard-export] Watermark: ${applyWatermark} (email: ${storyboard.email || 'none'})`);
+
     // Build Cloud Run request
     const cloudRunRequest = {
       jobId: storyboardId,
@@ -167,6 +179,7 @@ export async function POST(
       titleCard: storyboard.titleCard,
       outroCard: storyboard.outroCard,
       resolution,
+      watermark: applyWatermark,
     };
 
     console.log(`[storyboard-export] Calling Cloud Run with ${clips.length} clips, resolution ${resolution}`);

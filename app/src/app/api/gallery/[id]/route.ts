@@ -43,6 +43,7 @@ export async function GET(
       settings: job.settings,
       favorite: job.favorite,
       projectId: job.projectId,
+      email: job.email,  // For watermark decision in exports
     });
   } catch (error) {
     captureError(error, { route: '/api/gallery/[id]' });

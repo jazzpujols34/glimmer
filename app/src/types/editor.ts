@@ -121,6 +121,7 @@ export type EditorPanel = 'clips' | 'subtitles' | 'music' | 'sfx' | 'titles' | '
 export interface EditorState {
   jobId: string;
   jobName: string;
+  email?: string;                 // For watermark decision in exports
   clips: TimelineClip[];
   transitions: Transition[];      // transitions[i] between clips[i] and clips[i+1]
   subtitles: SubtitleSegment[];
@@ -144,7 +145,7 @@ export interface EditorState {
 // === Editor Actions ===
 
 export type EditorAction =
-  | { type: 'INIT'; payload: { jobId: string; jobName: string; clips: TimelineClip[] } }
+  | { type: 'INIT'; payload: { jobId: string; jobName: string; clips: TimelineClip[]; email?: string } }
   | { type: 'RESTORE'; payload: EditorState }
   | { type: 'REORDER_CLIPS'; payload: { fromIndex: number; toIndex: number } }
   | { type: 'REMOVE_CLIP'; payload: { clipId: string } }

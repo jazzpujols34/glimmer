@@ -2,6 +2,7 @@ export const runtime = 'edge';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { captureError } from '@/lib/errors';
+import { checkCredits } from '@/lib/credits';
 
 /**
  * Server-side video export via Cloud Run.
@@ -55,6 +56,7 @@ interface ExportRequest {
   musicClips: MusicExportData[];
   titleCard?: TitleCardExportData;
   outroCard?: TitleCardExportData;
+  email?: string;  // For watermark decision based on user tier
 }
 
 const CLOUD_RUN_URL = process.env.EXPORT_SERVICE_URL;
@@ -63,9 +65,20 @@ const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://glimmer.video';
 export async function POST(request: NextRequest) {
   try {
     const body: ExportRequest = await request.json();
-    const { jobId, clips, subtitles, musicClips, titleCard, outroCard } = body;
+    const { jobId, clips, subtitles, musicClips, titleCard, outroCard, email } = body;
 
     console.log(`[export-server] Starting export for job ${jobId}, ${clips.length} clips`);
+
+    // Determine if watermark should be applied (free tier users only)
+    let applyWatermark = true;  // Default: apply watermark
+    if (email) {
+      const credits = await checkCredits(email);
+      // No watermark for: admins, or users who have ever purchased credits
+      if (credits.isAdmin || credits.paidTotal > 0) {
+        applyWatermark = false;
+      }
+    }
+    console.log(`[export-server] Watermark: ${applyWatermark} (email: ${email || 'none'})`);
 
     if (!jobId || !clips || clips.length === 0) {
       return NextResponse.json(
@@ -181,6 +194,7 @@ export async function POST(request: NextRequest) {
       titleCard,
       outroCard,
       resolution: '1280x720',
+      watermark: applyWatermark,
     };
 
     console.log(`[export-server] Calling Cloud Run async service at ${CLOUD_RUN_URL}...`);

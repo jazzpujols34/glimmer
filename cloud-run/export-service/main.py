@@ -92,6 +92,7 @@ class ExportRequest(BaseModel):
     titleCard: Optional[TitleCardData] = None
     outroCard: Optional[TitleCardData] = None
     resolution: str = "1280x720"
+    watermark: bool = False  # Add "Made with 拾光 Glimmer" watermark (for free tier)
 
 
 class ExportResponse(BaseModel):
@@ -503,6 +504,34 @@ async def process_export(request: ExportRequest, work_dir: Path) -> tuple[bool, 
             # Cleanup music files
             for mf in music_files:
                 mf.unlink(missing_ok=True)
+
+    # --- Apply watermark (free tier) ---
+    if request.watermark:
+        watermark_text = "Made with 拾光 Glimmer"
+        # Bottom-right corner, semi-transparent white, with shadow for readability
+        drawtext = (
+            f"drawtext=text='{escape_ffmpeg_text(watermark_text)}':"
+            f"fontfile={FONT_FILE}:fontsize=20:"
+            f"fontcolor=white@0.8:shadowcolor=black@0.5:shadowx=1:shadowy=1:"
+            f"x=w-tw-20:y=h-th-15"
+        )
+
+        watermark_output = work_dir / "with_watermark.mp4"
+        success = run_ffmpeg([
+            "-i", str(current_output),
+            "-vf", drawtext,
+            *COMMON_VIDEO_ARGS,
+            "-c:a", "copy",
+            "-movflags", "+faststart",
+            str(watermark_output),
+        ], "Watermark")
+
+        if success:
+            current_output.unlink(missing_ok=True)
+            current_output = watermark_output
+            print(f"[Export] Watermark applied")
+        else:
+            print(f"[Export] Warning: Watermark failed, continuing without")
 
     # --- Final output ---
     final_output = work_dir / "final.mp4"

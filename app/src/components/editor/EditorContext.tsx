@@ -106,13 +106,14 @@ function editorReducer(state: EditorState, action: EditorAction): EditorState {
 
   switch (action.type) {
     case 'INIT': {
-      const { jobId, jobName, clips } = action.payload;
+      const { jobId, jobName, clips, email } = action.payload;
       // Position clips sequentially starting at 0
       const positioned = positionClipsSequentially(clips, 0);
       next = {
         ...createInitialState(),
         jobId,
         jobName,
+        email,
         clips: positioned,
         transitions: buildDefaultTransitions(positioned.length),
       };
