@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, Suspense } from 'react';
 import Link from 'next/link';
 import { useParams, useSearchParams } from 'next/navigation';
 import { Logo } from '@/components/Logo';
@@ -54,6 +54,22 @@ interface QuickStatusResponse {
 }
 
 export default function BatchPage() {
+  return (
+    <Suspense fallback={<BatchPageLoading />}>
+      <BatchPageInner />
+    </Suspense>
+  );
+}
+
+function BatchPageLoading() {
+  return (
+    <div className="min-h-screen flex items-center justify-center">
+      <Loader2 className="w-12 h-12 animate-spin text-primary" />
+    </div>
+  );
+}
+
+function BatchPageInner() {
   const params = useParams();
   const searchParams = useSearchParams();
   const batchId = params.batchId as string;
