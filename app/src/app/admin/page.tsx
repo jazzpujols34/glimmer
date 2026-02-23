@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Link from 'next/link';
 import { Logo } from '@/components/Logo';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,7 +14,14 @@ import {
   CheckCircle,
   Clock,
   RefreshCw,
+  Search,
+  Gift,
+  LayoutDashboard,
+  User,
+  ShieldCheck,
+  Loader2,
 } from 'lucide-react';
+import type { CreditBalance, CreditRecord, GenerationJob } from '@/types';
 
 interface AdminStats {
   jobs: {
@@ -59,6 +65,17 @@ interface AdminStats {
   generatedAt: string;
 }
 
+interface UserData {
+  email: string;
+  isAdmin: boolean;
+  credits: CreditBalance;
+  creditRecord: CreditRecord;
+  jobs: GenerationJob[];
+  totalJobs: number;
+}
+
+type AdminTab = 'dashboard' | 'users';
+
 const MODEL_LABELS: Record<string, string> = {
   byteplus: 'BytePlus Seedance',
   'veo-3.1': 'Veo 3.1',
@@ -89,6 +106,19 @@ export default function AdminPage() {
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // Tab state
+  const [activeTab, setActiveTab] = useState<AdminTab>('dashboard');
+
+  // Users tab state
+  const [userSearch, setUserSearch] = useState('');
+  const [userLoading, setUserLoading] = useState(false);
+  const [userError, setUserError] = useState('');
+  const [userData, setUserData] = useState<UserData | null>(null);
+  const [grantCredits, setGrantCredits] = useState('');
+  const [grantReason, setGrantReason] = useState('');
+  const [granting, setGranting] = useState(false);
+  const [grantSuccess, setGrantSuccess] = useState('');
 
   useEffect(() => {
     const saved = localStorage.getItem('glimmer_admin_email');
@@ -129,6 +159,75 @@ export default function AdminPage() {
 
   const handleRefresh = () => {
     if (email) fetchStats(email);
+  };
+
+  const searchUser = async (userEmail: string) => {
+    if (!userEmail.trim()) return;
+    setUserLoading(true);
+    setUserError('');
+    setUserData(null);
+    setGrantSuccess('');
+    try {
+      const res = await fetch(
+        `/api/admin/users?email=${encodeURIComponent(userEmail.trim())}&adminEmail=${encodeURIComponent(email)}`
+      );
+      if (res.status === 401) {
+        setUserError('沒有權限');
+        return;
+      }
+      if (res.status === 400) {
+        setUserError('請輸入 Email');
+        return;
+      }
+      if (!res.ok) throw new Error('Failed to fetch user');
+      const data = await res.json();
+      setUserData(data);
+    } catch {
+      setUserError('查詢用戶失敗');
+    } finally {
+      setUserLoading(false);
+    }
+  };
+
+  const handleSearchUser = (e: React.FormEvent) => {
+    e.preventDefault();
+    searchUser(userSearch);
+  };
+
+  const handleGrantCredits = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!userData || !grantCredits) return;
+    const credits = parseInt(grantCredits, 10);
+    if (isNaN(credits) || credits <= 0) {
+      setUserError('請輸入有效的點數');
+      return;
+    }
+    setGranting(true);
+    setGrantSuccess('');
+    setUserError('');
+    try {
+      const res = await fetch('/api/admin/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          adminEmail: email,
+          userEmail: userData.email,
+          credits,
+          reason: grantReason || '管理員贈送',
+        }),
+      });
+      if (!res.ok) throw new Error('Failed to grant credits');
+      const result = await res.json();
+      setGrantSuccess(`成功贈送 ${credits} 點 (新餘額: ${result.newRemaining})`);
+      setGrantCredits('');
+      setGrantReason('');
+      // Refresh user data
+      searchUser(userData.email);
+    } catch {
+      setUserError('贈送點數失敗');
+    } finally {
+      setGranting(false);
+    }
   };
 
   const formatDate = (dateStr: string) => {
@@ -204,10 +303,38 @@ export default function AdminPage() {
             </Button>
           </div>
         </div>
+        {/* Tab Navigation */}
+        <div className="container mx-auto px-4">
+          <div className="flex gap-1 border-b border-transparent -mb-px">
+            <button
+              onClick={() => setActiveTab('dashboard')}
+              className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                activeTab === 'dashboard'
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <LayoutDashboard className="w-4 h-4" />
+              總覽
+            </button>
+            <button
+              onClick={() => setActiveTab('users')}
+              className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                activeTab === 'users'
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <Users className="w-4 h-4" />
+              用戶管理
+            </button>
+          </div>
+        </div>
       </header>
 
       <main className="container mx-auto px-4 py-8">
-        {stats && (
+        {/* Dashboard Tab */}
+        {activeTab === 'dashboard' && stats && (
           <div className="space-y-8">
             {/* Summary Cards */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -469,6 +596,266 @@ export default function AdminPage() {
             <div className="text-center text-xs text-muted-foreground">
               最後更新：{new Date(stats.generatedAt).toLocaleString('zh-TW')}
             </div>
+          </div>
+        )}
+
+        {/* Users Tab */}
+        {activeTab === 'users' && (
+          <div className="space-y-6">
+            {/* Search */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Search className="w-4 h-4" />
+                  查詢用戶
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={handleSearchUser} className="flex gap-2">
+                  <Input
+                    type="email"
+                    placeholder="輸入用戶 Email"
+                    value={userSearch}
+                    onChange={(e) => setUserSearch(e.target.value)}
+                    className="flex-1"
+                  />
+                  <Button type="submit" disabled={userLoading || !userSearch.trim()}>
+                    {userLoading ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Search className="w-4 h-4" />
+                    )}
+                  </Button>
+                </form>
+                {userError && (
+                  <p className="mt-2 text-sm text-destructive">{userError}</p>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* User Details */}
+            {userData && (
+              <div className="grid md:grid-cols-2 gap-6">
+                {/* User Info */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <User className="w-4 h-4" />
+                      用戶資訊
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">Email</span>
+                      <span className="text-sm font-medium">{userData.email}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">身份</span>
+                      <span className="text-sm font-medium flex items-center gap-1">
+                        {userData.isAdmin ? (
+                          <>
+                            <ShieldCheck className="w-4 h-4 text-amber-500" />
+                            管理員
+                          </>
+                        ) : (
+                          '一般用戶'
+                        )}
+                      </span>
+                    </div>
+                    <div className="pt-2 border-t border-border">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="p-3 rounded-lg bg-muted/50">
+                          <p className="text-xl font-bold text-green-500">
+                            {userData.credits.remaining}
+                          </p>
+                          <p className="text-xs text-muted-foreground">可用點數</p>
+                        </div>
+                        <div className="p-3 rounded-lg bg-muted/50">
+                          <p className="text-xl font-bold">
+                            {userData.creditRecord.total}
+                          </p>
+                          <p className="text-xs text-muted-foreground">購買總數</p>
+                        </div>
+                        <div className="p-3 rounded-lg bg-muted/50">
+                          <p className="text-xl font-bold">
+                            {userData.creditRecord.used}
+                          </p>
+                          <p className="text-xs text-muted-foreground">已使用</p>
+                        </div>
+                        <div className="p-3 rounded-lg bg-muted/50">
+                          <p className="text-xl font-bold">{userData.totalJobs}</p>
+                          <p className="text-xs text-muted-foreground">總生成數</p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">免費額度使用</span>
+                      <span>
+                        {userData.credits.freeUsed} / {userData.credits.freeTotal}
+                      </span>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Grant Credits */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Gift className="w-4 h-4" />
+                      贈送點數
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <form onSubmit={handleGrantCredits} className="space-y-4">
+                      <div>
+                        <label className="text-sm text-muted-foreground">點數</label>
+                        <Input
+                          type="number"
+                          min="1"
+                          placeholder="輸入點數"
+                          value={grantCredits}
+                          onChange={(e) => setGrantCredits(e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <label className="text-sm text-muted-foreground">原因（選填）</label>
+                        <Input
+                          type="text"
+                          placeholder="補償、測試、促銷..."
+                          value={grantReason}
+                          onChange={(e) => setGrantReason(e.target.value)}
+                        />
+                      </div>
+                      <Button
+                        type="submit"
+                        className="w-full"
+                        disabled={granting || !grantCredits}
+                      >
+                        {granting ? (
+                          <>
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            處理中...
+                          </>
+                        ) : (
+                          <>
+                            <Gift className="w-4 h-4 mr-2" />
+                            贈送點數
+                          </>
+                        )}
+                      </Button>
+                      {grantSuccess && (
+                        <p className="text-sm text-green-500 flex items-center gap-1">
+                          <CheckCircle className="w-4 h-4" />
+                          {grantSuccess}
+                        </p>
+                      )}
+                    </form>
+                  </CardContent>
+                </Card>
+
+                {/* Purchase History */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <CreditCard className="w-4 h-4" />
+                      購買記錄
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {userData.creditRecord.purchases.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">尚無購買記錄</p>
+                    ) : (
+                      <div className="space-y-3 max-h-60 overflow-y-auto">
+                        {userData.creditRecord.purchases
+                          .slice()
+                          .reverse()
+                          .map((p) => (
+                            <div
+                              key={p.id}
+                              className="flex items-center justify-between text-sm border-b border-border pb-2 last:border-0"
+                            >
+                              <div>
+                                <p className="font-medium">
+                                  +{p.credits} 點
+                                  {p.provider === 'admin' && (
+                                    <span className="ml-2 text-xs text-amber-500">
+                                      (管理員贈送)
+                                    </span>
+                                  )}
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                  {formatDate(p.createdAt)}
+                                </p>
+                                {p.adminReason && (
+                                  <p className="text-xs text-muted-foreground">
+                                    原因：{p.adminReason}
+                                  </p>
+                                )}
+                              </div>
+                              <div className="text-right">
+                                {p.amountTWD > 0 ? (
+                                  <p className="font-medium">NT${p.amountTWD}</p>
+                                ) : (
+                                  <p className="text-muted-foreground">免費</p>
+                                )}
+                                <p className="text-xs text-muted-foreground">{p.id}</p>
+                              </div>
+                            </div>
+                          ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Recent Jobs */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Video className="w-4 h-4" />
+                      最近生成 ({userData.totalJobs})
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {userData.jobs.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">尚無生成記錄</p>
+                    ) : (
+                      <div className="space-y-3 max-h-60 overflow-y-auto">
+                        {userData.jobs.map((job) => {
+                          const statusConfig =
+                            STATUS_CONFIG[job.status] || STATUS_CONFIG.queued;
+                          const StatusIcon = statusConfig.icon;
+                          return (
+                            <div
+                              key={job.id}
+                              className="flex items-start justify-between text-sm border-b border-border pb-2 last:border-0"
+                            >
+                              <div className="flex items-start gap-2">
+                                <StatusIcon
+                                  className={`w-4 h-4 mt-0.5 ${statusConfig.color}`}
+                                />
+                                <div>
+                                  <p className="font-medium">{job.name || '未命名'}</p>
+                                  <p className="text-xs text-muted-foreground">
+                                    {OCCASION_LABELS[job.occasion || 'unknown']} ·{' '}
+                                    {MODEL_LABELS[job.settings?.model || 'unknown']}
+                                  </p>
+                                  {job.error && (
+                                    <p className="text-xs text-red-500">{job.error}</p>
+                                  )}
+                                </div>
+                              </div>
+                              <p className="text-xs text-muted-foreground">
+                                {formatDate(job.createdAt)}
+                              </p>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            )}
           </div>
         )}
       </main>

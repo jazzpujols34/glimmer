@@ -110,8 +110,10 @@ export interface PurchaseRecord {
   credits: number;        // generations purchased
   amountTWD: number;
   createdAt: string;
-  provider?: 'ecpay' | 'stripe';  // Payment provider
+  provider?: 'ecpay' | 'stripe' | 'admin';  // Payment provider or admin grant
   ecpayTradeNo?: string;          // ECPay transaction number
+  adminGrantedBy?: string;        // Admin email who granted (for admin grants)
+  adminReason?: string;           // Reason for admin grant
 }
 
 export interface FreeRecord {
