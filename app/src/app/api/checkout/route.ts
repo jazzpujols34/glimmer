@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
       description: '拾光 Glimmer AI 影片生成',
       email: email.toLowerCase().trim(),
       itemName: `${pack.label} (${pack.credits} 次生成)`,
-      returnUrl: `${appUrl}/purchase/success`,
+      returnUrl: `${appUrl}/api/ecpay-return`,
       notifyUrl: `${appUrl}/api/webhooks/ecpay`,
       clientBackUrl: `${appUrl}/create`,
     });
