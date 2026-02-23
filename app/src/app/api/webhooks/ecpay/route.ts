@@ -9,6 +9,8 @@ import { captureError } from '@/lib/errors';
 const CREDIT_PACKS: Record<number, number> = {
   499: 1,    // single: NT$499 = 1 credit
   1999: 5,   // pack5: NT$1999 = 5 credits
+  299: 20,   // pack20: NT$299 = 20 credits
+  599: 50,   // pack50: NT$599 = 50 credits
 };
 
 export async function POST(request: NextRequest) {

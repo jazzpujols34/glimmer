@@ -10,6 +10,8 @@ import { createPaymentFormData } from '@/lib/ecpay';
 const CREDIT_PACKS: Record<string, { credits: number; priceTWD: number; label: string }> = {
   single: { credits: 1, priceTWD: 499, label: '單次生成' },
   pack5: { credits: 5, priceTWD: 1999, label: '5次生成組合包' },
+  pack20: { credits: 20, priceTWD: 299, label: '20次生成組合包' },
+  pack50: { credits: 50, priceTWD: 599, label: '50次生成組合包' },
 };
 
 export async function POST(request: NextRequest) {
