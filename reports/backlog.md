@@ -7,16 +7,16 @@
 > **Business model:** Pay-per-video credits (not subscriptions).
 > Free: 1 video per email. Paid: NT$499/video or NT$1,999/5 pack. Enterprise: 請洽業務.
 > Identity: email-only (no passwords, no OAuth). All models/resolutions available to all tiers.
-> Payment: ECPay (applying). Stripe checkout code exists as fallback.
+> Payment: ECPay (綠界) — merchant approved and live.
 
 ## Priority 1: ECPay payment integration [DONE]
 Replace Stripe checkout with ECPay (綠界) for Taiwan-native payment methods.
 - ✅ Swap `/api/checkout/route.ts` to create ECPay payment form (credit card, ATM, 超商代碼, LINE Pay)
 - ✅ Swap `/api/webhooks/stripe/route.ts` to ECPay callback handler (ReturnURL + NotifyURL pattern)
 - ✅ ECPay signature verification (SHA256 CheckMacValue) via Web Crypto API (Edge-compatible)
-- ⏳ Test with ECPay sandbox environment (waiting on merchant approval)
+- ✅ ECPay merchant approved (credentials configured)
 - ✅ Stripe code removed (commit `a043804`)
-**Status:** Code complete, blocked on ECPay merchant application approval
+**Status:** Complete and live
 
 ## Priority 2: Email verification (magic link) [DONE]
 - Magic link via Resend REST API (`lib/email.ts`)
@@ -118,5 +118,4 @@ Replace Stripe checkout with ECPay (綠界) for Taiwan-native payment methods.
 ## Future / Phase 2
 - **B2B dashboard**: Business accounts with sub-users, unified billing, usage reports
 - **Full auth (NextAuth.js)**: Only if B2B dashboard or multi-device sync demands it
-- **ECPay/NewebPay local payment**: 超商代碼, ATM transfer, LINE Pay (once ECPay approved)
 - **Editor mobile UX**: Timeline editor is desktop-optimized
