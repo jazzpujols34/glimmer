@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Logo } from '@/components/Logo';
+import { AccessGate } from '@/components/AccessGate';
 import { StoryboardGrid } from '@/components/storyboard/StoryboardGrid';
 import { StoryboardExportModal } from '@/components/storyboard/StoryboardExportModal';
 import { StoryboardPreviewModal } from '@/components/storyboard/StoryboardPreviewModal';
@@ -99,6 +100,14 @@ function useStoryboardHistory(
 }
 
 export default function StoryboardEditorPage() {
+  return (
+    <AccessGate>
+      <StoryboardEditorPageContent />
+    </AccessGate>
+  );
+}
+
+function StoryboardEditorPageContent() {
   const params = useParams();
   const router = useRouter();
   const storyboardId = params.id as string;

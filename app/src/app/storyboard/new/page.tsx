@@ -7,10 +7,19 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Logo } from '@/components/Logo';
+import { AccessGate } from '@/components/AccessGate';
 import type { AspectRatio } from '@/types';
 import { trackStoryboardCreate } from '@/lib/analytics';
 
 export default function NewStoryboardPage() {
+  return (
+    <AccessGate>
+      <NewStoryboardPageContent />
+    </AccessGate>
+  );
+}
+
+function NewStoryboardPageContent() {
   const router = useRouter();
   const [name, setName] = useState('');
   const [slotCount, setSlotCount] = useState(12);

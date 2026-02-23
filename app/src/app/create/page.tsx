@@ -13,6 +13,7 @@ import { FrameUploader } from '@/components/FrameUploader';
 import { SettingsSidebar } from '@/components/SettingsSidebar';
 import { LanguageToggle } from '@/components/LanguageToggle';
 import { useTranslation, type TranslationKey } from '@/lib/i18n';
+import { useAccess } from '@/hooks/useAccess';
 import type { OccasionType, GenerationSettings, CreditBalance, Project } from '@/types';
 import { defaultSettings } from '@/types';
 import { FolderOpen, ChevronDown, Layers } from 'lucide-react';
@@ -37,6 +38,7 @@ export default function CreatePage() {
 function CreatePageInner() {
   const router = useRouter();
   const t = useTranslation();
+  const { hasPaidAccess } = useAccess();
   const [email, setEmail] = useState(() => {
     if (typeof window !== 'undefined') return localStorage.getItem('glimmer_email') || '';
     return '';
@@ -427,64 +429,67 @@ function CreatePageInner() {
                   </div>
 
                   {/* Project selector */}
-                  <div className="space-y-2">
-                    <Label>{t('create.addToProject')}</Label>
-                    <div className="relative">
-                      <button
-                        type="button"
-                        onClick={() => setProjectDropdownOpen(!projectDropdownOpen)}
-                        className="w-full flex items-center justify-between px-4 py-2 rounded-lg border border-border bg-background hover:bg-muted/50 transition-colors text-left"
-                      >
-                        <span className="flex items-center gap-2">
-                          <FolderOpen className="w-4 h-4 text-muted-foreground" />
-                          {selectedProjectId
-                            ? projects.find(p => p.id === selectedProjectId)?.name || t('create.noProject')
-                            : t('create.noProject')}
-                        </span>
-                        <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${projectDropdownOpen ? 'rotate-180' : ''}`} />
-                      </button>
-                      {projectDropdownOpen && (
-                        <div className="absolute z-10 mt-1 w-full bg-background border border-border rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setSelectedProjectId(null);
-                              setProjectDropdownOpen(false);
-                            }}
-                            className="w-full px-4 py-2 text-left hover:bg-muted/50 transition-colors text-sm"
-                          >
-                            {t('create.noProject')}
-                          </button>
-                          {projects.map(project => (
+                  {/* Add to Project - only for paid users */}
+                  {hasPaidAccess && (
+                    <div className="space-y-2">
+                      <Label>{t('create.addToProject')}</Label>
+                      <div className="relative">
+                        <button
+                          type="button"
+                          onClick={() => setProjectDropdownOpen(!projectDropdownOpen)}
+                          className="w-full flex items-center justify-between px-4 py-2 rounded-lg border border-border bg-background hover:bg-muted/50 transition-colors text-left"
+                        >
+                          <span className="flex items-center gap-2">
+                            <FolderOpen className="w-4 h-4 text-muted-foreground" />
+                            {selectedProjectId
+                              ? projects.find(p => p.id === selectedProjectId)?.name || t('create.noProject')
+                              : t('create.noProject')}
+                          </span>
+                          <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${projectDropdownOpen ? 'rotate-180' : ''}`} />
+                        </button>
+                        {projectDropdownOpen && (
+                          <div className="absolute z-10 mt-1 w-full bg-background border border-border rounded-lg shadow-lg max-h-48 overflow-y-auto">
                             <button
-                              key={project.id}
                               type="button"
                               onClick={() => {
-                                setSelectedProjectId(project.id);
+                                setSelectedProjectId(null);
                                 setProjectDropdownOpen(false);
                               }}
-                              className={`w-full px-4 py-2 text-left hover:bg-muted/50 transition-colors text-sm ${
-                                selectedProjectId === project.id ? 'bg-primary/10 text-primary' : ''
-                              }`}
+                              className="w-full px-4 py-2 text-left hover:bg-muted/50 transition-colors text-sm"
                             >
-                              {project.name}
-                              <span className="text-xs text-muted-foreground ml-2">
-                                ({project.jobIds.length} videos)
-                              </span>
+                              {t('create.noProject')}
                             </button>
-                          ))}
-                          {projects.length === 0 && (
-                            <div className="px-4 py-2 text-sm text-muted-foreground">
-                              {t('create.noProjects')} —{' '}
-                              <Link href="/projects" className="text-primary hover:underline">
-                                {t('create.createProject')}
-                              </Link>
-                            </div>
-                          )}
-                        </div>
-                      )}
+                            {projects.map(project => (
+                              <button
+                                key={project.id}
+                                type="button"
+                                onClick={() => {
+                                  setSelectedProjectId(project.id);
+                                  setProjectDropdownOpen(false);
+                                }}
+                                className={`w-full px-4 py-2 text-left hover:bg-muted/50 transition-colors text-sm ${
+                                  selectedProjectId === project.id ? 'bg-primary/10 text-primary' : ''
+                                }`}
+                              >
+                                {project.name}
+                                <span className="text-xs text-muted-foreground ml-2">
+                                  ({project.jobIds.length} videos)
+                                </span>
+                              </button>
+                            ))}
+                            {projects.length === 0 && (
+                              <div className="px-4 py-2 text-sm text-muted-foreground">
+                                {t('create.noProjects')} —{' '}
+                                <Link href="/projects" className="text-primary hover:underline">
+                                  {t('create.createProject')}
+                                </Link>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </div>
+                  )}
 
                   {/* Prompt (if set) */}
                   {settings.prompt && (

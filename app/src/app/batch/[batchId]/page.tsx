@@ -7,6 +7,7 @@ import { Logo } from '@/components/Logo';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { LanguageToggle } from '@/components/LanguageToggle';
+import { AccessGate } from '@/components/AccessGate';
 import { useTranslation } from '@/lib/i18n';
 import {
   CheckCircle,
@@ -55,9 +56,11 @@ interface QuickStatusResponse {
 
 export default function BatchPage() {
   return (
-    <Suspense fallback={<BatchPageLoading />}>
-      <BatchPageInner />
-    </Suspense>
+    <AccessGate>
+      <Suspense fallback={<BatchPageLoading />}>
+        <BatchPageInner />
+      </Suspense>
+    </AccessGate>
   );
 }
 

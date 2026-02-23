@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, use } from 'react';
 import { EditorProvider, useEditorDispatch } from '@/components/editor/EditorContext';
 import { EditorLayout } from '@/components/editor/EditorLayout';
+import { AccessGate } from '@/components/AccessGate';
 import { generateId } from '@/lib/editor/timeline-utils';
 import { loadEditorState, clearEditorState, type SavedEditorState } from '@/lib/editor/auto-save';
 import type { EditorState, TimelineClip } from '@/types/editor';
@@ -34,9 +35,11 @@ export default function EditPage({ params }: PageProps) {
   const { id } = use(params);
 
   return (
-    <EditorProvider>
-      <EditorLoader jobId={id} />
-    </EditorProvider>
+    <AccessGate>
+      <EditorProvider>
+        <EditorLoader jobId={id} />
+      </EditorProvider>
+    </AccessGate>
   );
 }
 

@@ -7,7 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { LanguageToggle } from '@/components/LanguageToggle';
 import { useTranslation } from '@/lib/i18n';
-import { Play, Download, Calendar, Film, ArrowLeft, Trash2, Scissors, AlertCircle, X, Star, FolderOpen, ChevronDown, Clock } from 'lucide-react';
+import { useAccess } from '@/hooks/useAccess';
+import { Play, Download, Calendar, Film, ArrowLeft, Trash2, Scissors, AlertCircle, X, Star, FolderOpen, ChevronDown, Clock, Lock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Project } from '@/types';
 
@@ -40,6 +41,7 @@ const occasionLabels: Record<string, string> = {
 
 export default function GalleryPage() {
   const t = useTranslation();
+  const { hasPaidAccess } = useAccess();
   const [jobs, setJobs] = useState<GalleryJob[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -197,12 +199,21 @@ export default function GalleryPage() {
           <Logo />
           <div className="flex items-center gap-2">
             <LanguageToggle />
-            <Button asChild>
-              <Link href="/storyboard/new">
-                <Film className="w-4 h-4 mr-2" />
-                {t('gallery.createStoryboard')}
-              </Link>
-            </Button>
+            {hasPaidAccess ? (
+              <Button asChild>
+                <Link href="/storyboard/new">
+                  <Film className="w-4 h-4 mr-2" />
+                  {t('gallery.createStoryboard')}
+                </Link>
+              </Button>
+            ) : (
+              <Button asChild variant="outline">
+                <Link href="/upgrade">
+                  <Lock className="w-4 h-4 mr-2" />
+                  {t('gallery.createStoryboard')}
+                </Link>
+              </Button>
+            )}
             <Button variant="outline" asChild>
               <Link href="/">
                 <ArrowLeft className="w-4 h-4 mr-2" />
@@ -241,17 +252,19 @@ export default function GalleryPage() {
               <Star className="w-4 h-4 sm:mr-2" />
               <span className="hidden sm:inline">收藏</span> ({jobs.filter(j => j.favorite).length})
             </Button>
-            <Button
-              variant={filter === 'projects' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setFilter('projects')}
-              asChild
-            >
-              <Link href="/projects">
-                <FolderOpen className="w-4 h-4 mr-2" />
-                專案
-              </Link>
-            </Button>
+            {hasPaidAccess && (
+              <Button
+                variant={filter === 'projects' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setFilter('projects')}
+                asChild
+              >
+                <Link href="/projects">
+                  <FolderOpen className="w-4 h-4 mr-2" />
+                  專案
+                </Link>
+              </Button>
+            )}
           </div>
 
           {(() => {
@@ -521,13 +534,23 @@ export default function GalleryPage() {
                   <span className="sm:hidden">下載</span>
                 </a>
               </Button>
-              <Button variant="outline" asChild className="flex-1 min-w-[120px]">
-                <Link href={`/edit/${selectedJob.id}`}>
-                  <Scissors className="w-4 h-4 sm:mr-2" />
-                  <span className="hidden sm:inline">編輯影片</span>
-                  <span className="sm:hidden">編輯</span>
-                </Link>
-              </Button>
+              {hasPaidAccess ? (
+                <Button variant="outline" asChild className="flex-1 min-w-[120px]">
+                  <Link href={`/edit/${selectedJob.id}`}>
+                    <Scissors className="w-4 h-4 sm:mr-2" />
+                    <span className="hidden sm:inline">編輯影片</span>
+                    <span className="sm:hidden">編輯</span>
+                  </Link>
+                </Button>
+              ) : (
+                <Button variant="outline" asChild className="flex-1 min-w-[120px]">
+                  <Link href="/upgrade">
+                    <Lock className="w-4 h-4 sm:mr-2" />
+                    <span className="hidden sm:inline">編輯影片</span>
+                    <span className="sm:hidden">編輯</span>
+                  </Link>
+                </Button>
+              )}
               <Button
                 variant={selectedJob.favorite ? "default" : "outline"}
                 size="icon"
@@ -536,68 +559,70 @@ export default function GalleryPage() {
               >
                 <Star className={cn("w-4 h-4", selectedJob.favorite && "fill-current")} />
               </Button>
-              {/* Move to project dropdown */}
-              <div className="relative">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => setProjectDropdownOpen(!projectDropdownOpen)}
-                  disabled={movingToProject}
-                  title="移動到專案"
-                >
-                  {movingToProject ? (
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary" />
-                  ) : (
-                    <FolderOpen className="w-4 h-4" />
-                  )}
-                </Button>
-                {projectDropdownOpen && (
-                  <div className="absolute bottom-full right-0 mb-2 w-48 bg-background border border-border rounded-lg shadow-lg py-1 z-10">
-                    <div className="px-3 py-2 text-xs text-muted-foreground border-b border-border">
-                      移動到專案
-                    </div>
-                    {selectedJob.projectId && (
-                      <button
-                        className="w-full px-3 py-2 text-left text-sm hover:bg-muted flex items-center gap-2"
-                        onClick={() => handleMoveToProject(selectedJob.id, null)}
-                      >
-                        <X className="w-4 h-4" />
-                        移出專案
-                      </button>
-                    )}
-                    {projects.length === 0 ? (
-                      <div className="px-3 py-2 text-sm text-muted-foreground">
-                        尚無專案
-                      </div>
+              {/* Move to project dropdown - only for paid users */}
+              {hasPaidAccess && (
+                <div className="relative">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setProjectDropdownOpen(!projectDropdownOpen)}
+                    disabled={movingToProject}
+                    title="移動到專案"
+                  >
+                    {movingToProject ? (
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary" />
                     ) : (
-                      projects.map((project) => (
-                        <button
-                          key={project.id}
-                          className={cn(
-                            "w-full px-3 py-2 text-left text-sm hover:bg-muted flex items-center gap-2",
-                            selectedJob.projectId === project.id && "bg-muted"
-                          )}
-                          onClick={() => handleMoveToProject(selectedJob.id, project.id)}
-                          disabled={selectedJob.projectId === project.id}
-                        >
-                          <FolderOpen className="w-4 h-4" />
-                          {project.name}
-                          {selectedJob.projectId === project.id && (
-                            <span className="text-xs text-muted-foreground ml-auto">目前</span>
-                          )}
-                        </button>
-                      ))
+                      <FolderOpen className="w-4 h-4" />
                     )}
-                    <Link
-                      href="/projects"
-                      className="w-full px-3 py-2 text-left text-sm hover:bg-muted flex items-center gap-2 border-t border-border text-primary"
-                    >
-                      <ChevronDown className="w-4 h-4" />
-                      管理專案
-                    </Link>
-                  </div>
-                )}
-              </div>
+                  </Button>
+                  {projectDropdownOpen && (
+                    <div className="absolute bottom-full right-0 mb-2 w-48 bg-background border border-border rounded-lg shadow-lg py-1 z-10">
+                      <div className="px-3 py-2 text-xs text-muted-foreground border-b border-border">
+                        移動到專案
+                      </div>
+                      {selectedJob.projectId && (
+                        <button
+                          className="w-full px-3 py-2 text-left text-sm hover:bg-muted flex items-center gap-2"
+                          onClick={() => handleMoveToProject(selectedJob.id, null)}
+                        >
+                          <X className="w-4 h-4" />
+                          移出專案
+                        </button>
+                      )}
+                      {projects.length === 0 ? (
+                        <div className="px-3 py-2 text-sm text-muted-foreground">
+                          尚無專案
+                        </div>
+                      ) : (
+                        projects.map((project) => (
+                          <button
+                            key={project.id}
+                            className={cn(
+                              "w-full px-3 py-2 text-left text-sm hover:bg-muted flex items-center gap-2",
+                              selectedJob.projectId === project.id && "bg-muted"
+                            )}
+                            onClick={() => handleMoveToProject(selectedJob.id, project.id)}
+                            disabled={selectedJob.projectId === project.id}
+                          >
+                            <FolderOpen className="w-4 h-4" />
+                            {project.name}
+                            {selectedJob.projectId === project.id && (
+                              <span className="text-xs text-muted-foreground ml-auto">目前</span>
+                            )}
+                          </button>
+                        ))
+                      )}
+                      <Link
+                        href="/projects"
+                        className="w-full px-3 py-2 text-left text-sm hover:bg-muted flex items-center gap-2 border-t border-border text-primary"
+                      >
+                        <ChevronDown className="w-4 h-4" />
+                        管理專案
+                      </Link>
+                    </div>
+                  )}
+                </div>
+              )}
               <Button
                 variant="destructive"
                 size="icon"

@@ -5,10 +5,19 @@ import Link from 'next/link';
 import { Logo } from '@/components/Logo';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { AccessGate } from '@/components/AccessGate';
 import { ArrowLeft, Plus, FolderOpen, Calendar, Film } from 'lucide-react';
 import type { Project } from '@/types';
 
 export default function ProjectsPage() {
+  return (
+    <AccessGate>
+      <ProjectsPageContent />
+    </AccessGate>
+  );
+}
+
+function ProjectsPageContent() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
