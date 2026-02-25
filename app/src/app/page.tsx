@@ -92,7 +92,8 @@ export default function LandingPage() {
         </div>
       </header>
 
-      {/* Hero Section */}
+      <main>
+        {/* Hero Section */}
       <section className="container mx-auto px-4 py-20 md:py-32">
         <div className="max-w-4xl mx-auto text-center space-y-8">
           <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold tracking-tight leading-tight">
@@ -770,6 +771,7 @@ export default function LandingPage() {
           </div>
         </div>
       </section>
+      </main>
 
       {/* Footer */}
       <footer className="border-t border-border py-8 mt-auto">
