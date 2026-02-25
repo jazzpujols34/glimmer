@@ -111,14 +111,19 @@ export default function GalleryPage() {
   };
 
   // Calculate hours remaining until 24h expiration
-  const getExpirationInfo = (createdAt: string) => {
+  // R2-archived videos (proxy URLs) never expire
+  const getExpirationInfo = (createdAt: string, videoUrl?: string) => {
+    // R2-archived videos use proxy URL and never expire
+    if (videoUrl?.startsWith('/api/proxy-video')) {
+      return { hoursRemaining: Infinity, isExpired: false, isExpiringSoon: false, isArchived: true };
+    }
     const created = new Date(createdAt).getTime();
     const expiresAt = created + 24 * 60 * 60 * 1000; // 24 hours
     const now = Date.now();
     const hoursRemaining = Math.max(0, Math.floor((expiresAt - now) / (60 * 60 * 1000)));
     const isExpired = hoursRemaining <= 0;
     const isExpiringSoon = hoursRemaining > 0 && hoursRemaining <= 6;
-    return { hoursRemaining, isExpired, isExpiringSoon };
+    return { hoursRemaining, isExpired, isExpiringSoon, isArchived: false };
   };
 
   const handleDelete = async (jobId: string) => {
@@ -342,7 +347,7 @@ export default function GalleryPage() {
               <div className="columns-2 md:columns-3 lg:columns-4 gap-4 space-y-4">
                 {filteredJobs.map((job) => {
                 const isPortrait = job.settings?.aspectRatio === '9:16';
-                const expiration = getExpirationInfo(job.createdAt);
+                const expiration = getExpirationInfo(job.createdAt, job.videoUrl);
                 return (
                 <Card
                   key={job.id}
@@ -454,7 +459,7 @@ export default function GalleryPage() {
             onClick={(e) => e.stopPropagation()}
           >
             {(() => {
-              const modalExpiration = getExpirationInfo(selectedJob.createdAt);
+              const modalExpiration = getExpirationInfo(selectedJob.createdAt, selectedJob.videoUrl);
               return (
                 <>
                   {/* Expiration warning banner */}
