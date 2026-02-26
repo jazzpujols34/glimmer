@@ -45,12 +45,18 @@ On-demand via Claude Code session. Trigger: user says **"run checkup"**.
 - Identifies improvement opportunities and next steps
 - Scripts in `scripts/` are kept for reference but launchd agents are removed (company Mac permission constraints)
 
+## Assigned Ports
+
+**ALWAYS use these ports (never use defaults 3000/5173/8000):**
+- Frontend: `3200`
+- Backend: `3201` (if applicable)
+
 ## Commands
 
 ```bash
-cd app && npm run dev     # Dev server
-cd app && npm run build   # Production build
-cd app && npm test        # Tests
+cd app && npm run dev -- --port 3200   # Dev server
+cd app && npm run build                 # Production build
+cd app && npm test                      # Tests
 ```
 
 ## Project Status (Checkup 2026-02-02)
@@ -183,3 +189,13 @@ Pay-per-video credits (not subscriptions). Email-only identity (no passwords/OAu
 - **[2026-02-16] FFmpeg/Debugging**: When FFmpeg fails with `Failed to set value 'X' for option 'map'`, the issue is stream mapping, NOT file access. Check `ffprobe -show_streams` on each input to verify expected streams exist. Common culprits: AI-generated video (no audio), screen recordings (no audio), re-encoded clips (stripped audio). The error message points to the `-map` flag, not the actual missing stream — read carefully.
 
 - **[2026-02-16] Cloud Run/Debugging**: Cloud Run logs (`gcloud run logs read`) are essential for debugging server-side FFmpeg failures. The error shown to the client ("Failed to concatenate clips") is generic — the actual FFmpeg stderr in logs reveals the root cause. Always check server logs before assuming client-side or network issues.
+
+- **[2026-02-26] R2 Archival**: Videos are **automatically archived to R2** when generation completes (`archiveVideos()` in `/api/status/[id]`). R2-archived videos use proxy URLs (`/api/proxy-video?jobId=xxx`) and **never expire**. CDN URLs (starting with `http`) expire in 24h. When showing expiration warnings in UI, check `videoUrl.startsWith('/api/proxy-video')` — if true, skip the warning. The archival silently falls back to CDN URLs if `GLIMMER_R2` binding is not configured in Cloudflare Pages.
+
+- **[2026-02-26] Admin Cleanup**: Use `POST /api/admin/cleanup` to bulk-delete jobs with expired video URLs. Supports `dryRun: true` to preview. The endpoint does a HEAD request to each CDN URL to check if it's still valid — R2 proxy URLs are always considered valid.
+
+- **[2026-02-26] Feature Gating**: Pattern for restricting features to paid users: (1) `/api/access?email=xxx` returns `{ hasPaidAccess, isAdmin }`, (2) `useAccess()` hook fetches and caches this, (3) `<AccessGate>` wrapper redirects to `/upgrade` if not paid. Gate pages by wrapping with AccessGate, gate UI elements with conditional rendering based on `hasPaidAccess`.
+
+- **[2026-02-26] Admin User Management**: `/api/admin/users` provides user lookup (GET) and credit granting (POST). Admin grants are stored as purchases with `provider: 'admin'`, `adminGrantedBy`, and `adminReason` fields. The admin page has a Users tab with search, user details (credits, purchases, jobs), and grant credits form.
+
+- **[2026-02-26] Lighthouse Audit**: Site scores: Performance 86, Accessibility 98, Best Practices 100, SEO 100. Key metrics: FCP 2.3s, LCP 3.4s, TBT 10ms, CLS 0. Common fix: add `<main>` landmark wrapping content between header and footer for accessibility. Server response time (~1.4s) is Cloudflare edge cold start — not much to optimize there.
