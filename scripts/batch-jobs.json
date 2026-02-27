@@ -1,9 +1,9 @@
 {
-  "createdAt": "2026-02-27T17:24:21.106Z",
+  "createdAt": "2026-02-27T17:57:10.748Z",
   "config": {
     "email": "glimmer.hello@gmail.com",
     "occasion": "memorial",
-    "clips": 3,
+    "clips": 1,
     "length": 5,
     "model": "byteplus",
     "concurrency": 1,
@@ -13,8 +13,8 @@
   },
   "jobs": [
     {
-      "jobId": "job_1772213060027_x7wk6tsc1",
-      "filename": "Generated Image February 28, 2026 - 12_22AM (1).png"
+      "jobId": "job_1772215028284_6zk732cil",
+      "filename": "Generated Image February 28, 2026 - 12_22AM (5).png"
     }
   ]
 }

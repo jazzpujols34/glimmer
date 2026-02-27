@@ -13,36 +13,10 @@ import type { OccasionType, TaskType } from '@/types';
  */
 
 /** System prompt for human subjects */
-const SYSTEM_PROMPT_PERSON = `Animate this photograph with subtle lifelike motion.
-
-CRITICAL RULES:
-1. PRESERVE EXACT FRAMING - Do NOT crop, reframe, or change composition
-2. Keep the ENTIRE original image visible - same borders, same frame
-3. NO camera movement - no zoom, pan, tilt, or dolly
-4. The output frame must match the input frame exactly
-
-ANIMATION (subtle only):
-- Gentle breathing (slight chest/shoulder rise and fall)
-- Soft eye blinks, micro eye movements
-- Subtle hair or clothing movement
-- Keep face and eyes clearly visible at all times
-- Background stays completely still`;
+const SYSTEM_PROMPT_PERSON = `A still portrait photo. The person breathes very gently. Minimal movement. Static camera. Do not change the face or expression. Do not crop or reframe.`;
 
 /** System prompt for pet/animal subjects */
-const SYSTEM_PROMPT_PET = `Animate this pet photograph with subtle lifelike motion.
-
-CRITICAL RULES:
-1. PRESERVE EXACT FRAMING - Do NOT crop, reframe, or change composition
-2. Keep the ENTIRE original image visible - same borders, same frame
-3. NO camera movement - no zoom, pan, tilt, or dolly
-4. The output frame must match the input frame exactly
-
-ANIMATION (subtle only):
-- Gentle breathing (slight body rise and fall)
-- Soft blinks, ear twitches
-- Subtle whisker or tail movement
-- Keep the pet's face clearly visible at all times
-- Background stays completely still`;
+const SYSTEM_PROMPT_PET = `A still photo of a pet. The animal breathes very gently. Minimal movement. Static camera. Do not change the face. Do not crop or reframe.`;
 
 /** Get the appropriate system prompt based on occasion */
 function getSystemPrompt(occasion: OccasionType): string {
@@ -51,15 +25,16 @@ function getSystemPrompt(occasion: OccasionType): string {
 
 /**
  * Get occasion-specific prompt enhancement.
- * These add emotional context while maintaining the subtle motion philosophy.
+ * Keep it minimal - don't instruct facial expression changes.
  */
 export function getOccasionPrompt(occasion: OccasionType): string {
+  // Removed expression instructions - they cause AI to distort faces
   const prompts: Record<OccasionType, string> = {
-    memorial: `Style: peaceful, gentle, warm. Soft smile, calm expression.`,
-    birthday: `Style: joyful, warm. Gentle smile, happy expression.`,
-    wedding: `Style: romantic, warm. Gentle expression, soft gaze.`,
-    pet: `Style: warm, tender, loving. Gentle breathing, soft eyes, relaxed pose. Capture the pet's unique personality and charm.`,
-    other: `Style: natural, warm. Gentle expression.`,
+    memorial: ``,
+    birthday: ``,
+    wedding: ``,
+    pet: ``,
+    other: ``,
   };
 
   return prompts[occasion];
