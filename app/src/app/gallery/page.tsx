@@ -46,6 +46,7 @@ export default function GalleryPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedJob, setSelectedJob] = useState<GalleryJob | null>(null);
+  const [selectedVideoIndex, setSelectedVideoIndex] = useState(0);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [videoErrors, setVideoErrors] = useState<Set<string>>(new Set());
   const [filter, setFilter] = useState<GalleryFilter>('all');
@@ -55,7 +56,10 @@ export default function GalleryPage() {
   const [loadedVideos, setLoadedVideos] = useState<Set<string>>(new Set());
 
   // Close modal on Escape key
-  const closeModal = useCallback(() => setSelectedJob(null), []);
+  const closeModal = useCallback(() => {
+    setSelectedJob(null);
+    setSelectedVideoIndex(0);
+  }, []);
   useEffect(() => {
     if (!selectedJob) return;
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -494,7 +498,7 @@ export default function GalleryPage() {
               </Button>
             </div>
             <div className="aspect-video bg-black">
-              {videoErrors.has(selectedJob.id) ? (
+              {videoErrors.has(`${selectedJob.id}-${selectedVideoIndex}`) ? (
                 <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground gap-3">
                   <AlertCircle className="w-12 h-12" />
                   <p className="text-sm">影片連結可能已過期</p>
@@ -502,38 +506,46 @@ export default function GalleryPage() {
                 </div>
               ) : (
                 <video
-                  src={selectedJob.videoUrl}
+                  key={`${selectedJob.id}-${selectedVideoIndex}`}
+                  src={selectedJob.videoUrls?.[selectedVideoIndex] || selectedJob.videoUrl}
                   controls
                   autoPlay
                   preload="auto"
                   className="w-full h-full object-contain"
-                  onError={() => setVideoErrors(prev => new Set(prev).add(selectedJob.id))}
+                  onError={() => setVideoErrors(prev => new Set(prev).add(`${selectedJob.id}-${selectedVideoIndex}`))}
                 />
               )}
             </div>
             {selectedJob.videoUrls && selectedJob.videoUrls.length > 1 && (
               <div className="p-4 border-t border-border">
                 <p className="text-sm text-muted-foreground mb-2">
-                  所有影片 ({selectedJob.videoUrls.length})
+                  選擇影片 ({selectedVideoIndex + 1}/{selectedJob.videoUrls.length})
                 </p>
                 <div className="flex gap-2 overflow-x-auto pb-2">
                   {selectedJob.videoUrls.map((url, index) => (
-                    <a
+                    <button
                       key={index}
-                      href={url}
-                      download={`${selectedJob.name}-${index + 1}.mp4`}
-                      className="flex-shrink-0 px-3 py-2 rounded bg-muted hover:bg-muted/80 text-sm flex items-center gap-2"
+                      onClick={() => setSelectedVideoIndex(index)}
+                      className={cn(
+                        "flex-shrink-0 px-3 py-2 rounded text-sm flex items-center gap-2 transition-colors",
+                        selectedVideoIndex === index
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-muted hover:bg-muted/80"
+                      )}
                     >
-                      <Download className="w-4 h-4" />
+                      <Play className="w-4 h-4" />
                       影片 {index + 1}
-                    </a>
+                    </button>
                   ))}
                 </div>
               </div>
             )}
             <div className="p-4 border-t border-border flex flex-wrap gap-2 sm:gap-3">
               <Button asChild className="flex-1 min-w-[120px]">
-                <a href={selectedJob.videoUrl} download={`${selectedJob.name}.mp4`}>
+                <a
+                  href={selectedJob.videoUrls?.[selectedVideoIndex] || selectedJob.videoUrl}
+                  download={`${selectedJob.name}${selectedJob.videoUrls && selectedJob.videoUrls.length > 1 ? `-${selectedVideoIndex + 1}` : ''}.mp4`}
+                >
                   <Download className="w-4 h-4 sm:mr-2" />
                   <span className="hidden sm:inline">下載影片</span>
                   <span className="sm:hidden">下載</span>

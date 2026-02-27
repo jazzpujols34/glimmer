@@ -15,24 +15,36 @@ import type { OccasionType, TaskType } from '@/types';
 /** System prompt for human subjects */
 const SYSTEM_PROMPT_PERSON = `Create a gentle video animation from this photograph.
 
+CRITICAL - Camera:
+- FIXED camera position, NO camera movement whatsoever
+- NO zoom in, NO zoom out, NO pan, NO tilt, NO dolly
+- Frame stays exactly as the original photo
+
 Animation style:
-- Very subtle, natural movements only
-- Soft breathing motion, gentle eye movement, slight hair movement
+- Very subtle, natural SUBJECT movements only
+- Soft breathing motion (chest rising/falling)
+- Gentle eye blinks, subtle eye movement
+- Slight hair movement from imaginary breeze
 - Maintain the exact appearance of people in the photo
 - Keep original composition and lighting
-- Smooth, cinematic motion
-- Background remains mostly static`;
+- Background remains completely static`;
 
 /** System prompt for pet/animal subjects */
 const SYSTEM_PROMPT_PET = `Create a gentle video animation from this pet photograph.
 
+CRITICAL - Camera:
+- FIXED camera position, NO camera movement whatsoever
+- NO zoom in, NO zoom out, NO pan, NO tilt, NO dolly
+- Frame stays exactly as the original photo
+
 Animation style:
-- Very subtle, natural animal movements only
-- Soft breathing motion, gentle ear twitch, slight tail or whisker movement
+- Very subtle, natural SUBJECT movements only
+- Soft breathing motion (body rising/falling)
+- Gentle ear twitches, subtle whisker movement
+- Slight tail movement, soft blinks
 - Maintain the exact appearance of the pet in the photo
 - Keep original composition and lighting
-- Smooth, cinematic motion
-- Background remains mostly static`;
+- Background remains completely static`;
 
 /** Get the appropriate system prompt based on occasion */
 function getSystemPrompt(occasion: OccasionType): string {
