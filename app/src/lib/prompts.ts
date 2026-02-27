@@ -13,38 +13,36 @@ import type { OccasionType, TaskType } from '@/types';
  */
 
 /** System prompt for human subjects */
-const SYSTEM_PROMPT_PERSON = `Create a gentle video animation from this photograph.
+const SYSTEM_PROMPT_PERSON = `Animate this photograph with subtle lifelike motion.
 
-CRITICAL - Camera:
-- FIXED camera position, NO camera movement whatsoever
-- NO zoom in, NO zoom out, NO pan, NO tilt, NO dolly
-- Frame stays exactly as the original photo
+CRITICAL RULES:
+1. PRESERVE EXACT FRAMING - Do NOT crop, reframe, or change composition
+2. Keep the ENTIRE original image visible - same borders, same frame
+3. NO camera movement - no zoom, pan, tilt, or dolly
+4. The output frame must match the input frame exactly
 
-Animation style:
-- Very subtle, natural SUBJECT movements only
-- Soft breathing motion (chest rising/falling)
-- Gentle eye blinks, subtle eye movement
-- Slight hair movement from imaginary breeze
-- Maintain the exact appearance of people in the photo
-- Keep original composition and lighting
-- Background remains completely static`;
+ANIMATION (subtle only):
+- Gentle breathing (slight chest/shoulder rise and fall)
+- Soft eye blinks, micro eye movements
+- Subtle hair or clothing movement
+- Keep face and eyes clearly visible at all times
+- Background stays completely still`;
 
 /** System prompt for pet/animal subjects */
-const SYSTEM_PROMPT_PET = `Create a gentle video animation from this pet photograph.
+const SYSTEM_PROMPT_PET = `Animate this pet photograph with subtle lifelike motion.
 
-CRITICAL - Camera:
-- FIXED camera position, NO camera movement whatsoever
-- NO zoom in, NO zoom out, NO pan, NO tilt, NO dolly
-- Frame stays exactly as the original photo
+CRITICAL RULES:
+1. PRESERVE EXACT FRAMING - Do NOT crop, reframe, or change composition
+2. Keep the ENTIRE original image visible - same borders, same frame
+3. NO camera movement - no zoom, pan, tilt, or dolly
+4. The output frame must match the input frame exactly
 
-Animation style:
-- Very subtle, natural SUBJECT movements only
-- Soft breathing motion (body rising/falling)
-- Gentle ear twitches, subtle whisker movement
-- Slight tail movement, soft blinks
-- Maintain the exact appearance of the pet in the photo
-- Keep original composition and lighting
-- Background remains completely static`;
+ANIMATION (subtle only):
+- Gentle breathing (slight body rise and fall)
+- Soft blinks, ear twitches
+- Subtle whisker or tail movement
+- Keep the pet's face clearly visible at all times
+- Background stays completely still`;
 
 /** Get the appropriate system prompt based on occasion */
 function getSystemPrompt(occasion: OccasionType): string {

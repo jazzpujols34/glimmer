@@ -1,5 +1,5 @@
 {
-  "createdAt": "2026-02-27T16:37:35.000Z",
+  "createdAt": "2026-02-27T17:24:21.106Z",
   "config": {
     "email": "glimmer.hello@gmail.com",
     "occasion": "memorial",
@@ -12,20 +12,9 @@
     "dryRun": false
   },
   "jobs": [
-    { "jobId": "job_1772210255805_tizlnekmu", "filename": "Generated Image February 28, 2026 - 12_12AM.jpg.jpeg" },
-    { "jobId": "job_1772210255302_lxfy83fw5", "filename": "Generated Image February 28, 2026 - 12_12AM.jpg (1).jpeg" },
-    { "jobId": "job_1772210261683_q1iyn1bqg", "filename": "Generated Image February 28, 2026 - 12_14AM.png" },
-    { "jobId": "job_1772210262336_gn2iqgd4b", "filename": "Generated Image February 28, 2026 - 12_16AM.png" },
-    { "jobId": "job_1772210261009_68w0es76n", "filename": "Generated Image February 28, 2026 - 12_13AM.png" },
-    { "jobId": "job_1772210266375_ueqrmltyk", "filename": "Generated Image February 28, 2026 - 12_22AM (1).png" },
-    { "jobId": "job_1772210266198_8qb03vw4r", "filename": "Generated Image February 28, 2026 - 12_22AM (2).png" },
-    { "jobId": "job_1772210270611_7sbbyninf", "filename": "Generated Image February 28, 2026 - 12_22AM (4).png" },
-    { "jobId": "job_1772210271539_rl1prg7se", "filename": "Generated Image February 28, 2026 - 12_22AM (5).png" },
-    { "jobId": "job_1772210330436_kjhtc5ekm", "filename": "Generated Image February 28, 2026 - 12_22AM (3).png" },
-    { "jobId": "job_1772210350109_8rakn38zi", "filename": "Generated Image February 28, 2026 - 12_22AM (6).png" },
-    { "jobId": "job_1772210368473_7zpf7ys83", "filename": "Generated Image February 28, 2026 - 12_22AM (7).png" },
-    { "jobId": "job_1772210387354_9ma5giiag", "filename": "Generated Image February 28, 2026 - 12_22AM (8).png" },
-    { "jobId": "job_1772210444178_5r6ur4pw9", "filename": "Generated Image February 28, 2026 - 12_22AM (9).png" },
-    { "jobId": "job_1772210519781_3uot62qqf", "filename": "Generated Image February 28, 2026 - 12_22AM.png" }
+    {
+      "jobId": "job_1772213060027_x7wk6tsc1",
+      "filename": "Generated Image February 28, 2026 - 12_22AM (1).png"
+    }
   ]
 }
