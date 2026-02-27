@@ -13,10 +13,10 @@ import type { OccasionType, TaskType } from '@/types';
  */
 
 /** System prompt for human subjects */
-const SYSTEM_PROMPT_PERSON = `A still portrait photo. The person breathes very gently. Minimal movement. Static camera. Do not change the face or expression. Do not crop or reframe.`;
+const SYSTEM_PROMPT_PERSON = ``;
 
 /** System prompt for pet/animal subjects */
-const SYSTEM_PROMPT_PET = `A still photo of a pet. The animal breathes very gently. Minimal movement. Static camera. Do not change the face. Do not crop or reframe.`;
+const SYSTEM_PROMPT_PET = ``;
 
 /** Get the appropriate system prompt based on occasion */
 function getSystemPrompt(occasion: OccasionType): string {
@@ -45,8 +45,8 @@ export function getOccasionPrompt(occasion: OccasionType): string {
  */
 export function getTaskPrompt(taskType: TaskType): string {
   const prompts: Record<TaskType, string> = {
-    'image-to-video': `Convert this photo to a short animated video.`,
-    'first-last-frame': `Create a smooth video transition from the first frame to the last frame. Ensure natural, continuous motion between both images.`,
+    'image-to-video': ``,
+    'first-last-frame': ``,
   };
 
   return prompts[taskType];
