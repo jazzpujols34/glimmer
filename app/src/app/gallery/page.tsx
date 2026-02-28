@@ -131,7 +131,7 @@ export default function GalleryPage() {
   };
 
   const handleDelete = async (jobId: string) => {
-    if (!confirm('確定要刪除這支影片嗎？此操作無法復原。')) return;
+    if (!confirm('確定要刪除所有影片嗎？此操作無法復原。')) return;
 
     setDeleting(jobId);
     try {
@@ -143,6 +143,45 @@ export default function GalleryPage() {
       setJobs((prev) => prev.filter((j) => j.id !== jobId));
       if (selectedJob?.id === jobId) {
         setSelectedJob(null);
+      }
+    } catch (err) {
+      alert(err instanceof Error ? err.message : '刪除失敗');
+    } finally {
+      setDeleting(null);
+    }
+  };
+
+  const handleDeleteClip = async (jobId: string, videoIndex: number) => {
+    if (!confirm(`確定要刪除影片 ${videoIndex + 1} 嗎？`)) return;
+
+    setDeleting(`${jobId}-${videoIndex}`);
+    try {
+      const res = await fetch(`/api/gallery/${jobId}?videoIndex=${videoIndex}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || '刪除失敗');
+      }
+
+      if (data.deleted === 'job') {
+        // Entire job was deleted (last clip)
+        setJobs((prev) => prev.filter((j) => j.id !== jobId));
+        setSelectedJob(null);
+      } else {
+        // Update job with remaining clips
+        setJobs((prev) => prev.map((j) =>
+          j.id === jobId ? { ...j, videoUrls: data.videoUrls, videoUrl: data.videoUrls[0] } : j
+        ));
+        if (selectedJob?.id === jobId) {
+          setSelectedJob((prev) => prev ? {
+            ...prev,
+            videoUrls: data.videoUrls,
+            videoUrl: data.videoUrls[0]
+          } : null);
+          // Reset to first video if current was deleted
+          if (selectedVideoIndex >= data.videoUrls.length) {
+            setSelectedVideoIndex(0);
+          }
+        }
       }
     } catch (err) {
       alert(err instanceof Error ? err.message : '刪除失敗');
@@ -523,19 +562,37 @@ export default function GalleryPage() {
                 </p>
                 <div className="flex gap-2 overflow-x-auto pb-2">
                   {selectedJob.videoUrls.map((url, index) => (
-                    <button
-                      key={index}
-                      onClick={() => setSelectedVideoIndex(index)}
-                      className={cn(
-                        "flex-shrink-0 px-3 py-2 rounded text-sm flex items-center gap-2 transition-colors",
-                        selectedVideoIndex === index
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-muted hover:bg-muted/80"
-                      )}
-                    >
-                      <Play className="w-4 h-4" />
-                      影片 {index + 1}
-                    </button>
+                    <div key={index} className="flex-shrink-0 flex items-center gap-1">
+                      <button
+                        onClick={() => setSelectedVideoIndex(index)}
+                        className={cn(
+                          "px-3 py-2 rounded-l text-sm flex items-center gap-2 transition-colors",
+                          selectedVideoIndex === index
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-muted hover:bg-muted/80"
+                        )}
+                      >
+                        <Play className="w-4 h-4" />
+                        影片 {index + 1}
+                      </button>
+                      <button
+                        onClick={() => handleDeleteClip(selectedJob.id, index)}
+                        disabled={deleting === `${selectedJob.id}-${index}`}
+                        className={cn(
+                          "px-2 py-2 rounded-r text-sm transition-colors",
+                          selectedVideoIndex === index
+                            ? "bg-primary/80 text-primary-foreground hover:bg-destructive"
+                            : "bg-muted hover:bg-destructive hover:text-destructive-foreground"
+                        )}
+                        title="刪除此影片"
+                      >
+                        {deleting === `${selectedJob.id}-${index}` ? (
+                          <div className="w-4 h-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                        ) : (
+                          <Trash2 className="w-4 h-4" />
+                        )}
+                      </button>
+                    </div>
                   ))}
                 </div>
               </div>

@@ -1,9 +1,9 @@
 {
-  "createdAt": "2026-02-28T06:59:37.435Z",
+  "createdAt": "2026-02-28T07:10:17.544Z",
   "config": {
     "email": "glimmer.hello@gmail.com",
     "occasion": "memorial",
-    "clips": 1,
+    "clips": 3,
     "length": 5,
     "model": "byteplus",
     "aspectRatio": "16:9",
@@ -14,8 +14,24 @@
   },
   "jobs": [
     {
-      "jobId": "job_1772261969949_4jwbq2ra9",
-      "filename": "Generated Image February 28, 2026 - 12_22AM (4).png"
+      "jobId": "job_1772262525379_lfm7qft78",
+      "filename": "Generated Image February 28, 2026 - 12_12AM.jpg (1).jpeg"
+    },
+    {
+      "jobId": "job_1772262545296_hapc0eao6",
+      "filename": "Generated Image February 28, 2026 - 12_14AM.png"
+    },
+    {
+      "jobId": "job_1772262564051_yqfxb58pm",
+      "filename": "Generated Image February 28, 2026 - 12_22AM (1).png"
+    },
+    {
+      "jobId": "job_1772262582209_c7q7bu89d",
+      "filename": "Generated Image February 28, 2026 - 12_22AM (6).png"
+    },
+    {
+      "jobId": "job_1772262615441_g8wcq48n5",
+      "filename": "Generated Image February 28, 2026 - 12_22AM (8).png"
     }
   ]
 }

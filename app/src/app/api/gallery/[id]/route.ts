@@ -115,23 +115,65 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params;
+    const url = new URL(request.url);
+    const videoIndexParam = url.searchParams.get('videoIndex');
 
     const job = await getJob(id);
     if (!job) {
       return NextResponse.json({ error: '找不到該影片' }, { status: 404 });
     }
 
+    // If videoIndex is specified, only delete that specific clip
+    if (videoIndexParam !== null) {
+      const videoIndex = parseInt(videoIndexParam, 10);
+      if (isNaN(videoIndex) || videoIndex < 0) {
+        return NextResponse.json({ error: '無效的影片索引' }, { status: 400 });
+      }
+
+      const videoUrls = job.videoUrls || [];
+      if (videoIndex >= videoUrls.length) {
+        return NextResponse.json({ error: '找不到該影片' }, { status: 404 });
+      }
+
+      // Remove the specific video from the array
+      const newVideoUrls = videoUrls.filter((_, i) => i !== videoIndex);
+
+      // If no videos left, delete the entire job
+      if (newVideoUrls.length === 0) {
+        await deleteJob(id);
+        return NextResponse.json({ success: true, deleted: 'job' });
+      }
+
+      // Update the job with remaining videos
+      const updated = await updateJob(id, {
+        videoUrls: newVideoUrls,
+        videoUrl: newVideoUrls[0], // Update primary videoUrl to first remaining
+      });
+
+      if (!updated) {
+        return NextResponse.json({ error: '刪除失敗' }, { status: 500 });
+      }
+
+      return NextResponse.json({
+        success: true,
+        deleted: 'clip',
+        remainingClips: newVideoUrls.length,
+        videoUrls: getVideoUrls(id, newVideoUrls),
+      });
+    }
+
+    // No videoIndex = delete entire job
     const deleted = await deleteJob(id);
     if (!deleted) {
       return NextResponse.json({ error: '刪除失敗' }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, deleted: 'job' });
   } catch (error) {
     captureError(error, { route: '/api/gallery/[id]' });
     return NextResponse.json({ error: '刪除失敗' }, { status: 500 });
