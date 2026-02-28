@@ -37,6 +37,7 @@ const config = {
   clips: parseInt(getArg('clips', '3'), 10),
   length: parseInt(getArg('length', '5'), 10),
   model: getArg('model', 'byteplus'),
+  aspectRatio: getArg('aspect-ratio', '16:9'), // 16:9 or 9:16
   concurrency: parseInt(getArg('concurrency', '1'), 10), // Default 1 to respect rate limit
   baseUrl: getArg('base-url', 'http://localhost:3000'),
   delay: parseInt(getArg('delay', '13'), 10), // Seconds between requests (5 req/min = 12s min)
@@ -72,6 +73,7 @@ Occasion:    ${config.occasion}
 Clips/photo: ${config.clips}
 Length:      ${config.length}s
 Model:       ${config.model}
+Aspect:      ${config.aspectRatio}
 Concurrency: ${config.concurrency}
 Delay:       ${config.delay}s between requests
 API:         ${config.baseUrl}
@@ -104,7 +106,7 @@ async function generateVideo(photoPath, index) {
     model: config.model,
     numResults: config.clips,
     videoLength: config.length,
-    aspectRatio: '16:9',
+    aspectRatio: config.aspectRatio,
     resolution: '720p',
     taskType: 'image-to-video',
   }));

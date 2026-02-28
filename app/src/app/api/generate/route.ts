@@ -1,6 +1,7 @@
 export const runtime = 'edge';
 
 import { NextRequest, NextResponse } from 'next/server';
+import imageSize from 'image-size';
 import { createJob, updateJob, addJobToProject, getProject } from '@/lib/storage';
 import { createVideoTask } from '@/lib/veo';
 import { checkCredits, consumeCredit, isValidEmail } from '@/lib/credits';
@@ -150,6 +151,18 @@ export async function POST(request: NextRequest) {
         { error: '最多只能上傳 10 張照片' },
         { status: 400 }
       );
+    }
+
+    // --- Auto-detect aspect ratio from first photo ---
+    try {
+      const dimensions = imageSize(photos[0]);
+      if (dimensions.width && dimensions.height) {
+        const isPortrait = dimensions.height > dimensions.width;
+        settings.aspectRatio = isPortrait ? '9:16' : '16:9';
+        console.log(`[API] Auto-detected aspect ratio: ${settings.aspectRatio} (${dimensions.width}x${dimensions.height})`);
+      }
+    } catch (err) {
+      console.warn('[API] Could not detect image dimensions, using default aspect ratio');
     }
 
     // --- Credit check (fail fast before creating job) ---

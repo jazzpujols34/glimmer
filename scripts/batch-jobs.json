@@ -1,11 +1,12 @@
 {
-  "createdAt": "2026-02-27T18:11:46.178Z",
+  "createdAt": "2026-02-27T18:29:24.291Z",
   "config": {
     "email": "glimmer.hello@gmail.com",
     "occasion": "memorial",
     "clips": 1,
     "length": 5,
     "model": "byteplus",
+    "aspectRatio": "9:16",
     "concurrency": 1,
     "baseUrl": "https://glimmer.video",
     "delay": 13,
@@ -13,8 +14,8 @@
   },
   "jobs": [
     {
-      "jobId": "job_1772215906248_jtgjgo1yj",
-      "filename": "Generated Image February 28, 2026 - 12_22AM (7).png"
+      "jobId": "job_1772216964310_prg5k053t",
+      "filename": "Generated Image February 28, 2026 - 12_22AM (9).png"
     }
   ]
 }
