@@ -1,152 +1,159 @@
-# Session Handover — 2026-02-28
+# Session Handover — 2026-03-01
 
 ## Session Summary
 
-Major iteration on video generation quality - fixed aspect ratio mismatch, prompt engineering for "living portrait" style, and added per-clip delete feature.
+Built complete **Showcase Video Arsenal** - gallery multi-select, showcase builder page, template quick-apply, and Cloud Run transitions. Fixed critical bug where showcase page couldn't load clips.
 
 ## What Was Done
 
-### 1. Batch Generation Scripts
-- **Created**: `scripts/batch-generate.mjs` - Bulk video generation with rate limiting
-- **Created**: `scripts/batch-status.mjs` - Monitor batch job progress
-- **Features**: Concurrency control, 13s delay for rate limits, aspect ratio flag
+### 1. Showcase Video Arsenal (Complete)
 
-### 2. Video Quality Iteration (Major)
+**Gallery Multi-Select** (`app/src/app/gallery/page.tsx`)
+- "選取製作" button toggles checkbox mode
+- Selection bar shows count + "製作展示影片" button (≥2 clips)
+- Clips stored as `Set<string>` with format `jobId:videoIndex`
 
-**Problem**: Videos had bad framing (cut off faces), creepy expressions, camera movement
+**Showcase Builder** (`app/src/app/showcase/page.tsx`)
+- URL: `/showcase?clips=jobId:0,jobId:1,...`
+- Left panel: clip arrangement (reorder, remove)
+- Right panel: template picker with occasion filter
+- Input fields for name/date/message placeholders
+- Export button calls Cloud Run with transitions
 
-**Root Cause Found**: Portrait photos (3:4) were being generated as 16:9 landscape videos → BytePlus cropped vertically, cutting off faces/eyes
+**Template Quick-Apply** (`app/src/components/editor/TemplatePanel.tsx`)
+- Added to editor sidebar (Wand2 icon, "範本" tab)
+- Occasion filter (追思/生日/婚禮/寵物/其他)
+- Live preview of title/outro cards
+- One-click applies: title card + outro card + all transitions
 
-**Solution**: Auto-detect aspect ratio from photo dimensions
-- `image-size` package added
-- `/api/generate` now checks if `height > width` → uses `9:16`, else `16:9`
-- No more manual aspect ratio selection needed
+**Transitions in Cloud Run** (`cloud-run/export-service/main.py`)
+- 13 transition types: fade, fadeblack, fadewhite, wipe*, slide*, dissolve
+- FFmpeg xfade filter for video, acrossfade for audio
+- Duration slider 300-1500ms
+- `concatenate_with_transitions()` function
 
-**Prompt Evolution**:
+### 2. Bug Fixes
+
+| Bug | Fix |
+|-----|-----|
+| Prompt tests failing | Updated to match "living portrait" prompts (empty occasion/task) |
+| Showcase shows "未選取影片" | Fixed API parsing: `data.job?.videoUrls` → `job.videoUrls` |
+
+### 3. Cloud Run Deployment
+
+**IMPORTANT**: Glimmer uses personal GCP, not company account!
+
+```bash
+# Correct (personal)
+gcloud config configurations activate personal
+# Project: concise-honor-486903-j3
+# URL: https://glimmer-export-400681766869.asia-east1.run.app
+
+# Wrong (company) - deleted the accidental deployment
+gcloud config configurations activate work
+# Project: tw-rd-sa-jazz-lien
 ```
-Empty → Too much camera movement, random actions
-↓
-"Static camera, no zoom" → Still bad framing
-↓
-"Living portrait. Static camera. Keep looking at camera. Subtle movements only:
-gentle breathing, soft blink, tiny natural head micro-movements, hint of a smile.
-Maintain original pose and gaze. No dramatic actions. No crying. No camera movement."
-↓
-Works well! Harry Potter style living portraits
-```
 
-### 3. Gallery Improvements
-- **Video Switcher**: Click "影片 1/2/3" buttons to switch between clips (not just download)
-- **Per-Clip Delete**: Trash icon next to each clip - delete individual videos without losing the whole job
-- **API**: `DELETE /api/gallery/[id]?videoIndex=N` removes specific clip
-
-### 4. Learnings Added to CLAUDE.md
-- Aspect ratio matching (portrait photos → 9:16 video)
-- Prompts: less is more, don't instruct expression changes
-- Harry Potter living portrait prompt style
-
-## Current State
-
-| Component | Status |
-|-----------|--------|
-| Video generation | Working with auto AR detection |
-| Prompt | "Living portrait" style, subtle movements |
-| Batch scripts | Ready for bulk generation |
-| Gallery per-clip delete | Working |
-| 10/15 pilot photos | Generated and in gallery |
-
-## Key Files Changed
+## Files Changed
 
 ```
-app/src/app/api/generate/route.ts       # Auto-detect aspect ratio
-app/src/lib/prompts.ts                  # Living portrait prompts
-app/src/app/api/gallery/[id]/route.ts   # Per-clip delete
-app/src/app/gallery/page.tsx            # Video switcher + clip delete UI
-scripts/batch-generate.mjs              # NEW - Batch generation
-scripts/batch-status.mjs                # NEW - Status checker
-app/package.json                        # Added image-size
+# New files
+app/src/app/showcase/page.tsx           # Showcase builder
+app/src/app/showcase/layout.tsx         # Edge runtime export
+app/src/components/editor/TemplatePanel.tsx  # Template quick-apply
+
+# Modified
+app/src/app/gallery/page.tsx            # Multi-select UI
+app/src/components/editor/TransitionPicker.tsx  # Dropdown with 13 types
+app/src/components/editor/EditorLayout.tsx      # Added Templates tab
+app/src/components/editor/ExportPanel.tsx       # Send transitions
+app/src/lib/templates.ts                # buildEditorTitleCard/Outro/Transitions
+app/src/lib/editor/auto-save.ts         # Migration for old transition types
+app/src/lib/prompts.test.ts             # Fixed tests
+app/src/types/editor.ts                 # 13 TransitionTypes
+app/src/app/api/export-server/route.ts  # Pass transitions to Cloud Run
+cloud-run/export-service/main.py        # xfade implementation
 CLAUDE.md                               # New learnings
 ```
 
 ## Commits This Session
 
 ```
-eeb8546 feat: per-clip delete in gallery
-cfdcad1 fix: maintain original gaze, don't look away
-5a98992 fix: Harry Potter style living portrait prompts
-0538078 feat: auto-detect aspect ratio from photo dimensions
-ae72bfb test: empty prompts - let BytePlus use defaults
-d6767d5 fix: simplify prompts, remove expression changes
-38c187f fix: preserve original framing in video prompts
-c69820e fix: gallery video switcher + fixed camera prompts
+f229cf7 fix: showcase page API response parsing
+6c7bc55 docs: add learnings - xfade transitions, showcase arsenal, edge runtime
+ac44756 feat: showcase video arsenal - transitions, templates, multi-select
 ```
+
+## Test Results
+
+| Test | Status |
+|------|--------|
+| Build | ✅ Pass |
+| Unit tests (53) | ✅ Pass |
+| Gallery multi-select | ✅ Working |
+| Showcase page loads clips | ✅ Working |
+| Cloud Run export with transitions | ✅ 16s video, 0.88MB |
+
+## Current State
+
+- All code on `main`, deployed to Cloudflare Pages
+- Cloud Run healthy on personal GCP (`400681766869`)
+- Showcase feature fully functional end-to-end
 
 ## Next Actions
 
-### Immediate (Continue This Work)
-1. **Run remaining 5 photos** - Complete the 15-photo pilot batch
-   ```bash
-   # Photos not yet processed:
-   # - 12_22AM (4).png (tested individually, may want to redo)
-   # - 12_22AM (5).png
-   # - 12_22AM (7).png
-   # - 12_22AM (9).png
-   # - 12_22AM.png
-   ```
+### User's Current Research
+**AI Music Generation** - Exploring options for royalty-free background music:
+- **Mubert** - Cheapest API ($0.01-0.05/track), designed for apps
+- **Suno** - Higher quality (~$0.05/song), full ownership
+- **AIVA** - Orchestral/cinematic (€11/mo)
 
-2. **Review all clips** - Use per-clip delete to curate best videos
-
-3. **Test with landscape photos** - Verify auto-AR works for 16:9 source images
-
-### Medium Priority
-4. **Create marketing video** - Compile best clips into showcase reel
-5. **Landing page** - Embed demo video in hero section
+Approach: Pre-generate 10-20 tracks per occasion, store in R2
 
 ### Backlog
-- OG image improvements
-- Email templates styling
-- B2B features
+1. ECPay integration (Taiwan payments)
+2. Error monitoring (Sentry)
+3. OG Image for social previews
+4. Analytics dashboard
 
-## Batch Generation Commands
+## Key Learnings Added to CLAUDE.md
+
+- **FFmpeg xfade**: `[0:v][1:v]xfade=transition=fade:duration=0.5:offset=4.5[v]`
+- **Edge Runtime**: Client pages need sibling `layout.tsx` with runtime export
+- **Transition migration**: Handle old enum values in auto-save restore
+- **GCP accounts**: Always use personal config for Glimmer
+
+## Quick Commands
 
 ```bash
-cd /Users/jazz.lien/Desktop/jazz/0_GitHub/Repositories/17_ultimate_Claude/拾光glimmer
+# Dev server
+cd app && npm run dev -- --port 3200
 
-# Generate (auto-detects aspect ratio now!)
-node scripts/batch-generate.mjs ~/Desktop/glimmer-batch-photos \
-  --email glimmer.hello@gmail.com \
-  --occasion memorial \
-  --clips 3 \
-  --base-url https://glimmer.video
+# Run tests
+cd app && npm test
 
-# Check status
-node scripts/batch-status.mjs --base-url https://glimmer.video
+# Deploy Cloud Run (MUST use personal account!)
+gcloud config configurations activate personal
+cd cloud-run/export-service
+gcloud builds submit --tag gcr.io/concise-honor-486903-j3/glimmer-export .
+gcloud run deploy glimmer-export --image gcr.io/concise-honor-486903-j3/glimmer-export --region asia-east1
 
-# Watch mode (polls until complete)
-node scripts/batch-status.mjs --watch --base-url https://glimmer.video
+# Check Cloud Run health
+curl https://glimmer-export-400681766869.asia-east1.run.app/health
 ```
 
-## Photo Folders on Desktop
+## Showcase Feature Flow
 
-- `glimmer-batch-photos/` - All 15 source photos + sample video
-- `glimmer-batch-test5/` - First test batch (5 photos)
-- `glimmer-batch-last5/` - Second batch (5 photos)
-- `glimmer-test-one/` - Single photo testing
-
-## Prompt Reference (Current)
-
-**Person**:
 ```
-Living portrait. Static camera. Keep looking at camera. Subtle movements only: gentle breathing, soft blink, tiny natural head micro-movements, hint of a smile. Maintain original pose and gaze. No dramatic actions. No crying. No camera movement.
+Gallery → "選取製作" → Select clips → "製作展示影片"
+                              ↓
+Showcase Page (/showcase?clips=...)
+    ├── Arrange clips (reorder/remove)
+    ├── Pick template (occasion filter)
+    ├── Fill placeholders (name/date/message)
+    └── "製作展示影片" → Cloud Run export
+                              ↓
+Cloud Run: Download clips → Add title/outro → Apply transitions → Upload to R2
+                              ↓
+Download URL returned to user
 ```
-
-**Pet**:
-```
-Living portrait of a pet. Static camera. Subtle movements only: gentle breathing, soft blink, slight ear twitch. Maintain original pose. No dramatic actions. No camera movement.
-```
-
----
-
-## Key Insight
-
-**Aspect ratio mismatch was the root cause of bad framing.** Portrait photos (3:4) need 9:16 video output. The auto-detection fix in `/api/generate` solves this permanently - users no longer need to think about it.
