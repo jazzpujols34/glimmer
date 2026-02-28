@@ -1,150 +1,152 @@
-# Session Handover — 2026-02-27
+# Session Handover — 2026-02-28
 
 ## Session Summary
 
-Completed MVP launch checklist and added several key features for production readiness.
+Major iteration on video generation quality - fixed aspect ratio mismatch, prompt engineering for "living portrait" style, and added per-clip delete feature.
 
 ## What Was Done
 
-### 1. Admin User Management (Milestone 2)
-- **API**: `POST/GET /api/admin/users` — search users, view details, grant credits
-- **UI**: Users tab in `/admin` with search, user details panel, grant credits form
-- **Types**: Added `provider: 'admin'` to PurchaseRecord for admin grants
+### 1. Batch Generation Scripts
+- **Created**: `scripts/batch-generate.mjs` - Bulk video generation with rate limiting
+- **Created**: `scripts/batch-status.mjs` - Monitor batch job progress
+- **Features**: Concurrency control, 13s delay for rate limits, aspect ratio flag
 
-### 2. MVP Launch Checklist
-- **Lighthouse**: 86/98/100/100 (Performance/Accessibility/Best Practices/SEO)
-- **Sentry**: Confirmed working (30+ API routes covered)
-- **GA4**: Confirmed working (G-VEB2BV8FSN)
-- **Accessibility**: Added `<main>` landmark to landing page
+### 2. Video Quality Iteration (Major)
 
-### 3. Gallery Cleanup
-- **Created**: `POST /api/admin/cleanup` — bulk delete expired videos
-- **Fixed**: R2-archived videos no longer show expiration warning
-- **Cleaned**: Deleted 11 expired test videos from gallery
+**Problem**: Videos had bad framing (cut off faces), creepy expressions, camera movement
 
-### 4. Bug Fixes
-- Fixed `/quick` page alignment (missing `mx-auto px-4`)
-- Fixed expiration logic to check URL type, not just creation time
+**Root Cause Found**: Portrait photos (3:4) were being generated as 16:9 landscape videos → BytePlus cropped vertically, cutting off faces/eyes
 
-### 5. NSFW Content Moderation
-- **Installed**: nsfwjs + @tensorflow/tfjs
-- **Created**: `useNSFWCheck` hook with lazy model loading
-- **Integrated**: PhotoUploader blocks NSFW before upload
-- **Config**: Turbopack buffer polyfill in next.config.ts
+**Solution**: Auto-detect aspect ratio from photo dimensions
+- `image-size` package added
+- `/api/generate` now checks if `height > width` → uses `9:16`, else `16:9`
+- No more manual aspect ratio selection needed
+
+**Prompt Evolution**:
+```
+Empty → Too much camera movement, random actions
+↓
+"Static camera, no zoom" → Still bad framing
+↓
+"Living portrait. Static camera. Keep looking at camera. Subtle movements only:
+gentle breathing, soft blink, tiny natural head micro-movements, hint of a smile.
+Maintain original pose and gaze. No dramatic actions. No crying. No camera movement."
+↓
+Works well! Harry Potter style living portraits
+```
+
+### 3. Gallery Improvements
+- **Video Switcher**: Click "影片 1/2/3" buttons to switch between clips (not just download)
+- **Per-Clip Delete**: Trash icon next to each clip - delete individual videos without losing the whole job
+- **API**: `DELETE /api/gallery/[id]?videoIndex=N` removes specific clip
+
+### 4. Learnings Added to CLAUDE.md
+- Aspect ratio matching (portrait photos → 9:16 video)
+- Prompts: less is more, don't instruct expression changes
+- Harry Potter living portrait prompt style
 
 ## Current State
 
 | Component | Status |
 |-----------|--------|
-| Video generation | Working (BytePlus, Veo, Kling) |
-| R2 archival | Auto-archives on completion |
-| Payments (ECPay) | Production mode |
-| Feature gating | Editor/Storyboard/Projects gated |
-| Admin panel | Stats + User management |
-| NSFW moderation | Client-side blocking |
-| Error tracking | Sentry via HTTP API |
-| Analytics | GA4 |
+| Video generation | Working with auto AR detection |
+| Prompt | "Living portrait" style, subtle movements |
+| Batch scripts | Ready for bulk generation |
+| Gallery per-clip delete | Working |
+| 10/15 pilot photos | Generated and in gallery |
 
-## Key Files Changed This Session
+## Key Files Changed
 
 ```
-app/src/app/api/admin/users/route.ts      # NEW - User lookup + grant credits
-app/src/app/api/admin/cleanup/route.ts    # NEW - Bulk delete expired videos
-app/src/app/admin/page.tsx                # Users tab added
-app/src/hooks/useNSFWCheck.ts             # NEW - NSFW detection hook
-app/src/components/PhotoUploader.tsx      # NSFW integration
-app/src/app/gallery/page.tsx              # R2 expiration fix
-app/src/app/quick/page.tsx                # Layout fix
-app/src/app/page.tsx                      # <main> landmark
-app/next.config.ts                        # Turbopack buffer polyfill
-CLAUDE.md                                 # New learnings added
+app/src/app/api/generate/route.ts       # Auto-detect aspect ratio
+app/src/lib/prompts.ts                  # Living portrait prompts
+app/src/app/api/gallery/[id]/route.ts   # Per-clip delete
+app/src/app/gallery/page.tsx            # Video switcher + clip delete UI
+scripts/batch-generate.mjs              # NEW - Batch generation
+scripts/batch-status.mjs                # NEW - Status checker
+app/package.json                        # Added image-size
+CLAUDE.md                               # New learnings
 ```
 
 ## Commits This Session
 
 ```
-bae6730 feat: add client-side NSFW content moderation
-ca36f20 docs: add learnings from 2026-02-26 session
-d782219 fix: R2-archived videos should not show expiration warning
-911465e feat: add admin cleanup endpoint for expired videos
-9343127 fix: add main landmark for accessibility
-0cc2ff1 fix: center /quick page layout
-7958b58 feat: add admin user management panel
+eeb8546 feat: per-clip delete in gallery
+cfdcad1 fix: maintain original gaze, don't look away
+5a98992 fix: Harry Potter style living portrait prompts
+0538078 feat: auto-detect aspect ratio from photo dimensions
+ae72bfb test: empty prompts - let BytePlus use defaults
+d6767d5 fix: simplify prompts, remove expression changes
+38c187f fix: preserve original framing in video prompts
+c69820e fix: gallery video switcher + fixed camera prompts
 ```
 
 ## Next Actions
 
-### High Priority
-1. **Test NSFW moderation** — Upload test images to verify blocking works
-2. **Monitor Sentry** — Watch for any production errors after deployment
-3. **Create pilot videos** — Use nano banana prompts for marketing content
+### Immediate (Continue This Work)
+1. **Run remaining 5 photos** - Complete the 15-photo pilot batch
+   ```bash
+   # Photos not yet processed:
+   # - 12_22AM (4).png (tested individually, may want to redo)
+   # - 12_22AM (5).png
+   # - 12_22AM (7).png
+   # - 12_22AM (9).png
+   # - 12_22AM.png
+   ```
+
+2. **Review all clips** - Use per-clip delete to curate best videos
+
+3. **Test with landscape photos** - Verify auto-AR works for 16:9 source images
 
 ### Medium Priority
-4. **Storyboard export improvements** — Cloud Run export still has edge cases
-5. **Quick template expansion** — Add more occasion templates
-6. **Landing page video** — Embed demo video in hero section
+4. **Create marketing video** - Compile best clips into showcase reel
+5. **Landing page** - Embed demo video in hero section
 
-### Backlog (see reports/backlog.md)
+### Backlog
 - OG image improvements
 - Email templates styling
 - B2B features
 
-## Environment Notes
+## Batch Generation Commands
 
-- **R2 binding**: `GLIMMER_R2` configured in Cloudflare Pages
-- **Sentry DSN**: Set in Cloudflare env vars
-- **ECPay**: Production mode (`ECPAY_TEST_MODE=false`)
-- **Admin emails**: glimmer.hello@gmail.com, aipujol34@gmail.com, cocoshell8988@gmail.com
+```bash
+cd /Users/jazz.lien/Desktop/jazz/0_GitHub/Repositories/17_ultimate_Claude/拾光glimmer
+
+# Generate (auto-detects aspect ratio now!)
+node scripts/batch-generate.mjs ~/Desktop/glimmer-batch-photos \
+  --email glimmer.hello@gmail.com \
+  --occasion memorial \
+  --clips 3 \
+  --base-url https://glimmer.video
+
+# Check status
+node scripts/batch-status.mjs --base-url https://glimmer.video
+
+# Watch mode (polls until complete)
+node scripts/batch-status.mjs --watch --base-url https://glimmer.video
+```
+
+## Photo Folders on Desktop
+
+- `glimmer-batch-photos/` - All 15 source photos + sample video
+- `glimmer-batch-test5/` - First test batch (5 photos)
+- `glimmer-batch-last5/` - Second batch (5 photos)
+- `glimmer-test-one/` - Single photo testing
+
+## Prompt Reference (Current)
+
+**Person**:
+```
+Living portrait. Static camera. Keep looking at camera. Subtle movements only: gentle breathing, soft blink, tiny natural head micro-movements, hint of a smile. Maintain original pose and gaze. No dramatic actions. No crying. No camera movement.
+```
+
+**Pet**:
+```
+Living portrait of a pet. Static camera. Subtle movements only: gentle breathing, soft blink, slight ear twitch. Maintain original pose. No dramatic actions. No camera movement.
+```
 
 ---
 
-## Nano Banana Prompt for Nostalgic Photos
+## Key Insight
 
-Use this system prompt to generate realistic nostalgic Taiwanese elderly photos:
-
-```
-Create a vintage photograph from 1960s-1980s Taiwan. The image should look like an authentic old family photo with these characteristics:
-
-SUBJECT:
-- Elderly Taiwanese person (grandpa or grandma)
-- Serious, dignified expression (people rarely smiled in old photos)
-- Traditional clothing:
-  - Grandpa: military uniform, formal suit, or traditional Chinese attire
-  - Grandma: qipao (cheongsam), traditional floral blouse, or simple cotton dress
-- Natural aging features: wrinkles, grey hair, weathered hands
-
-PHOTO STYLE:
-- Faded colors or sepia tone
-- Slight grain and soft focus
-- Minor imperfections: small scratches, slight discoloration at edges
-- Studio backdrop OR outdoor setting (temple, old house, farm)
-- Film photography look (not digital)
-
-COMPOSITION:
-- Formal portrait pose (seated or standing straight)
-- Looking directly at camera or slightly off
-- Simple background (plain wall, traditional furniture, garden)
-
-AVOID:
-- Smiling or casual expressions
-- Modern clothing or accessories
-- Sharp digital quality
-- Overly posed or artificial lighting
-
-Era-specific details:
-- 1960s: Post-war simplicity, military uniforms common
-- 1970s: Economic growth era, slightly more formal wear
-- 1980s: Beginning of prosperity, mix of traditional and modern
-```
-
-**Example prompts:**
-
-1. `1970s Taiwan, elderly grandfather in military dress uniform, formal portrait, sepia toned, studio backdrop, dignified expression, film grain`
-
-2. `1965 Taiwan countryside, grandmother in traditional floral cotton blouse, sitting on wooden chair, faded colors, weathered face, serious expression`
-
-3. `1980s Taipei, elderly couple formal portrait, grandfather in dark suit, grandmother in navy qipao, studio photo with painted backdrop, slight color fade`
-
-4. `1975 Taiwan temple, elderly man in traditional Chinese clothing, standing portrait, natural lighting, film photography aesthetic, contemplative expression`
-
-5. `1968 rural Taiwan, grandmother working in rice field, candid moment, worn cotton clothes, straw hat, documentary style, warm sepia tones`
+**Aspect ratio mismatch was the root cause of bad framing.** Portrait photos (3:4) need 9:16 video output. The auto-detection fix in `/api/generate` solves this permanently - users no longer need to think about it.
