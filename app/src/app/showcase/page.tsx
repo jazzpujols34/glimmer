@@ -76,15 +76,16 @@ function ShowcaseContent() {
         try {
           const res = await fetch(`/api/gallery/${jobId}`);
           if (res.ok) {
-            const data = await res.json();
-            const videoUrls = data.job?.videoUrls || [data.job?.videoUrl];
+            const job = await res.json();
+            // API returns job directly, not wrapped in { job: ... }
+            const videoUrls = job.videoUrls || [job.videoUrl];
             const videoUrl = videoUrls[videoIndex];
             if (videoUrl) {
               loadedClips.push({
                 jobId,
                 videoIndex,
                 videoUrl,
-                name: data.job?.name || `影片 ${loadedClips.length + 1}`,
+                name: job.name || `影片 ${loadedClips.length + 1}`,
               });
             }
           }
