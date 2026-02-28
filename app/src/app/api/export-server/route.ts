@@ -49,9 +49,15 @@ interface TitleCardExportData {
   textColor: string;
 }
 
+interface TransitionExportData {
+  type: string;  // 'none' | 'fade' | 'fadeblack' | 'wipeleft' | etc.
+  durationMs: number;
+}
+
 interface ExportRequest {
   jobId: string;
   clips: ClipExportData[];
+  transitions: TransitionExportData[];  // transitions[i] = between clips[i] and clips[i+1]
   subtitles: SubtitleExportData[];
   musicClips: MusicExportData[];
   titleCard?: TitleCardExportData;
@@ -65,7 +71,7 @@ const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://glimmer.video';
 export async function POST(request: NextRequest) {
   try {
     const body: ExportRequest = await request.json();
-    const { jobId, clips, subtitles, musicClips, titleCard, outroCard, email } = body;
+    const { jobId, clips, transitions, subtitles, musicClips, titleCard, outroCard, email } = body;
 
     console.log(`[export-server] Starting export for job ${jobId}, ${clips.length} clips`);
 
@@ -182,6 +188,7 @@ export async function POST(request: NextRequest) {
     const cloudRunRequest = {
       jobId,
       clips: clipDataForService,
+      transitions: transitions || [],  // transitions[i] = between clips[i] and clips[i+1]
       subtitles: subtitles.map(sub => ({
         text: sub.text,
         startTime: sub.startTime,

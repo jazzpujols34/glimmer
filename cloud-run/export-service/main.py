@@ -84,9 +84,15 @@ class TitleCardData(BaseModel):
     textColor: str = "#FFFFFF"
 
 
+class TransitionData(BaseModel):
+    type: str = "none"  # none, fade, fadeblack, fadewhite, wipeleft, wiperight, wipeup, wipedown, slideleft, slideright, slideup, slidedown, dissolve
+    durationMs: int = 500  # 300-1500ms
+
+
 class ExportRequest(BaseModel):
     jobId: str
     clips: list[ClipData]
+    transitions: list[TransitionData] = []  # transitions[i] = between clips[i] and clips[i+1]
     subtitles: list[SubtitleData] = []
     musicClips: list[MusicClipData] = []
     titleCard: Optional[TitleCardData] = None
@@ -267,6 +273,126 @@ def get_video_duration(file_path: str) -> float:
         return 10.0  # Default fallback
 
 
+def concatenate_with_transitions(
+    clip_paths: list[Path],
+    transitions: list[TransitionData],
+    output_path: Path,
+    work_dir: Path,
+) -> bool:
+    """
+    Concatenate clips using xfade transitions.
+
+    Uses FFmpeg xfade filter for video and acrossfade for audio.
+    Falls back to simple concat for 'none' transitions.
+    """
+    if len(clip_paths) < 2:
+        # Single clip - just copy
+        if clip_paths:
+            shutil.copy(str(clip_paths[0]), str(output_path))
+        return True if clip_paths else False
+
+    # Get durations of all clips
+    durations = [get_video_duration(str(p)) for p in clip_paths]
+    print(f"[Transitions] Clip durations: {durations}")
+
+    # Check if any transitions are non-none
+    has_transitions = any(
+        t.type != "none" for t in transitions[:len(clip_paths) - 1]
+    )
+
+    if not has_transitions:
+        # All transitions are 'none' - use simple concat
+        print("[Transitions] All transitions are 'none', using simple concat")
+        return False  # Signal to use regular concat
+
+    # Build filter_complex for xfade
+    # Input format: -i clip0.mp4 -i clip1.mp4 -i clip2.mp4 ...
+    inputs = []
+    for p in clip_paths:
+        inputs.extend(["-i", str(p)])
+
+    # Calculate cumulative offsets and build filter chains
+    # Naming: [v0] = result of first xfade, [v1] = result of second, etc.
+    video_filters = []
+    audio_filters = []
+
+    # Track cumulative duration (accounting for overlaps)
+    cumulative_duration = durations[0]
+
+    for i in range(len(clip_paths) - 1):
+        transition = transitions[i] if i < len(transitions) else TransitionData()
+        trans_type = transition.type if transition.type != "none" else "fade"
+        trans_duration = transition.durationMs / 1000.0  # Convert ms to seconds
+
+        # For 'none' transitions, use minimal duration
+        if transitions[i].type == "none" if i < len(transitions) else True:
+            trans_duration = 0.016  # ~1 frame at 60fps
+
+        # Calculate offset: when this transition should start
+        # offset = cumulative duration so far - transition duration
+        offset = cumulative_duration - trans_duration
+
+        # Ensure offset is positive
+        offset = max(0.0, offset)
+
+        # Determine input and output labels
+        if i == 0:
+            # First pair: [0:v][1:v] -> [v0]
+            input_a = "[0:v]"
+            input_b = "[1:v]"
+            audio_a = "[0:a]"
+            audio_b = "[1:a]"
+        else:
+            # Subsequent: [vN-1][N+1:v] -> [vN]
+            input_a = f"[v{i-1}]"
+            input_b = f"[{i+1}:v]"
+            audio_a = f"[a{i-1}]"
+            audio_b = f"[{i+1}:a]"
+
+        output_v = f"[v{i}]"
+        output_a = f"[a{i}]"
+
+        # Build video filter
+        video_filters.append(
+            f"{input_a}{input_b}xfade=transition={trans_type}:duration={trans_duration:.3f}:offset={offset:.3f}{output_v}"
+        )
+
+        # Build audio filter (acrossfade)
+        audio_filters.append(
+            f"{audio_a}{audio_b}acrossfade=d={trans_duration:.3f}{output_a}"
+        )
+
+        # Update cumulative duration (add next clip, subtract overlap)
+        cumulative_duration = offset + trans_duration + durations[i + 1] - trans_duration
+        # Simplified: cumulative_duration = offset + durations[i + 1]
+        cumulative_duration = offset + durations[i + 1]
+
+    # Final output labels (last xfade result)
+    n = len(clip_paths) - 2  # Index of last transition
+    final_video = f"[v{n}]"
+    final_audio = f"[a{n}]"
+
+    # Combine all filters
+    filter_complex = ";".join(video_filters + audio_filters)
+
+    print(f"[Transitions] Filter complex ({len(video_filters)} transitions):")
+    print(f"[Transitions]   {filter_complex[:1000]}...")
+
+    # Run FFmpeg with xfade
+    success = run_ffmpeg([
+        *inputs,
+        "-filter_complex", filter_complex,
+        "-map", final_video,
+        "-map", final_audio,
+        *COMMON_VIDEO_ARGS,
+        *COMMON_AUDIO_ARGS,
+        "-movflags", "+faststart",
+        str(output_path),
+    ], "Transitions xfade")
+
+    return success
+
+
 async def process_export(request: ExportRequest, work_dir: Path) -> tuple[bool, str, Optional[Path]]:
     """
     Process the export request and return (success, message, output_path).
@@ -400,11 +526,7 @@ async def process_export(request: ExportRequest, work_dir: Path) -> tuple[bool, 
         if success:
             processed_clips.append(outro_path)
 
-    # --- Concatenate all clips ---
-    concat_list_path = work_dir / "concat.txt"
-    with open(concat_list_path, "w") as f:
-        for clip_path in processed_clips:
-            f.write(f"file '{clip_path}'\n")
+    # --- Concatenate all clips (with transitions if provided) ---
 
     # Debug: verify each processed clip has correct streams before concat
     print(f"[Concat] Verifying {len(processed_clips)} clips before concatenation:")
@@ -420,21 +542,46 @@ async def process_export(request: ExportRequest, work_dir: Path) -> tuple[bool, 
         except Exception as e:
             print(f"[Concat]   {clip_path.name}: ffprobe error: {e}")
 
-    # Re-encode during concat to ensure compatible output
-    # Using -c copy caused corrupted output when codec params didn't match exactly
-    # Use -map 0:a:0? (optional) as safety net in case any clip still lacks audio
     concat_output = work_dir / "concatenated.mp4"
-    success = run_ffmpeg([
-        "-f", "concat", "-safe", "0", "-i", str(concat_list_path),
-        "-map", "0:v:0", "-map", "0:a:0?",  # Optional audio mapping - won't fail if missing
-        *COMMON_VIDEO_ARGS,
-        *COMMON_AUDIO_ARGS,
-        "-movflags", "+faststart",  # Enable progressive download
-        str(concat_output),
-    ], "Concatenate")
 
-    if not success:
-        return False, "Failed to concatenate clips", None
+    # Try transitions if provided
+    use_simple_concat = True
+    if request.transitions and len(request.transitions) > 0:
+        # Check if any transitions are non-none
+        has_real_transitions = any(t.type != "none" for t in request.transitions)
+        if has_real_transitions:
+            print(f"[Concat] Using xfade transitions ({len(request.transitions)} transitions)")
+            success = concatenate_with_transitions(
+                processed_clips,
+                request.transitions,
+                concat_output,
+                work_dir,
+            )
+            if success:
+                use_simple_concat = False
+            else:
+                print("[Concat] xfade failed, falling back to simple concat")
+
+    if use_simple_concat:
+        # Simple concat (no transitions or fallback)
+        concat_list_path = work_dir / "concat.txt"
+        with open(concat_list_path, "w") as f:
+            for clip_path in processed_clips:
+                f.write(f"file '{clip_path}'\n")
+
+        # Re-encode during concat to ensure compatible output
+        # Use -map 0:a:0? (optional) as safety net in case any clip still lacks audio
+        success = run_ffmpeg([
+            "-f", "concat", "-safe", "0", "-i", str(concat_list_path),
+            "-map", "0:v:0", "-map", "0:a:0?",
+            *COMMON_VIDEO_ARGS,
+            *COMMON_AUDIO_ARGS,
+            "-movflags", "+faststart",
+            str(concat_output),
+        ], "Concatenate (simple)")
+
+        if not success:
+            return False, "Failed to concatenate clips", None
 
     # Cleanup processed clips
     for clip_path in processed_clips:

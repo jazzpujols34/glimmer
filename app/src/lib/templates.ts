@@ -7,6 +7,7 @@
 
 import type { OccasionType } from '@/types';
 import type { StoryboardTransitionType, StoryboardMusic, StoryboardTitleCard } from '@/types';
+import type { TitleCard, Transition, TransitionType, MusicClip } from '@/types/editor';
 
 export interface QuickTemplate {
   id: string;
@@ -305,5 +306,95 @@ export function buildOutroCard(
     durationSeconds: template.outroCard.durationSeconds,
     backgroundColor: template.outroCard.backgroundColor,
     textColor: template.outroCard.textColor,
+  };
+}
+
+// === Editor Integration ===
+
+/**
+ * Convert storyboard transition type to editor transition type
+ */
+function storyboardToEditorTransition(st: StoryboardTransitionType): { type: TransitionType; durationMs: number } {
+  switch (st) {
+    case 'cut':
+      return { type: 'none', durationMs: 0 };
+    case 'crossfade-500':
+      return { type: 'fade', durationMs: 500 };
+    case 'crossfade-1000':
+      return { type: 'fade', durationMs: 1000 };
+    default:
+      return { type: 'fade', durationMs: 500 };
+  }
+}
+
+/**
+ * Build editor TitleCard from template
+ */
+export function buildEditorTitleCard(
+  template: QuickTemplate,
+  inputs: { name: string; date?: string; message?: string }
+): TitleCard {
+  return {
+    id: `title-${Date.now()}`,
+    type: 'intro',
+    text: fillTemplate(template.titleCard.textTemplate, inputs),
+    subtitle: template.titleCard.subtitleTemplate
+      ? fillTemplate(template.titleCard.subtitleTemplate, inputs)
+      : undefined,
+    durationSeconds: template.titleCard.durationSeconds,
+    backgroundColor: template.titleCard.backgroundColor,
+    textColor: template.titleCard.textColor,
+  };
+}
+
+/**
+ * Build editor outro card from template
+ */
+export function buildEditorOutroCard(
+  template: QuickTemplate,
+  inputs: { name: string; date?: string; message?: string }
+): TitleCard {
+  return {
+    id: `outro-${Date.now()}`,
+    type: 'outro',
+    text: fillTemplate(template.outroCard.textTemplate, inputs),
+    subtitle: template.outroCard.subtitleTemplate
+      ? fillTemplate(template.outroCard.subtitleTemplate, inputs)
+      : undefined,
+    durationSeconds: template.outroCard.durationSeconds,
+    backgroundColor: template.outroCard.backgroundColor,
+    textColor: template.outroCard.textColor,
+  };
+}
+
+/**
+ * Build transitions array for N clips from template
+ */
+export function buildEditorTransitions(
+  template: QuickTemplate,
+  clipCount: number
+): Transition[] {
+  const { type, durationMs } = storyboardToEditorTransition(template.transition);
+  const transitions: Transition[] = [];
+  for (let i = 0; i < clipCount - 1; i++) {
+    transitions.push({ type, durationMs });
+  }
+  return transitions;
+}
+
+/**
+ * Build suggested music clip from template (for adding to timeline)
+ */
+export function buildSuggestedMusic(template: QuickTemplate): {
+  name: string;
+  type: 'bundled' | 'uploaded';
+  src: string;
+  volume: number;
+} {
+  return {
+    name: template.music.name,
+    type: template.music.type,
+    src: template.music.src,
+    volume: template.music.volume,
   };
 }

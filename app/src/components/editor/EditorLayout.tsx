@@ -9,6 +9,7 @@ import { SubtitlePanel } from './SubtitlePanel';
 import { MusicPanel } from './MusicPanel';
 import { TitleCardPanel } from './TitleCardPanel';
 import { SfxPanel } from './SfxPanel';
+import { TemplatePanel } from './TemplatePanel';
 import { ExportPanel } from './ExportPanel';
 import { AddClipsDialog } from './AddClipsDialog';
 import { Button } from '@/components/ui/button';
@@ -26,6 +27,7 @@ import {
   Pause,
   SkipBack,
   Plus,
+  Wand2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { EditorPanel } from '@/types/editor';
@@ -36,6 +38,7 @@ const PANEL_TABS: { panel: EditorPanel; label: string; icon: typeof Film }[] = [
   { panel: 'music', label: '音樂', icon: Music },
   { panel: 'sfx', label: '音效', icon: Zap },
   { panel: 'titles', label: '片頭片尾', icon: LayoutTemplate },
+  { panel: 'templates', label: '範本', icon: Wand2 },
   { panel: 'export', label: '匯出', icon: Download },
 ];
 
@@ -130,6 +133,7 @@ export function EditorLayout() {
             {state.activePanel === 'music' && <MusicPanel />}
             {state.activePanel === 'sfx' && <SfxPanel />}
             {state.activePanel === 'titles' && <TitleCardPanel />}
+            {state.activePanel === 'templates' && <TemplatePanel />}
             {state.activePanel === 'export' && <ExportPanel />}
           </div>
         </div>

@@ -2,51 +2,40 @@ import { describe, it, expect } from 'vitest';
 import { buildPrompt, getOccasionPrompt, getTaskPrompt } from './prompts';
 
 describe('getOccasionPrompt', () => {
-  it('returns memorial prompt', () => {
-    expect(getOccasionPrompt('memorial')).toContain('peaceful');
-  });
+  // Note: Occasion prompts are intentionally empty now.
+  // Detailed expression instructions caused AI to distort faces.
+  // The system prompt handles the core animation style.
 
-  it('returns pet prompt with pet-specific terms', () => {
-    const prompt = getOccasionPrompt('pet');
-    expect(prompt).toContain('breathing');
-    expect(prompt).toContain('pet');
-  });
-
-  it('returns birthday prompt', () => {
-    expect(getOccasionPrompt('birthday')).toContain('joyful');
-  });
-
-  it('returns wedding prompt', () => {
-    expect(getOccasionPrompt('wedding')).toContain('romantic');
-  });
-
-  it('returns other prompt', () => {
-    expect(getOccasionPrompt('other')).toContain('natural');
+  it('returns empty string for all occasions (simplified prompts)', () => {
+    expect(getOccasionPrompt('memorial')).toBe('');
+    expect(getOccasionPrompt('birthday')).toBe('');
+    expect(getOccasionPrompt('wedding')).toBe('');
+    expect(getOccasionPrompt('pet')).toBe('');
+    expect(getOccasionPrompt('other')).toBe('');
   });
 });
 
 describe('getTaskPrompt', () => {
-  it('returns image-to-video prompt', () => {
-    expect(getTaskPrompt('image-to-video')).toContain('animated video');
-  });
+  // Note: Task prompts are intentionally empty now.
+  // The system prompt handles the core animation instructions.
 
-  it('returns first-last-frame prompt', () => {
-    const prompt = getTaskPrompt('first-last-frame');
-    expect(prompt).toContain('first frame');
-    expect(prompt).toContain('last frame');
+  it('returns empty string for all task types (simplified prompts)', () => {
+    expect(getTaskPrompt('image-to-video')).toBe('');
+    expect(getTaskPrompt('first-last-frame')).toBe('');
   });
 });
 
 describe('buildPrompt', () => {
-  it('includes system prompt, task prompt, and occasion prompt', () => {
+  it('includes living portrait system prompt for person', () => {
     const prompt = buildPrompt({
       userPrompt: '',
       occasion: 'memorial',
       taskType: 'image-to-video',
     });
-    expect(prompt).toContain('gentle video animation');
-    expect(prompt).toContain('animated video');
-    expect(prompt).toContain('peaceful');
+    expect(prompt).toContain('Living portrait');
+    expect(prompt).toContain('Static camera');
+    expect(prompt).toContain('gentle breathing');
+    expect(prompt).toContain('soft blink');
   });
 
   it('uses pet system prompt for pet occasion', () => {
@@ -55,8 +44,9 @@ describe('buildPrompt', () => {
       occasion: 'pet',
       taskType: 'image-to-video',
     });
-    expect(prompt).toContain('pet photograph');
+    expect(prompt).toContain('Living portrait of a pet');
     expect(prompt).toContain('ear twitch');
+    expect(prompt).toContain('gentle breathing');
   });
 
   it('appends user prompt when provided', () => {

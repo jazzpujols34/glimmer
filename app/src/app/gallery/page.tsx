@@ -8,7 +8,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { LanguageToggle } from '@/components/LanguageToggle';
 import { useTranslation } from '@/lib/i18n';
 import { useAccess } from '@/hooks/useAccess';
-import { Play, Download, Calendar, Film, ArrowLeft, Trash2, Scissors, AlertCircle, X, Star, FolderOpen, ChevronDown, Clock, Lock } from 'lucide-react';
+import { Play, Download, Calendar, Film, ArrowLeft, Trash2, Scissors, AlertCircle, X, Star, FolderOpen, ChevronDown, Clock, Lock, CheckSquare, Square, Wand2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Project } from '@/types';
 
@@ -54,6 +54,28 @@ export default function GalleryPage() {
   const [projectDropdownOpen, setProjectDropdownOpen] = useState(false);
   const [movingToProject, setMovingToProject] = useState(false);
   const [loadedVideos, setLoadedVideos] = useState<Set<string>>(new Set());
+
+  // Multi-select for showcase builder
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedClips, setSelectedClips] = useState<Set<string>>(new Set()); // Format: "jobId:videoIndex"
+
+  const toggleClipSelection = (jobId: string, videoIndex: number) => {
+    const key = `${jobId}:${videoIndex}`;
+    setSelectedClips(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+  };
+
+  const clearSelection = () => {
+    setSelectedClips(new Set());
+    setSelectMode(false);
+  };
 
   // Close modal on Escape key
   const closeModal = useCallback(() => {
@@ -282,8 +304,8 @@ export default function GalleryPage() {
             </p>
           </div>
 
-          {/* Tabs */}
-          <div className="flex flex-wrap justify-center gap-2 mb-8">
+          {/* Tabs + Select Mode */}
+          <div className="flex flex-wrap justify-center gap-2 mb-4">
             <Button
               variant={filter === 'all' ? 'default' : 'outline'}
               size="sm"
@@ -313,7 +335,51 @@ export default function GalleryPage() {
                 </Link>
               </Button>
             )}
+            <div className="w-px bg-border mx-1" />
+            <Button
+              variant={selectMode ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => {
+                if (selectMode) {
+                  clearSelection();
+                } else {
+                  setSelectMode(true);
+                }
+              }}
+            >
+              {selectMode ? (
+                <>
+                  <X className="w-4 h-4 sm:mr-2" />
+                  <span className="hidden sm:inline">取消選取</span>
+                </>
+              ) : (
+                <>
+                  <CheckSquare className="w-4 h-4 sm:mr-2" />
+                  <span className="hidden sm:inline">選取製作</span>
+                </>
+              )}
+            </Button>
           </div>
+
+          {/* Selection bar */}
+          {selectMode && (
+            <div className="flex items-center justify-center gap-4 mb-4 p-3 bg-muted/50 rounded-lg">
+              <span className="text-sm">
+                已選取 <strong>{selectedClips.size}</strong> 支影片
+              </span>
+              {selectedClips.size >= 2 && (
+                <Button size="sm" asChild>
+                  <Link href={`/showcase?clips=${encodeURIComponent(Array.from(selectedClips).join(','))}`}>
+                    <Wand2 className="w-4 h-4 mr-2" />
+                    製作展示影片
+                  </Link>
+                </Button>
+              )}
+              {selectedClips.size > 0 && selectedClips.size < 2 && (
+                <span className="text-sm text-muted-foreground">再選 {2 - selectedClips.size} 支影片</span>
+              )}
+            </div>
+          )}
 
           {(() => {
             // Filter jobs based on selected tab
@@ -395,7 +461,19 @@ export default function GalleryPage() {
                 <Card
                   key={job.id}
                   className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer break-inside-avoid mb-4"
-                  onClick={() => setSelectedJob(job)}
+                  onClick={() => {
+                    if (selectMode) {
+                      // In select mode, clicking card with single video toggles selection
+                      if (!job.videoUrls || job.videoUrls.length === 1) {
+                        toggleClipSelection(job.id, 0);
+                      } else {
+                        // For multi-video jobs, open modal to select specific clips
+                        setSelectedJob(job);
+                      }
+                    } else {
+                      setSelectedJob(job);
+                    }
+                  }}
                 >
                   <div className={cn(
                     "bg-black relative",
@@ -441,9 +519,38 @@ export default function GalleryPage() {
                       </div>
                     )}
                     {/* Favorite star */}
-                    {job.favorite && (
+                    {job.favorite && !selectMode && (
                       <div className="absolute top-2 left-2">
                         <Star className="w-5 h-5 text-yellow-400 fill-yellow-400" />
+                      </div>
+                    )}
+                    {/* Selection checkbox */}
+                    {selectMode && (
+                      <div className="absolute top-2 left-2">
+                        {(() => {
+                          // Check if any video from this job is selected
+                          const videoCount = job.videoUrls?.length || 1;
+                          const selectedCount = Array.from(selectedClips).filter(key => key.startsWith(`${job.id}:`)).length;
+                          const isFullySelected = selectedCount === videoCount;
+                          const isPartiallySelected = selectedCount > 0 && selectedCount < videoCount;
+
+                          return (
+                            <div className={cn(
+                              "w-6 h-6 rounded flex items-center justify-center",
+                              isFullySelected ? "bg-primary text-primary-foreground" :
+                              isPartiallySelected ? "bg-primary/50 text-primary-foreground" :
+                              "bg-white/80 text-muted-foreground"
+                            )}>
+                              {isFullySelected ? (
+                                <CheckSquare className="w-4 h-4" />
+                              ) : isPartiallySelected ? (
+                                <span className="text-xs font-bold">{selectedCount}</span>
+                              ) : (
+                                <Square className="w-4 h-4" />
+                              )}
+                            </div>
+                          );
+                        })()}
                       </div>
                     )}
                     {/* Expiration warning badge */}
@@ -558,15 +665,38 @@ export default function GalleryPage() {
             {selectedJob.videoUrls && selectedJob.videoUrls.length > 1 && (
               <div className="p-4 border-t border-border">
                 <p className="text-sm text-muted-foreground mb-2">
-                  選擇影片 ({selectedVideoIndex + 1}/{selectedJob.videoUrls.length})
+                  {selectMode ? '選取要加入展示影片的片段' : `選擇影片 (${selectedVideoIndex + 1}/${selectedJob.videoUrls.length})`}
                 </p>
                 <div className="flex gap-2 overflow-x-auto pb-2">
-                  {selectedJob.videoUrls.map((url, index) => (
+                  {selectedJob.videoUrls.map((url, index) => {
+                    const clipKey = `${selectedJob.id}:${index}`;
+                    const isClipSelected = selectedClips.has(clipKey);
+
+                    return (
                     <div key={index} className="flex-shrink-0 flex items-center gap-1">
+                      {selectMode && (
+                        <button
+                          onClick={() => toggleClipSelection(selectedJob.id, index)}
+                          className={cn(
+                            "px-2 py-2 rounded-l text-sm transition-colors",
+                            isClipSelected
+                              ? "bg-primary text-primary-foreground"
+                              : "bg-muted hover:bg-muted/80"
+                          )}
+                          title={isClipSelected ? "取消選取" : "選取此影片"}
+                        >
+                          {isClipSelected ? (
+                            <CheckSquare className="w-4 h-4" />
+                          ) : (
+                            <Square className="w-4 h-4" />
+                          )}
+                        </button>
+                      )}
                       <button
                         onClick={() => setSelectedVideoIndex(index)}
                         className={cn(
-                          "px-3 py-2 rounded-l text-sm flex items-center gap-2 transition-colors",
+                          "px-3 py-2 text-sm flex items-center gap-2 transition-colors",
+                          selectMode ? "" : "rounded-l",
                           selectedVideoIndex === index
                             ? "bg-primary text-primary-foreground"
                             : "bg-muted hover:bg-muted/80"
@@ -575,25 +705,27 @@ export default function GalleryPage() {
                         <Play className="w-4 h-4" />
                         影片 {index + 1}
                       </button>
-                      <button
-                        onClick={() => handleDeleteClip(selectedJob.id, index)}
-                        disabled={deleting === `${selectedJob.id}-${index}`}
-                        className={cn(
-                          "px-2 py-2 rounded-r text-sm transition-colors",
-                          selectedVideoIndex === index
-                            ? "bg-primary/80 text-primary-foreground hover:bg-destructive"
-                            : "bg-muted hover:bg-destructive hover:text-destructive-foreground"
-                        )}
-                        title="刪除此影片"
-                      >
-                        {deleting === `${selectedJob.id}-${index}` ? (
-                          <div className="w-4 h-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                        ) : (
-                          <Trash2 className="w-4 h-4" />
-                        )}
-                      </button>
+                      {!selectMode && (
+                        <button
+                          onClick={() => handleDeleteClip(selectedJob.id, index)}
+                          disabled={deleting === `${selectedJob.id}-${index}`}
+                          className={cn(
+                            "px-2 py-2 rounded-r text-sm transition-colors",
+                            selectedVideoIndex === index
+                              ? "bg-primary/80 text-primary-foreground hover:bg-destructive"
+                              : "bg-muted hover:bg-destructive hover:text-destructive-foreground"
+                          )}
+                          title="刪除此影片"
+                        >
+                          {deleting === `${selectedJob.id}-${index}` ? (
+                            <div className="w-4 h-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                          ) : (
+                            <Trash2 className="w-4 h-4" />
+                          )}
+                        </button>
+                      )}
                     </div>
-                  ))}
+                  )})}
                 </div>
               </div>
             )}

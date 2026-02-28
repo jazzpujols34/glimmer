@@ -102,6 +102,10 @@ export function ExportPanel() {
           volume: clip.volume,
           filter: clip.filter,
         })),
+        transitions: state.transitions.map(t => ({
+          type: t.type,
+          durationMs: t.durationMs,
+        })),
         subtitles: state.subtitles.map(sub => ({
           text: sub.text,
           startTime: sub.startTime,

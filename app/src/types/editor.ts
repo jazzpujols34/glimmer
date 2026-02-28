@@ -5,8 +5,38 @@ import type { OccasionType } from './index';
 export type FilterPreset = 'warm' | 'vintage' | 'bw' | 'vivid';
 
 // === Transition Types ===
+// Maps to FFmpeg xfade filter transition names
+export type TransitionType =
+  | 'none'        // No transition, hard cut
+  | 'fade'        // Classic crossfade/dissolve
+  | 'fadeblack'   // Fade to black, then fade in
+  | 'fadewhite'   // Fade to white, then fade in
+  | 'wipeleft'    // Horizontal wipe left
+  | 'wiperight'   // Horizontal wipe right
+  | 'wipeup'      // Vertical wipe up
+  | 'wipedown'    // Vertical wipe down
+  | 'slideleft'   // Slide left
+  | 'slideright'  // Slide right
+  | 'slideup'     // Slide up
+  | 'slidedown'   // Slide down
+  | 'dissolve';   // Pixel dissolve effect
 
-export type TransitionType = 'none' | 'fade' | 'crossfade';
+// For UI display
+export const TRANSITION_LABELS: Record<TransitionType, string> = {
+  none: '無',
+  fade: '淡入淡出',
+  fadeblack: '黑場過渡',
+  fadewhite: '白場過渡',
+  wipeleft: '向左擦除',
+  wiperight: '向右擦除',
+  wipeup: '向上擦除',
+  wipedown: '向下擦除',
+  slideleft: '向左滑動',
+  slideright: '向右滑動',
+  slideup: '向上滑動',
+  slidedown: '向下滑動',
+  dissolve: '像素溶解',
+};
 
 export interface Transition {
   type: TransitionType;
@@ -116,7 +146,7 @@ export interface TitleCard {
 
 // === Editor State ===
 
-export type EditorPanel = 'clips' | 'subtitles' | 'music' | 'sfx' | 'titles' | 'export';
+export type EditorPanel = 'clips' | 'subtitles' | 'music' | 'sfx' | 'titles' | 'templates' | 'export';
 
 export interface EditorState {
   jobId: string;

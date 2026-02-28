@@ -4,9 +4,32 @@
  * On restore, blobUrls must be re-created by re-fetching sources.
  */
 
-import type { EditorState, TimelineClip, MusicClip, SfxItem } from '@/types/editor';
+import type { EditorState, TimelineClip, MusicClip, SfxItem, TransitionType, Transition } from '@/types/editor';
 
 const DB_NAME = 'glimmer-editor';
+
+// Valid transition types (must match TransitionType in editor.ts)
+const VALID_TRANSITION_TYPES: TransitionType[] = [
+  'none', 'fade', 'fadeblack', 'fadewhite',
+  'wipeleft', 'wiperight', 'wipeup', 'wipedown',
+  'slideleft', 'slideright', 'slideup', 'slidedown',
+  'dissolve'
+];
+
+/** Migrate old transition types to new ones */
+function migrateTransitions(transitions: Transition[]): Transition[] {
+  return transitions.map(t => {
+    // Handle old 'crossfade' type -> 'fade'
+    if (t.type === 'crossfade' as TransitionType) {
+      return { ...t, type: 'fade' as TransitionType };
+    }
+    // Handle any unknown types -> 'none'
+    if (!VALID_TRANSITION_TYPES.includes(t.type)) {
+      return { ...t, type: 'none' as TransitionType };
+    }
+    return t;
+  });
+}
 const DB_VERSION = 1;
 const STORE_NAME = 'sessions';
 
@@ -86,7 +109,16 @@ export async function loadEditorState(jobId: string): Promise<SavedEditorState |
     return new Promise((resolve, reject) => {
       req.onsuccess = () => {
         db.close();
-        resolve(req.result ?? null);
+        const result = req.result as SavedEditorState | undefined;
+        if (!result) {
+          resolve(null);
+          return;
+        }
+        // Migrate old transition types
+        resolve({
+          ...result,
+          transitions: migrateTransitions(result.transitions),
+        });
       };
       req.onerror = () => {
         db.close();
