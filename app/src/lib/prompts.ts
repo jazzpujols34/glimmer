@@ -13,10 +13,10 @@ import type { OccasionType, TaskType } from '@/types';
  */
 
 /** System prompt for human subjects */
-const SYSTEM_PROMPT_PERSON = `Living portrait. Static camera. Subtle movements only: gentle breathing, soft blink, slight head turn toward camera, hint of a smile. No dramatic actions. No crying. No camera movement.`;
+const SYSTEM_PROMPT_PERSON = `Living portrait. Static camera. Keep looking at camera. Subtle movements only: gentle breathing, soft blink, tiny natural head micro-movements, hint of a smile. Maintain original pose and gaze. No dramatic actions. No crying. No camera movement.`;
 
 /** System prompt for pet/animal subjects */
-const SYSTEM_PROMPT_PET = `Living portrait of a pet. Static camera. Subtle movements only: gentle breathing, soft blink, slight ear twitch, relaxed pose. No dramatic actions. No camera movement.`;
+const SYSTEM_PROMPT_PET = `Living portrait of a pet. Static camera. Subtle movements only: gentle breathing, soft blink, slight ear twitch. Maintain original pose. No dramatic actions. No camera movement.`;
 
 /** Get the appropriate system prompt based on occasion */
 function getSystemPrompt(occasion: OccasionType): string {
