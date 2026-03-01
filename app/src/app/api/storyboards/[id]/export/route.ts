@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getStoryboard } from '@/lib/storage';
 import { captureError } from '@/lib/errors';
 import { checkCredits } from '@/lib/credits';
+import { resolveVideoUrl } from '@/lib/video-url';
 
 const CLOUD_RUN_URL = process.env.EXPORT_SERVICE_URL;
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://glimmer.video';
@@ -68,7 +69,6 @@ export async function POST(
     for (let i = 0; i < filledSlots.length; i++) {
       const slot = filledSlots[i];
       const clip = slot.clip!;
-      let videoUrl: string;
 
       const sourceUrl = clip.videoUrl || '';
       console.log(`[storyboard-export] Slot ${slot.index}: sourceUrl=${sourceUrl.substring(0, 80)}...`);
@@ -78,31 +78,12 @@ export async function POST(
         continue;
       }
 
-      // Transform URL for Cloud Run accessibility
-      if (sourceUrl.startsWith('http')) {
-        // CDN URL - use directly
-        videoUrl = sourceUrl;
-      } else if (sourceUrl.startsWith('/api/proxy-video')) {
-        // Already a proxy URL - make it absolute
-        videoUrl = `${BASE_URL}${sourceUrl}`;
-      } else if (sourceUrl.startsWith('uploads/')) {
-        // Uploaded file stored in R2
-        videoUrl = `${BASE_URL}/api/proxy-r2?key=${encodeURIComponent(sourceUrl)}`;
-      } else {
-        // R2 key - try pattern matching
-        // Pattern: videos/{jobId}/{index}.mp4
-        const r2Match = sourceUrl.match(/videos\/([^/]+)\/(\d+)\.mp4/);
-        if (r2Match) {
-          const [, r2JobId, r2Index] = r2Match;
-          videoUrl = `${BASE_URL}/api/proxy-video?jobId=${encodeURIComponent(r2JobId)}&index=${r2Index}`;
-        } else if (sourceUrl.includes('/')) {
-          // Other R2 key format
-          videoUrl = `${BASE_URL}/api/proxy-r2?key=${encodeURIComponent(sourceUrl)}`;
-        } else {
-          // Unknown format - skip this clip
-          console.warn(`[storyboard-export] Unknown sourceUrl format: ${sourceUrl}`);
-          continue;
-        }
+      // Use resolveVideoUrl for consistent URL resolution
+      const videoUrl = resolveVideoUrl(sourceUrl, 'export', BASE_URL);
+
+      if (!videoUrl) {
+        console.warn(`[storyboard-export] Slot ${slot.index} has invalid videoUrl`);
+        continue;
       }
 
       clips.push({
@@ -114,6 +95,35 @@ export async function POST(
         filter: null,
       });
     }
+
+    // Pre-validate all clip URLs before sending to Cloud Run
+    console.log(`[storyboard-export] Validating ${clips.length} clip URLs...`);
+    for (let idx = 0; idx < clips.length; idx++) {
+      const clipData = clips[idx];
+      try {
+        const testRes = await fetch(clipData.url, { method: 'HEAD' });
+        if (!testRes.ok) {
+          console.error(`[storyboard-export] Clip ${idx} URL validation failed: ${testRes.status}`);
+          return NextResponse.json(
+            {
+              error: `影片 ${idx + 1} 無法存取，可能已過期。請返回重新選擇影片。`,
+              code: 'CLIP_UNREACHABLE',
+            },
+            { status: 400 }
+          );
+        }
+      } catch (err) {
+        console.error(`[storyboard-export] Clip ${idx} URL fetch error:`, err);
+        return NextResponse.json(
+          {
+            error: `無法連接影片來源，請稍後再試。`,
+            code: 'CLIP_FETCH_ERROR',
+          },
+          { status: 502 }
+        );
+      }
+    }
+    console.log(`[storyboard-export] All clip URLs validated successfully`);
 
     if (clips.length === 0) {
       return NextResponse.json(

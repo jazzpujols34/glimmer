@@ -15,8 +15,22 @@ import tempfile
 import shutil
 import uuid
 import asyncio
+import json
+import sys
 from pathlib import Path
 from typing import Optional
+
+
+def log_export_event(export_id: str, event: str, **kwargs):
+    """Structured logging for Cloud Run — shows up in Cloud Logging."""
+    severity = kwargs.pop("severity", "INFO")
+    entry = {
+        "severity": severity,
+        "export_id": export_id,
+        "event": event,
+        **kwargs
+    }
+    print(json.dumps(entry), file=sys.stdout, flush=True)
 
 import httpx
 import boto3
@@ -124,9 +138,8 @@ class ExportStatusResponse(BaseModel):
     fileSizeMB: Optional[float] = None
 
 
-# In-memory store for async export status (simple solution for single instance)
-# For production scale, use Redis or Firestore
-export_status_store: dict[str, dict] = {}
+# Firestore-backed status store (survives restarts, shared across instances)
+from status_store import set_status, get_status
 
 
 # --- FFmpeg Processing ---
@@ -724,13 +737,15 @@ async def health_check():
 async def process_export_async(export_id: str, request: ExportRequest, work_dir: Path):
     """Background task to process export and update status."""
     try:
+        log_export_event(export_id, "export_started", clips_count=len(request.clips), job_id=request.jobId)
         success, message, output_path = await process_export(request, work_dir)
 
         if not success or not output_path:
-            export_status_store[export_id] = {
+            log_export_event(export_id, "export_failed", error=message, severity="ERROR")
+            set_status(export_id, {
                 "status": "error",
                 "error": message,
-            }
+            })
             cleanup_work_dir(work_dir)
             return
 
@@ -752,30 +767,31 @@ async def process_export_async(export_id: str, request: ExportRequest, work_dir:
         # Upload to R2
         r2_key = f"exports/{request.jobId}/{export_id}.mp4"
         if not upload_to_r2(output_path, r2_key):
-            export_status_store[export_id] = {
+            log_export_event(export_id, "r2_upload_failed", severity="ERROR")
+            set_status(export_id, {
                 "status": "error",
                 "error": "Failed to upload to storage",
-            }
+            })
             cleanup_work_dir(work_dir)
             return
 
         # Update status to complete
-        export_status_store[export_id] = {
+        set_status(export_id, {
             "status": "complete",
             "r2Key": r2_key,
             "durationSeconds": duration,
             "fileSizeMB": round(file_size_mb, 2),
-        }
+        })
 
-        print(f"[Export Async] Complete: {export_id}, {file_size_mb:.2f} MB")
+        log_export_event(export_id, "export_complete", duration_sec=duration, file_size_mb=round(file_size_mb, 2))
         cleanup_work_dir(work_dir)
 
     except Exception as e:
-        print(f"[Export Async] Error: {e}")
-        export_status_store[export_id] = {
+        log_export_event(export_id, "export_error", error=str(e), severity="ERROR")
+        set_status(export_id, {
             "status": "error",
             "error": str(e),
-        }
+        })
         cleanup_work_dir(work_dir)
 
 
@@ -789,10 +805,10 @@ async def export_video_async(request: ExportRequest, background_tasks: Backgroun
     work_dir = Path(f"/tmp/exports/{request.jobId}_{export_id}")
     work_dir.mkdir(parents=True, exist_ok=True)
 
-    print(f"[Export Async] Starting job {request.jobId} with {len(request.clips)} clips, exportId={export_id}")
+    log_export_event(export_id, "export_async_started", job_id=request.jobId, clips_count=len(request.clips))
 
-    # Initialize status
-    export_status_store[export_id] = {"status": "processing"}
+    # Initialize status in Firestore
+    set_status(export_id, {"status": "processing"})
 
     # Start background processing
     background_tasks.add_task(process_export_async, export_id, request, work_dir)
@@ -801,12 +817,15 @@ async def export_video_async(request: ExportRequest, background_tasks: Backgroun
 
 
 @app.get("/export-status/{export_id}", response_model=ExportStatusResponse)
-async def get_export_status(export_id: str):
+async def get_export_status_endpoint(export_id: str):
     """Check status of an async export."""
-    if export_id not in export_status_store:
-        raise HTTPException(status_code=404, detail="Export not found")
+    status_data = get_status(export_id)
+    if not status_data:
+        raise HTTPException(
+            status_code=404,
+            detail="Export not found. It may have expired or the service restarted."
+        )
 
-    status_data = export_status_store[export_id]
     return ExportStatusResponse(
         exportId=export_id,
         status=status_data.get("status", "unknown"),

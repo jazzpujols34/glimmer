@@ -28,6 +28,7 @@ import {
   ArrowDown,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { resolveVideoUrl } from '@/lib/video-url';
 
 interface ClipData {
   jobId: string;
@@ -133,7 +134,7 @@ function ShowcaseContent() {
       const exportRequest = {
         jobId: `showcase-${Date.now()}`,
         clips: clips.map(clip => ({
-          sourceUrl: clip.videoUrl,
+          sourceUrl: resolveVideoUrl(clip.videoUrl, 'export', window.location.origin),
           trimStart: 0,
           trimEnd: 5, // Default 5s per clip
           speed: 1.0,

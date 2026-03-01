@@ -3,6 +3,7 @@ export const runtime = 'edge';
 import { NextRequest, NextResponse } from 'next/server';
 import { captureError } from '@/lib/errors';
 import { checkCredits } from '@/lib/credits';
+import { resolveVideoUrl } from '@/lib/video-url';
 
 /**
  * Server-side video export via Cloud Run.
@@ -112,45 +113,35 @@ export async function POST(request: NextRequest) {
 
     for (let idx = 0; idx < clips.length; idx++) {
       const clip = clips[idx];
-      let videoUrl: string;
       const sourceUrl = clip.sourceUrl || '';
 
       console.log(`[export-server] Clip ${idx}: sourceUrl=${sourceUrl.substring(0, 80)}...`);
 
-      if (!sourceUrl) {
-        console.warn(`[export-server] Clip ${idx} has no sourceUrl, using fallback`);
-        videoUrl = `${BASE_URL}/api/proxy-video?jobId=${encodeURIComponent(jobId)}&index=${idx}`;
-      } else if (sourceUrl.startsWith('local://')) {
-        // Local file - cannot be exported server-side!
+      // Check for local files which cannot be exported server-side
+      if (sourceUrl.startsWith('local://')) {
         console.error(`[export-server] Clip ${idx} is a local file: ${sourceUrl}`);
         return NextResponse.json(
-          { error: `片段 ${idx + 1} 是本機檔案，無法使用伺服器匯出。請使用瀏覽器匯出，或從影片庫選擇片段。` },
+          {
+            error: `片段 ${idx + 1} 是本機檔案，無法使用伺服器匯出。請使用瀏覽器匯出，或從影片庫選擇片段。`,
+            code: 'LOCAL_FILE_NOT_SUPPORTED'
+          },
           { status: 400 }
         );
-      } else if (sourceUrl.startsWith('http')) {
-        // CDN URL - use directly
-        videoUrl = sourceUrl;
-      } else if (sourceUrl.startsWith('/api/proxy-video')) {
-        // Already a proxy URL - make it absolute
-        videoUrl = `${BASE_URL}${sourceUrl}`;
-      } else if (sourceUrl.startsWith('uploads/')) {
-        // Uploaded local file stored in R2 - use proxy-r2 endpoint
-        videoUrl = `${BASE_URL}/api/proxy-r2?key=${encodeURIComponent(sourceUrl)}`;
-      } else {
-        // R2 key - need to find the video index and use proxy
-        // Extract jobId from R2 key pattern: videos/{jobId}/{index}.mp4
-        const r2Match = sourceUrl.match(/videos\/([^/]+)\/(\d+)\.mp4/);
-        if (r2Match) {
-          const [, r2JobId, r2Index] = r2Match;
-          videoUrl = `${BASE_URL}/api/proxy-video?jobId=${encodeURIComponent(r2JobId)}&index=${r2Index}`;
-        } else if (sourceUrl.includes('/')) {
-          // Some other R2 key format - try direct R2 proxy
-          videoUrl = `${BASE_URL}/api/proxy-r2?key=${encodeURIComponent(sourceUrl)}`;
-        } else {
-          // Unknown format - try using current job as fallback
-          console.warn(`[export-server] Clip ${idx} has unknown sourceUrl format: ${sourceUrl}`);
-          videoUrl = `${BASE_URL}/api/proxy-video?jobId=${encodeURIComponent(jobId)}&index=${idx}`;
-        }
+      }
+
+      // Use resolveVideoUrl for consistent URL resolution
+      const videoUrl = sourceUrl
+        ? resolveVideoUrl(sourceUrl, 'export', BASE_URL)
+        : `${BASE_URL}/api/proxy-video?jobId=${encodeURIComponent(jobId)}&index=${idx}`;
+
+      if (!videoUrl) {
+        return NextResponse.json(
+          {
+            error: `片段 ${idx + 1} 的影片連結無效。`,
+            code: 'INVALID_VIDEO_URL'
+          },
+          { status: 400 }
+        );
       }
 
       clipDataForService.push({
@@ -162,6 +153,37 @@ export async function POST(request: NextRequest) {
         filter: clip.filter,
       });
     }
+
+    // Pre-validate all clip URLs before sending to Cloud Run
+    console.log(`[export-server] Validating ${clipDataForService.length} clip URLs...`);
+    for (let idx = 0; idx < clipDataForService.length; idx++) {
+      const clipData = clipDataForService[idx];
+      try {
+        const testRes = await fetch(clipData.url, { method: 'HEAD' });
+        if (!testRes.ok) {
+          console.error(`[export-server] Clip ${idx} URL validation failed: ${testRes.status}`);
+          return NextResponse.json(
+            {
+              error: `影片 ${idx + 1} 無法存取，可能已過期。請返回重新選擇影片。`,
+              code: 'CLIP_UNREACHABLE',
+              details: `Clip ${idx + 1} returned HTTP ${testRes.status}`
+            },
+            { status: 400 }
+          );
+        }
+      } catch (err) {
+        console.error(`[export-server] Clip ${idx} URL fetch error:`, err);
+        return NextResponse.json(
+          {
+            error: `無法連接影片來源，請稍後再試。`,
+            code: 'CLIP_FETCH_ERROR',
+            details: `Clip ${idx + 1}: ${(err as Error).message}`
+          },
+          { status: 502 }
+        );
+      }
+    }
+    console.log(`[export-server] All clip URLs validated successfully`);
 
     // Build music URLs
     const musicDataForService = musicClips.map((mc) => {

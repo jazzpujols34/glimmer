@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { X, Play, Pause, SkipBack } from 'lucide-react';
 import type { Storyboard, StoryboardSlot } from '@/types';
+import { resolveVideoUrl } from '@/lib/video-url';
 
 interface StoryboardPreviewModalProps {
   storyboard: Storyboard;
@@ -90,19 +91,6 @@ export function StoryboardPreviewModal({ storyboard, onClose }: StoryboardPrevie
     return sum + item.duration;
   }, 0);
 
-  // Transform video URL for playback
-  const getPlayableUrl = (url: string): string => {
-    if (url.startsWith('http')) return url;
-    if (url.startsWith('local://')) return url.replace('local://', '');
-    // R2 key - use proxy
-    if (url.match(/videos\/([^/]+)\/(\d+)\.mp4/)) {
-      const match = url.match(/videos\/([^/]+)\/(\d+)\.mp4/);
-      if (match) {
-        return `/api/proxy-video?jobId=${encodeURIComponent(match[1])}&index=${match[2]}`;
-      }
-    }
-    return `/api/proxy-r2?key=${encodeURIComponent(url)}`;
-  };
 
   // Get music URL
   const getMusicUrl = (): string | null => {
@@ -270,7 +258,7 @@ export function StoryboardPreviewModal({ storyboard, onClose }: StoryboardPrevie
               <svg className="w-16 h-16 mx-auto mb-4 text-white/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
               </svg>
-              <p className="text-lg mb-2">影片載入失敗</p>
+              <p className="text-lg mb-2">影片已過期或無法存取</p>
               <button
                 onClick={() => {
                   setVideoError(false);
@@ -284,7 +272,7 @@ export function StoryboardPreviewModal({ storyboard, onClose }: StoryboardPrevie
           ) : (
             <video
               ref={videoRef}
-              src={getPlayableUrl(currentItem.videoUrl)}
+              src={resolveVideoUrl(currentItem.videoUrl, 'playback')}
               className="max-w-full max-h-full object-contain"
               onEnded={handleVideoEnded}
               onError={() => setVideoError(true)}
