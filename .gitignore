@@ -35,3 +35,8 @@ scripts/compound/prd.json
 
 # Claude Code
 .claude/
+
+# Demo videos (large files)
+demo-videos/*.mp4
+demo-videos/*.mov
+demo-videos/*.webm

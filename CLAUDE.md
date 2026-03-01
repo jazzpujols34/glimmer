@@ -59,6 +59,42 @@ cd app && npm run build                 # Production build
 cd app && npm test                      # Tests
 ```
 
+## Batch Video Generation
+
+Generate multiple videos from a folder of photos using `scripts/batch-generate.mjs`.
+
+**Quick start:**
+```bash
+node scripts/batch-generate.mjs /path/to/photos --email user@example.com --base-url https://glimmer.video
+```
+
+**Options:**
+| Option | Values | Default |
+|--------|--------|---------|
+| `--clips` | 1-4 clips per photo | 3 |
+| `--model` | `byteplus`, `veo-3.1`, `kling-ai` | `byteplus` |
+| `--occasion` | `memorial`, `birthday`, `wedding`, `pet`, `other` | `memorial` |
+| `--delay` | seconds between requests (rate limit) | 13 |
+| `--base-url` | API endpoint | `http://localhost:3200` |
+| `--dry-run` | list files without generating | - |
+
+**Aspect ratio is auto-detected** from photo dimensions (portrait → 9:16, landscape → 16:9). No need to specify manually.
+
+**Check status:** `node scripts/batch-status.mjs` or visit the gallery page.
+
+**Example workflow:**
+```bash
+# 1. Put photos in a folder
+# 2. Generate videos (production)
+node scripts/batch-generate.mjs ~/Desktop/demo-photos \
+  --email jazz@example.com \
+  --clips 3 \
+  --base-url https://glimmer.video
+
+# 3. Check progress
+node scripts/batch-status.mjs
+```
+
 ## Project Status (Checkup 2026-02-02)
 
 **33 total commits, 68 TypeScript files, 58 tests, deployed on Cloudflare Pages**
@@ -200,7 +236,7 @@ Pay-per-video credits (not subscriptions). Email-only identity (no passwords/OAu
 
 - **[2026-02-26] Lighthouse Audit**: Site scores: Performance 86, Accessibility 98, Best Practices 100, SEO 100. Key metrics: FCP 2.3s, LCP 3.4s, TBT 10ms, CLS 0. Common fix: add `<main>` landmark wrapping content between header and footer for accessibility. Server response time (~1.4s) is Cloudflare edge cold start — not much to optimize there.
 
-- **[2026-02-28] Video Generation Aspect Ratio**: **CRITICAL** — Match video aspect ratio to source photo orientation! Portrait photos (3:4) must use `9:16` video aspect ratio. Landscape photos (4:3, 16:9) use `16:9`. If mismatched, AI providers (BytePlus, Veo, Kling) will crop/reframe to fit, cutting off faces/eyes and ruining the composition. Symptoms of mismatch: video only shows chin, framing is off, face cut off at top. **Always check photo dimensions before generating and select matching aspect ratio.**
+- **[2026-02-28] Video Generation Aspect Ratio**: Portrait photos need `9:16`, landscape need `16:9`. If mismatched, AI providers crop faces. **Now auto-detected**: `/api/generate` uses `image-size` to detect photo orientation and sets aspect ratio automatically. No manual specification needed.
 
 - **[2026-02-28] Video Prompts - Less is More**: Overly detailed prompts can confuse AI video generators. Instructions like "gentle smile", "happy expression" cause the AI to distort faces creepily. Framing instructions may be ignored or misinterpreted causing worse crops than default. **Start with empty/minimal prompts** to see the model's default behavior, then add constraints only if needed. BytePlus Seedance works better with simple, short prompts.
 
