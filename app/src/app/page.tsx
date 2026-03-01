@@ -143,41 +143,6 @@ export default function LandingPage() {
             </p>
           </div>
 
-          {/* Featured Demo Videos - Mixed aspect ratios */}
-          <div className="flex flex-col md:flex-row gap-6 max-w-5xl mx-auto mb-16 items-center justify-center">
-            {/* Landscape video (16:9) */}
-            <div className="w-full md:w-3/5">
-              <div className="relative rounded-xl overflow-hidden shadow-2xl bg-black aspect-video">
-                <video
-                  className="w-full h-full object-cover"
-                  controls
-                  preload="metadata"
-                  poster="/demo-poster.jpg"
-                >
-                  <source src="/showcase-video-1.mp4" type="video/mp4" />
-                </video>
-              </div>
-              <p className="text-center mt-3 text-sm text-muted-foreground">
-                橫式追思影片
-              </p>
-            </div>
-            {/* Portrait video (9:16) */}
-            <div className="w-48 md:w-56">
-              <div className="relative rounded-xl overflow-hidden shadow-2xl bg-black aspect-[9/16]">
-                <video
-                  className="w-full h-full object-cover"
-                  controls
-                  preload="metadata"
-                >
-                  <source src="/showcase-video-2.mp4" type="video/mp4" />
-                </video>
-              </div>
-              <p className="text-center mt-3 text-sm text-muted-foreground">
-                直式追思影片
-              </p>
-            </div>
-          </div>
-
           <div className="grid md:grid-cols-2 gap-8 max-w-5xl mx-auto">
             <ShowcaseCard
               icon={<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />}
@@ -186,6 +151,7 @@ export default function LandingPage() {
               description="將泛黃老照片化為動態回憶，在告別式上播放，讓至親的身影再次動起來。"
               descEn="Transform faded photos into moving memories for funeral services."
               stat="已服務 50+ 家庭"
+              videoUrl="/showcase-video-1.mp4"
             />
             <ShowcaseCard
               icon={<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5.5A2.5 2.5 0 109.5 8H12zm-7 4h14M5 12a2 2 0 110-4h14a2 2 0 110 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7" />}
@@ -202,6 +168,8 @@ export default function LandingPage() {
               description="從戀愛到白頭的照片，一鍵生成浪漫週年紀念影片，重溫那些美好時光。"
               descEn="Generate romantic anniversary videos from your journey together."
               stat="支援 1080p 高清"
+              videoUrl="/showcase-video-2.mp4"
+              isPortrait
             />
             <ShowcaseCard
               icon={<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M6.633 10.5c.806 0 1.533-.446 2.031-1.08a9.041 9.041 0 012.861-2.4c.723-.384 1.35-.956 1.653-1.715a4.498 4.498 0 00.322-1.672V3.25a.75.75 0 01.75-.75 2.25 2.25 0 012.25 2.25c0 1.152-.26 2.243-.723 3.218-.266.558.107 1.282.725 1.282h3.126c1.026 0 1.945.694 2.054 1.715.045.422.068.85.068 1.285a11.95 11.95 0 01-2.649 7.521c-.388.482-.987.729-1.605.729H13.48c-.483 0-.964-.078-1.423-.23l-3.114-1.04a4.501 4.501 0 00-1.423-.23H3.75" />}
@@ -847,6 +815,7 @@ function ShowcaseCard({
   descEn,
   stat,
   videoUrl,
+  isPortrait,
 }: {
   icon: React.ReactNode;
   title: string;
@@ -855,7 +824,58 @@ function ShowcaseCard({
   descEn: string;
   stat: string;
   videoUrl?: string;
+  isPortrait?: boolean;
 }) {
+  // Portrait videos: side-by-side layout (video + description)
+  // Landscape videos: stacked layout (video on top, description below)
+  if (videoUrl && isPortrait) {
+    return (
+      <div className="group space-y-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+            <svg className="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              {icon}
+            </svg>
+          </div>
+          <div>
+            <h3 className="font-semibold">{title}</h3>
+            <p className="text-xs text-muted-foreground">{subtitle}</p>
+          </div>
+        </div>
+        <div className="flex gap-4">
+          {/* Portrait video - smaller */}
+          <div className="w-32 flex-shrink-0">
+            <div className="aspect-[9/16] rounded-xl bg-black border border-border/50 overflow-hidden group-hover:border-primary/30 transition-colors relative">
+              <video
+                src={videoUrl}
+                className="w-full h-full object-cover"
+                muted
+                loop
+                playsInline
+                autoPlay
+                preload="metadata"
+              />
+              <div className="absolute bottom-2 right-2">
+                <span className="inline-flex items-center gap-1 text-[10px] font-medium text-white bg-black/60 backdrop-blur px-2 py-0.5 rounded-full">
+                  <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  {stat}
+                </span>
+              </div>
+            </div>
+          </div>
+          {/* Description */}
+          <div className="flex-1 flex flex-col justify-center">
+            <p className="text-sm text-foreground/80 leading-relaxed mb-2">{description}</p>
+            <p className="text-xs text-muted-foreground">{descEn}</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Landscape video or no video: standard layout
   return (
     <div className="group space-y-4">
       <div className="flex items-center gap-3">
@@ -902,6 +922,13 @@ function ShowcaseCard({
           </span>
         </div>
       </div>
+      {/* Description below video when video is present */}
+      {videoUrl && (
+        <div className="px-1">
+          <p className="text-sm text-foreground/80 leading-relaxed mb-1">{description}</p>
+          <p className="text-xs text-muted-foreground">{descEn}</p>
+        </div>
+      )}
     </div>
   );
 }
