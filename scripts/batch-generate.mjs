@@ -12,7 +12,7 @@
  *   --length      Video length in seconds, 2-12 (default: 5)
  *   --model       veo-3.1 | veo-3.1-fast | kling-ai | byteplus (default: byteplus)
  *   --concurrency Max concurrent requests (default: 3)
- *   --base-url    API base URL (default: http://localhost:3000)
+ *   --base-url    API base URL (default: https://glimmer.video)
  *   --dry-run     Just list files, don't generate
  */
 
@@ -39,7 +39,7 @@ const config = {
   model: getArg('model', 'byteplus'),
   aspectRatio: getArg('aspect-ratio', '16:9'), // 16:9 or 9:16
   concurrency: parseInt(getArg('concurrency', '1'), 10), // Default 1 to respect rate limit
-  baseUrl: getArg('base-url', 'http://localhost:3000'),
+  baseUrl: getArg('base-url', 'https://glimmer.video'),
   delay: parseInt(getArg('delay', '13'), 10), // Seconds between requests (5 req/min = 12s min)
   dryRun: args.includes('--dry-run'),
 };
