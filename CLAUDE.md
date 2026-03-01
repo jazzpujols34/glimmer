@@ -75,7 +75,7 @@ node scripts/batch-generate.mjs /path/to/photos --email user@example.com --base-
 | `--model` | `byteplus`, `veo-3.1`, `kling-ai` | `byteplus` |
 | `--occasion` | `memorial`, `birthday`, `wedding`, `pet`, `other` | `memorial` |
 | `--delay` | seconds between requests (rate limit) | 13 |
-| `--base-url` | API endpoint | `http://localhost:3200` |
+| `--base-url` | API endpoint | `https://glimmer.video` |
 | `--dry-run` | list files without generating | - |
 
 **Aspect ratio is auto-detected** from photo dimensions (portrait → 9:16, landscape → 16:9). No need to specify manually.
@@ -247,3 +247,5 @@ Pay-per-video credits (not subscriptions). Email-only identity (no passwords/OAu
 - **[2026-02-28] Edge Runtime Reminder**: When creating new `'use client'` pages, **ALWAYS create a sibling `layout.tsx`** with `export const runtime = 'edge';`. Client components cannot export runtime config directly. This is the #1 cause of Cloudflare Pages build failures. Checklist: (1) New client page → create `layout.tsx` with runtime export, (2) New API route → add runtime export at top, (3) New server page → add runtime export directly.
 
 - **[2026-02-28] Transition Type Migration**: When changing enum values (e.g., renaming 'crossfade' → 'fade'), add migration logic in auto-save restore. Pattern in `auto-save.ts`: check if old value exists, map to new value, fall back to default for unknown types. This prevents crashes when users have old saved state in IndexedDB.
+
+- **[2026-03-02] Video Generation — Always Use Production**: **NEVER generate videos via localhost/dev server.** Local dev lacks proper KV bindings, R2 archival, and env vars — generation consistently fails or errors out. **Always use `--base-url https://glimmer.video`** when running `batch-generate.mjs` or any generation scripts. The production Cloudflare Pages deployment has all bindings configured correctly. Quick command: `node scripts/batch-generate.mjs /path/to/photos --email glimmer.hello@gmail.com --clips 3 --base-url https://glimmer.video`

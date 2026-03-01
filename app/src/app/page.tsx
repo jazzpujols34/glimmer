@@ -143,21 +143,37 @@ export default function LandingPage() {
             </p>
           </div>
 
-          {/* Featured Demo Video */}
-          <div className="max-w-3xl mx-auto mb-16">
-            <div className="relative rounded-xl overflow-hidden shadow-2xl bg-black aspect-video">
-              <video
-                className="w-full h-full object-cover"
-                controls
-                preload="metadata"
-                poster="/demo-poster.jpg"
-              >
-                <source src="/demo-video.mp4" type="video/mp4" />
-              </video>
+          {/* Featured Demo Videos */}
+          <div className="grid md:grid-cols-2 gap-6 max-w-5xl mx-auto mb-16">
+            <div>
+              <div className="relative rounded-xl overflow-hidden shadow-2xl bg-black aspect-video">
+                <video
+                  className="w-full h-full object-cover"
+                  controls
+                  preload="metadata"
+                  poster="/demo-poster.jpg"
+                >
+                  <source src="/showcase-video-1.mp4" type="video/mp4" />
+                </video>
+              </div>
+              <p className="text-center mt-3 text-sm text-muted-foreground">
+                追思紀念影片範例 1
+              </p>
             </div>
-            <p className="text-center mt-4 text-sm text-muted-foreground">
-              AI 生成的追思紀念影片範例 · 36 秒完整展示
-            </p>
+            <div>
+              <div className="relative rounded-xl overflow-hidden shadow-2xl bg-black aspect-video">
+                <video
+                  className="w-full h-full object-cover"
+                  controls
+                  preload="metadata"
+                >
+                  <source src="/showcase-video-2.mp4" type="video/mp4" />
+                </video>
+              </div>
+              <p className="text-center mt-3 text-sm text-muted-foreground">
+                追思紀念影片範例 2
+              </p>
+            </div>
           </div>
 
           <div className="grid md:grid-cols-2 gap-8 max-w-5xl mx-auto">
