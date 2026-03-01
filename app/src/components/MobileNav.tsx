@@ -7,8 +7,8 @@ import { Sparkles } from 'lucide-react';
 
 const navItems = [
   { href: '#showcase', label: '作品展示' },
-  { href: '#features', label: '功能特色' },
-  { href: '#why-us', label: '為什麼選我們' },
+  { href: '#features', label: '產品優勢' },
+  { href: '#why-us', label: '方案比較' },
   { href: '#pricing', label: '方案價格' },
   { href: '#business', label: '企業方案' },
   { href: '#faq', label: '常見問題' },

@@ -63,10 +63,10 @@ export default function LandingPage() {
               作品展示
             </a>
             <a href="#features" className="text-muted-foreground hover:text-foreground transition-colors">
-              功能特色
+              產品優勢
             </a>
             <a href="#why-us" className="text-muted-foreground hover:text-foreground transition-colors">
-              為什麼選我們
+              方案比較
             </a>
             <a href="#pricing" className="text-muted-foreground hover:text-foreground transition-colors">
               方案價格
@@ -303,10 +303,10 @@ export default function LandingPage() {
         <div className="container mx-auto px-4 py-20 md:py-28">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-bold mb-4">
-              為什麼選擇拾光
+              拾光的優勢
             </h2>
             <p className="text-muted-foreground text-lg">
-              Benefits that matter to you
+              What makes Glimmer special
             </p>
           </div>
 
@@ -449,10 +449,10 @@ export default function LandingPage() {
         <div className="container mx-auto px-4 py-20 md:py-28">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-bold mb-4">
-              為什麼選擇拾光？
+              與傳統方案比較
             </h2>
             <p className="text-muted-foreground text-lg">
-              How Glimmer compares to other options
+              See how Glimmer compares
             </p>
           </div>
 
