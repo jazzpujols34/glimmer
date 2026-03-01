@@ -143,9 +143,10 @@ export default function LandingPage() {
             </p>
           </div>
 
-          {/* Featured Demo Videos */}
-          <div className="grid md:grid-cols-2 gap-6 max-w-5xl mx-auto mb-16">
-            <div>
+          {/* Featured Demo Videos - Mixed aspect ratios */}
+          <div className="flex flex-col md:flex-row gap-6 max-w-5xl mx-auto mb-16 items-center justify-center">
+            {/* Landscape video (16:9) */}
+            <div className="w-full md:w-3/5">
               <div className="relative rounded-xl overflow-hidden shadow-2xl bg-black aspect-video">
                 <video
                   className="w-full h-full object-cover"
@@ -157,11 +158,12 @@ export default function LandingPage() {
                 </video>
               </div>
               <p className="text-center mt-3 text-sm text-muted-foreground">
-                追思紀念影片範例 1
+                橫式追思影片
               </p>
             </div>
-            <div>
-              <div className="relative rounded-xl overflow-hidden shadow-2xl bg-black aspect-video">
+            {/* Portrait video (9:16) */}
+            <div className="w-48 md:w-56">
+              <div className="relative rounded-xl overflow-hidden shadow-2xl bg-black aspect-[9/16]">
                 <video
                   className="w-full h-full object-cover"
                   controls
@@ -171,7 +173,7 @@ export default function LandingPage() {
                 </video>
               </div>
               <p className="text-center mt-3 text-sm text-muted-foreground">
-                追思紀念影片範例 2
+                直式追思影片
               </p>
             </div>
           </div>
