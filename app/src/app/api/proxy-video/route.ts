@@ -22,68 +22,68 @@ export async function GET(request: NextRequest) {
     }
 
     const job = await getJob(jobId);
-    if (!job) {
-      console.error(`[proxy-video] Job not found: ${jobId}`);
-      return NextResponse.json({ error: '找不到該影片 (job not found in KV)' }, { status: 404 });
-    }
-    if (job.status !== 'complete') {
-      console.error(`[proxy-video] Job not complete: ${jobId}, status=${job.status}`);
-      return NextResponse.json({ error: `影片尚未完成 (status: ${job.status})` }, { status: 404 });
-    }
 
-    const urls = job.videoUrls?.length ? job.videoUrls : job.videoUrl ? [job.videoUrl] : [];
-    console.log(`[proxy-video] Job ${jobId} has ${urls.length} videos, requesting index ${index}`);
+    // If job exists in KV, use its video URLs
+    if (job && job.status === 'complete') {
+      const urls = job.videoUrls?.length ? job.videoUrls : job.videoUrl ? [job.videoUrl] : [];
+      console.log(`[proxy-video] Job ${jobId} found in KV, ${urls.length} videos`);
 
-    if (index < 0 || index >= urls.length) {
-      return NextResponse.json({ error: `Invalid video index: ${index} (available: 0-${urls.length - 1})` }, { status: 400 });
-    }
-
-    const videoUrl = urls[index];
-    const isR2Key = !videoUrl.startsWith('http');
-    console.log(`[proxy-video] Video URL: ${videoUrl.substring(0, 100)}, isR2Key=${isR2Key}`);
-
-    if (isR2Key) {
-      // Read from R2 storage
-      const r2Object = await r2Get(videoUrl);
-      if (!r2Object) {
-        console.error(`[proxy-video] R2 object not found: ${videoUrl}`);
-        return NextResponse.json(
-          { error: `影片檔案不存在 (R2 key: ${videoUrl})，可能已過期或 R2 未設定。` },
-          { status: 404 }
-        );
+      if (index < 0 || index >= urls.length) {
+        return NextResponse.json({ error: `Invalid video index: ${index} (available: 0-${urls.length - 1})` }, { status: 400 });
       }
-      console.log(`[proxy-video] R2 object found: ${videoUrl}, size=${r2Object.size}`);
 
+      const videoUrl = urls[index];
+      const isR2Key = !videoUrl.startsWith('http');
+
+      if (isR2Key) {
+        const r2Object = await r2Get(videoUrl);
+        if (r2Object) {
+          console.log(`[proxy-video] R2 object found: ${videoUrl}, size=${r2Object.size}`);
+          const headers = new Headers({
+            'Content-Type': r2Object.contentType,
+            'Content-Length': String(r2Object.size),
+            'Cache-Control': 'public, s-maxage=86400, max-age=14400',
+          });
+          return new NextResponse(r2Object.body, { status: 200, headers });
+        }
+      } else {
+        // CDN URL
+        const cdnResponse = await fetch(videoUrl);
+        if (cdnResponse.ok) {
+          const contentType = cdnResponse.headers.get('content-type') || 'video/mp4';
+          const contentLength = cdnResponse.headers.get('content-length');
+          const headers = new Headers({
+            'Content-Type': contentType,
+            'Cache-Control': 'public, s-maxage=86400, max-age=14400',
+          });
+          if (contentLength) headers.set('Content-Length', contentLength);
+          return new NextResponse(cdnResponse.body, { status: 200, headers });
+        }
+      }
+    }
+
+    // KV record expired or video URL failed - try R2 directly with standard key pattern
+    // Videos are archived to: videos/{jobId}/{index}.mp4
+    const r2Key = `videos/${jobId}/${index}.mp4`;
+    console.log(`[proxy-video] KV miss or URL failed, trying R2 directly: ${r2Key}`);
+
+    const r2Object = await r2Get(r2Key);
+    if (r2Object) {
+      console.log(`[proxy-video] R2 fallback success: ${r2Key}, size=${r2Object.size}`);
       const headers = new Headers({
         'Content-Type': r2Object.contentType,
         'Content-Length': String(r2Object.size),
         'Cache-Control': 'public, s-maxage=86400, max-age=14400',
       });
-
       return new NextResponse(r2Object.body, { status: 200, headers });
     }
 
-    // Legacy: fetch video from CDN server-side (no CORS restriction)
-    const cdnResponse = await fetch(videoUrl);
-    if (!cdnResponse.ok) {
-      return NextResponse.json(
-        { error: `CDN fetch failed: ${cdnResponse.status}. 影片連結可能已過期，請重新生成。` },
-        { status: 502 }
-      );
-    }
-
-    const contentType = cdnResponse.headers.get('content-type') || 'video/mp4';
-    const contentLength = cdnResponse.headers.get('content-length');
-
-    const headers = new Headers({
-      'Content-Type': contentType,
-      'Cache-Control': 'public, s-maxage=86400, max-age=14400',
-    });
-    if (contentLength) {
-      headers.set('Content-Length', contentLength);
-    }
-
-    return new NextResponse(cdnResponse.body, { status: 200, headers });
+    // Video not found anywhere
+    console.error(`[proxy-video] Video not found: jobId=${jobId}, index=${index}`);
+    return NextResponse.json(
+      { error: '找不到該影片。KV 記錄已過期且 R2 中無存檔。' },
+      { status: 404 }
+    );
   } catch (error) {
     captureError(error, { route: '/api/proxy-video' });
     return NextResponse.json({ error: '影片代理載入失敗' }, { status: 500 });
