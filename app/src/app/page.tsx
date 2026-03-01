@@ -843,7 +843,12 @@ function ShowcaseCard({
           </div>
         </div>
         <div className="flex gap-4">
-          {/* Portrait video - smaller */}
+          {/* Description on the left */}
+          <div className="flex-1 flex flex-col justify-center">
+            <p className="text-sm text-foreground/80 leading-relaxed mb-2">{description}</p>
+            <p className="text-xs text-muted-foreground">{descEn}</p>
+          </div>
+          {/* Portrait video on the right */}
           <div className="w-32 flex-shrink-0">
             <div className="aspect-[9/16] rounded-xl bg-black border border-border/50 overflow-hidden group-hover:border-primary/30 transition-colors relative">
               <video
@@ -864,11 +869,6 @@ function ShowcaseCard({
                 </span>
               </div>
             </div>
-          </div>
-          {/* Description */}
-          <div className="flex-1 flex flex-col justify-center">
-            <p className="text-sm text-foreground/80 leading-relaxed mb-2">{description}</p>
-            <p className="text-xs text-muted-foreground">{descEn}</p>
           </div>
         </div>
       </div>
