@@ -134,12 +134,29 @@ export default function LandingPage() {
       {/* Showcase Section */}
       <section id="showcase" className="border-t border-border bg-card/50 scroll-mt-20">
         <div className="container mx-auto px-4 py-20 md:py-28">
-          <div className="text-center mb-16">
+          <div className="text-center mb-12">
             <h2 className="text-3xl md:text-4xl font-bold mb-4">
               作品展示
             </h2>
             <p className="text-muted-foreground text-lg">
               See what Glimmer can create for every occasion
+            </p>
+          </div>
+
+          {/* Featured Demo Video */}
+          <div className="max-w-3xl mx-auto mb-16">
+            <div className="relative rounded-xl overflow-hidden shadow-2xl bg-black aspect-video">
+              <video
+                className="w-full h-full object-cover"
+                controls
+                preload="metadata"
+                poster="/demo-poster.jpg"
+              >
+                <source src="/demo-video.mp4" type="video/mp4" />
+              </video>
+            </div>
+            <p className="text-center mt-4 text-sm text-muted-foreground">
+              AI 生成的追思紀念影片範例 · 36 秒完整展示
             </p>
           </div>
 
