@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { Logo } from '@/components/Logo';
 import { Button } from '@/components/ui/button';
@@ -54,6 +54,25 @@ export default function GalleryPage() {
   const [projectDropdownOpen, setProjectDropdownOpen] = useState(false);
   const [movingToProject, setMovingToProject] = useState(false);
   const [loadedVideos, setLoadedVideos] = useState<Set<string>>(new Set());
+
+  // Stable clip labels: map URL → original letter label (set when modal opens)
+  const clipLabelsRef = useRef<Map<string, string>>(new Map());
+
+  const initClipLabels = (job: GalleryJob) => {
+    const urls = job.videoUrls || [job.videoUrl];
+    // Only initialize if not already set for this job's URLs
+    const alreadySet = urls.some(url => clipLabelsRef.current.has(url));
+    if (!alreadySet) {
+      clipLabelsRef.current.clear();
+      urls.forEach((url, i) => {
+        clipLabelsRef.current.set(url, String.fromCharCode(65 + i));
+      });
+    }
+  };
+
+  const getClipLabel = (url: string, fallbackIndex: number): string => {
+    return clipLabelsRef.current.get(url) || String.fromCharCode(65 + fallbackIndex);
+  };
 
   // Multi-select for showcase builder
   const [selectMode, setSelectMode] = useState(false);
@@ -173,8 +192,8 @@ export default function GalleryPage() {
     }
   };
 
-  const handleDeleteClip = async (jobId: string, videoIndex: number) => {
-    if (!confirm(`確定要刪除影片 ${videoIndex + 1} 嗎？`)) return;
+  const handleDeleteClip = async (jobId: string, videoIndex: number, clipLabel: string) => {
+    if (!confirm(`確定要刪除影片 ${clipLabel} 嗎？`)) return;
 
     setDeleting(`${jobId}-${videoIndex}`);
     try {
@@ -204,6 +223,51 @@ export default function GalleryPage() {
             setSelectedVideoIndex(0);
           }
         }
+      }
+    } catch (err) {
+      alert(err instanceof Error ? err.message : '刪除失敗');
+    } finally {
+      setDeleting(null);
+    }
+  };
+
+  const handleKeepOnlyClip = async (jobId: string, keepIndex: number, clipLabel: string) => {
+    const job = jobs.find(j => j.id === jobId);
+    const totalClips = job?.videoUrls?.length || 0;
+    if (totalClips <= 1) return;
+
+    if (!confirm(`只保留影片 ${clipLabel}，刪除其餘 ${totalClips - 1} 個影片？`)) return;
+
+    setDeleting(`${jobId}-keep`);
+    try {
+      // Delete from highest index to lowest so indices don't shift
+      // Skip the one we want to keep
+      let currentKeepIdx = keepIndex;
+      for (let idx = totalClips - 1; idx >= 0; idx--) {
+        if (idx === currentKeepIdx) continue;
+        // After deleting an index above keepIndex, keepIndex stays the same
+        // After deleting an index below keepIndex, keepIndex shifts down by 1
+        const res = await fetch(`/api/gallery/${jobId}?videoIndex=${idx}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || '刪除失敗');
+        if (idx < currentKeepIdx) currentKeepIdx--;
+      }
+
+      // Fetch final state
+      const res = await fetch(`/api/gallery/${jobId}`);
+      const data = await res.json();
+
+      const updatedVideoUrls = data.videoUrls || [data.videoUrl];
+      setJobs((prev) => prev.map((j) =>
+        j.id === jobId ? { ...j, videoUrls: updatedVideoUrls, videoUrl: updatedVideoUrls[0] } : j
+      ));
+      if (selectedJob?.id === jobId) {
+        setSelectedJob((prev) => prev ? {
+          ...prev,
+          videoUrls: updatedVideoUrls,
+          videoUrl: updatedVideoUrls[0]
+        } : null);
+        setSelectedVideoIndex(0);
       }
     } catch (err) {
       alert(err instanceof Error ? err.message : '刪除失敗');
@@ -468,9 +532,11 @@ export default function GalleryPage() {
                         toggleClipSelection(job.id, 0);
                       } else {
                         // For multi-video jobs, open modal to select specific clips
+                        initClipLabels(job);
                         setSelectedJob(job);
                       }
                     } else {
+                      initClipLabels(job);
                       setSelectedJob(job);
                     }
                   }}
@@ -665,15 +731,17 @@ export default function GalleryPage() {
             {selectedJob.videoUrls && selectedJob.videoUrls.length > 1 && (
               <div className="p-4 border-t border-border">
                 <p className="text-sm text-muted-foreground mb-2">
-                  {selectMode ? '選取要加入展示影片的片段' : `選擇影片 (${selectedVideoIndex + 1}/${selectedJob.videoUrls.length})`}
+                  {selectMode ? '選取要加入展示影片的片段' : `選擇影片 (${getClipLabel(selectedJob.videoUrls[selectedVideoIndex], selectedVideoIndex)}/${selectedJob.videoUrls.length})`}
                 </p>
                 <div className="flex gap-2 overflow-x-auto pb-2">
                   {selectedJob.videoUrls.map((url, index) => {
+                    const clipLabel = getClipLabel(url, index);
                     const clipKey = `${selectedJob.id}:${index}`;
                     const isClipSelected = selectedClips.has(clipKey);
+                    const isCurrentClip = selectedVideoIndex === index;
 
                     return (
-                    <div key={index} className="flex-shrink-0 flex items-center gap-1">
+                    <div key={url} className="flex-shrink-0 flex items-center gap-1">
                       {selectMode && (
                         <button
                           onClick={() => toggleClipSelection(selectedJob.id, index)}
@@ -697,25 +765,39 @@ export default function GalleryPage() {
                         className={cn(
                           "px-3 py-2 text-sm flex items-center gap-2 transition-colors",
                           selectMode ? "" : "rounded-l",
-                          selectedVideoIndex === index
+                          isCurrentClip
                             ? "bg-primary text-primary-foreground"
                             : "bg-muted hover:bg-muted/80"
                         )}
                       >
                         <Play className="w-4 h-4" />
-                        影片 {index + 1}
+                        影片 {clipLabel}
                       </button>
+                      {!selectMode && isCurrentClip && selectedJob.videoUrls!.length > 1 && (
+                        <button
+                          onClick={() => handleKeepOnlyClip(selectedJob.id, index, clipLabel)}
+                          disabled={deleting !== null}
+                          className="px-2 py-2 text-sm transition-colors bg-primary/80 text-primary-foreground hover:bg-green-600"
+                          title="只保留這個影片，刪除其餘"
+                        >
+                          {deleting === `${selectedJob.id}-keep` ? (
+                            <div className="w-4 h-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                          ) : (
+                            <Star className="w-4 h-4" />
+                          )}
+                        </button>
+                      )}
                       {!selectMode && (
                         <button
-                          onClick={() => handleDeleteClip(selectedJob.id, index)}
-                          disabled={deleting === `${selectedJob.id}-${index}`}
+                          onClick={() => handleDeleteClip(selectedJob.id, index, clipLabel)}
+                          disabled={deleting !== null}
                           className={cn(
                             "px-2 py-2 rounded-r text-sm transition-colors",
-                            selectedVideoIndex === index
+                            isCurrentClip
                               ? "bg-primary/80 text-primary-foreground hover:bg-destructive"
                               : "bg-muted hover:bg-destructive hover:text-destructive-foreground"
                           )}
-                          title="刪除此影片"
+                          title={`刪除影片 ${clipLabel}`}
                         >
                           {deleting === `${selectedJob.id}-${index}` ? (
                             <div className="w-4 h-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
@@ -733,7 +815,7 @@ export default function GalleryPage() {
               <Button asChild className="flex-1 min-w-[120px]">
                 <a
                   href={selectedJob.videoUrls?.[selectedVideoIndex] || selectedJob.videoUrl}
-                  download={`${selectedJob.name}${selectedJob.videoUrls && selectedJob.videoUrls.length > 1 ? `-${selectedVideoIndex + 1}` : ''}.mp4`}
+                  download={`${selectedJob.name}${selectedJob.videoUrls && selectedJob.videoUrls.length > 1 ? `-${getClipLabel(selectedJob.videoUrls[selectedVideoIndex], selectedVideoIndex)}` : ''}.mp4`}
                 >
                   <Download className="w-4 h-4 sm:mr-2" />
                   <span className="hidden sm:inline">下載影片</span>
