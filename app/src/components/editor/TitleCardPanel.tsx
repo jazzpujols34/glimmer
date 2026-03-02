@@ -10,11 +10,18 @@ import type { TitleCard } from '@/types/editor';
 import { cn } from '@/lib/utils';
 
 const COLOR_PRESETS = [
+  // Classic
   { bg: '#000000', text: '#ffffff', label: '黑底白字' },
   { bg: '#ffffff', text: '#1a1a1a', label: '白底黑字' },
   { bg: '#1e293b', text: '#e2e8f0', label: '深藍' },
   { bg: '#fef3c7', text: '#78350f', label: '暖黃' },
   { bg: '#f3e8ff', text: '#581c87', label: '淡紫' },
+  // Elegant tones
+  { bg: '#85325c', text: '#f0eada', label: '玫瑰木' },
+  { bg: '#3d348b', text: '#e1e2dc', label: '皇家靛' },
+  { bg: '#73362a', text: '#f0eada', label: '可可棕' },
+  { bg: '#aa7733', text: '#f5edd7', label: '金銅色' },
+  { bg: '#73754c', text: '#edeae5', label: '橄欖綠' },
 ];
 
 function defaultCard(type: 'intro' | 'outro'): TitleCard {
