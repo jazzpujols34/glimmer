@@ -153,10 +153,11 @@ export function StoryboardPreviewModal({ storyboard, onClose }: StoryboardPrevie
     }
   }, []);
 
-  const goToNext = useCallback(() => {
+  // Skip to next item (for error cases / immediate cuts)
+  const skipToNext = useCallback(() => {
+    setTransitioning(false);
+    setTransitionProgress(0);
     if (currentIndex < totalItems - 1) {
-      setTransitioning(false);
-      setTransitionProgress(0);
       setCurrentIndex(prev => prev + 1);
     } else {
       // End of playlist
@@ -169,38 +170,55 @@ export function StoryboardPreviewModal({ storyboard, onClose }: StoryboardPrevie
 
   // Start transition to next item
   const startTransition = useCallback(() => {
+    // Prevent starting transition if already transitioning
+    if (transitioning) return;
+
     if (currentTransitionMs === 0) {
       // Immediate cut
-      goToNext();
+      skipToNext();
       return;
     }
 
     setTransitioning(true);
     setTransitionProgress(0);
 
-    // Animate transition progress
-    const startTime = performance.now();
-    const animate = () => {
-      const elapsed = performance.now() - startTime;
-      const progress = Math.min(elapsed / currentTransitionMs, 1);
-      setTransitionProgress(progress);
-
-      if (progress < 1) {
-        transitionTimerRef.current = setTimeout(() => {
-          animationFrameRef.current = requestAnimationFrame(animate);
-        }, 16) as unknown as NodeJS.Timeout;
-      } else {
-        goToNext();
-      }
-    };
-    animationFrameRef.current = requestAnimationFrame(animate);
-
     // Also start next video if it's a clip
     if (nextItem?.type === 'clip' && nextVideoRef.current) {
       nextVideoRef.current.currentTime = 0;
       nextVideoRef.current.play().catch(() => {});
     }
-  }, [currentTransitionMs, goToNext, nextItem]);
+
+    // Animate transition progress using only requestAnimationFrame
+    const startTime = performance.now();
+    const duration = currentTransitionMs;
+
+    const animate = () => {
+      const elapsed = performance.now() - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      setTransitionProgress(progress);
+
+      if (progress < 1) {
+        transitionTimerRef.current = requestAnimationFrame(animate) as unknown as NodeJS.Timeout;
+      } else {
+        // Transition complete
+        setTransitioning(false);
+        setTransitionProgress(0);
+        setCurrentIndex(prev => {
+          if (prev < totalItems - 1) {
+            return prev + 1;
+          } else {
+            // End of playlist
+            setPlaying(false);
+            setElapsedTime(0);
+            elapsedBeforePlayRef.current = 0;
+            return 0;
+          }
+        });
+      }
+    };
+
+    transitionTimerRef.current = requestAnimationFrame(animate) as unknown as NodeJS.Timeout;
+  }, [currentTransitionMs, nextItem, transitioning, totalItems, skipToNext]);
 
   // Play card with timer
   const playCard = useCallback((duration: number) => {
@@ -216,18 +234,18 @@ export function StoryboardPreviewModal({ storyboard, onClose }: StoryboardPrevie
 
   // Update elapsed time using requestAnimationFrame for smooth progress
   useEffect(() => {
-    if (!playing) {
-      // Store current elapsed time when paused
-      elapsedBeforePlayRef.current = elapsedTime;
-      return;
-    }
+    if (!playing) return;
 
-    playStartTimeRef.current = performance.now();
+    // Capture current elapsed time when starting to play
+    const startElapsed = elapsedBeforePlayRef.current;
+    const startTime = performance.now();
 
     const updateElapsed = () => {
       const now = performance.now();
-      const playingTime = (now - playStartTimeRef.current) / 1000;
-      setElapsedTime(elapsedBeforePlayRef.current + playingTime);
+      const playingTime = (now - startTime) / 1000;
+      const newElapsed = startElapsed + playingTime;
+      setElapsedTime(newElapsed);
+      elapsedBeforePlayRef.current = newElapsed; // Keep ref in sync for pause
       animationFrameRef.current = requestAnimationFrame(updateElapsed);
     };
 
@@ -236,9 +254,10 @@ export function StoryboardPreviewModal({ storyboard, onClose }: StoryboardPrevie
     return () => {
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = null;
       }
     };
-  }, [playing, elapsedTime]);
+  }, [playing]); // Only depend on playing, not elapsedTime
 
   // Handle playing state change
   useEffect(() => {
@@ -365,7 +384,7 @@ export function StoryboardPreviewModal({ storyboard, onClose }: StoryboardPrevie
               <button
                 onClick={() => {
                   setVideoError(false);
-                  goToNext();
+                  skipToNext();
                 }}
                 className="text-sm text-white/70 hover:text-white underline"
               >
