@@ -187,6 +187,7 @@ export default function LandingPage() {
               description="畢業典禮、退休歡送、聚會回顧 — 任何值得紀念的時刻都能製作專屬影片。"
               descEn="Graduations, retirements, reunions — any moment worth remembering."
               stat="多種 AI 模型可選"
+              videoUrl="/showcase-video-other.mp4"
             />
           </div>
 

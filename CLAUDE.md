@@ -15,8 +15,7 @@
 - `app/src/lib/prompts.ts` — Prompt builder
 - `app/src/types/index.ts` — Shared TypeScript types
 - `app/src/app/api/` — API routes (generate, status, gallery, proxy-video, transcribe)
-- `scripts/` — Nightly compound automation scripts
-- `reports/backlog.md` — Prioritized feature backlog (read by auto-compound)
+- `scripts/` — Batch generation and utility scripts
 
 ## Architecture
 
