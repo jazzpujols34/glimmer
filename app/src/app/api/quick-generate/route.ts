@@ -1,6 +1,6 @@
 export const runtime = 'edge';
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import {
   createJob,
   updateJob,
@@ -11,17 +11,17 @@ import {
   createQuickJob,
 } from '@/lib/storage';
 import { createVideoTask } from '@/lib/veo';
-import { checkCredits, consumeCredit, isValidEmail } from '@/lib/credits';
+import { checkCredits, consumeCredit } from '@/lib/credits';
 import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
 import { captureError } from '@/lib/errors';
 import { getTemplateById } from '@/lib/templates';
+import { isValidEmail, isValidOccasion, validateName, validatePhoto } from '@/lib/validation';
+import { successResponse, errors } from '@/lib/api-response';
+import { logger } from '@/lib/logger';
 import type { GenerationSettings, OccasionType } from '@/types';
 import { defaultSettings } from '@/types';
 
-const VALID_OCCASIONS = ['memorial', 'birthday', 'wedding', 'pet', 'other'];
-const MAX_PHOTO_SIZE = 10 * 1024 * 1024; // 10 MB
 const MAX_PHOTOS = 20;
-const MAX_NAME_LENGTH = 100;
 
 export async function POST(request: NextRequest) {
   try {
@@ -29,10 +29,8 @@ export async function POST(request: NextRequest) {
     const ip = getClientIP(request);
     const rateCheck = await checkRateLimit(`quick:${ip}`, 3, 60);
     if (!rateCheck.allowed) {
-      return NextResponse.json(
-        { error: '請求過於頻繁，請稍後再試' },
-        { status: 429 }
-      );
+      const retryAfter = Math.max(1, rateCheck.resetAt - Math.floor(Date.now() / 1000));
+      return errors.rateLimited(retryAfter);
     }
 
     const formData = await request.formData();
@@ -46,22 +44,23 @@ export async function POST(request: NextRequest) {
 
     // Validate required fields
     if (!email || !isValidEmail(email)) {
-      return NextResponse.json({ error: '請提供有效的 Email' }, { status: 400 });
+      return errors.invalidEmail();
     }
     if (!templateId) {
-      return NextResponse.json({ error: '請選擇模板' }, { status: 400 });
+      return errors.missingField('templateId');
     }
-    if (!name || name.length > MAX_NAME_LENGTH) {
-      return NextResponse.json({ error: '請提供名稱' }, { status: 400 });
+    const nameValidation = validateName(name);
+    if (!nameValidation.valid) {
+      return errors.invalidInput(nameValidation.error!);
     }
-    if (!occasion || !VALID_OCCASIONS.includes(occasion)) {
-      return NextResponse.json({ error: '無效的場合' }, { status: 400 });
+    if (!occasion || !isValidOccasion(occasion)) {
+      return errors.invalidInput('無效的場合');
     }
 
     // Validate template
     const template = getTemplateById(templateId);
     if (!template) {
-      return NextResponse.json({ error: '無效的模板' }, { status: 400 });
+      return errors.invalidInput('無效的模板');
     }
 
     // Extract photos
@@ -70,20 +69,18 @@ export async function POST(request: NextRequest) {
 
     for (const file of photoFiles) {
       if (!(file instanceof Blob)) continue;
-      if (file.size > MAX_PHOTO_SIZE) {
-        return NextResponse.json({ error: '照片大小不得超過 10 MB' }, { status: 400 });
-      }
-      if (!file.type.startsWith('image/')) {
-        return NextResponse.json({ error: '僅接受圖片檔案' }, { status: 400 });
+      const photoValidation = validatePhoto(file);
+      if (!photoValidation.valid) {
+        return errors.invalidInput(photoValidation.error!);
       }
       photos.push(Buffer.from(await file.arrayBuffer()));
     }
 
     if (photos.length < 2) {
-      return NextResponse.json({ error: '請上傳至少 2 張照片' }, { status: 400 });
+      return errors.invalidInput('請上傳至少 2 張照片');
     }
     if (photos.length > MAX_PHOTOS) {
-      return NextResponse.json({ error: `最多只能上傳 ${MAX_PHOTOS} 張照片` }, { status: 400 });
+      return errors.invalidInput(`最多只能上傳 ${MAX_PHOTOS} 張照片`);
     }
 
     const totalSegments = photos.length - 1;
@@ -91,10 +88,7 @@ export async function POST(request: NextRequest) {
     // Check credits
     const credits = await checkCredits(email);
     if (credits.remaining < totalSegments) {
-      return NextResponse.json(
-        { error: `點數不足，需要 ${totalSegments} 點，剩餘 ${credits.remaining} 點` },
-        { status: 402 }
-      );
+      return errors.insufficientCredits();
     }
 
     // Build generation settings
@@ -127,7 +121,7 @@ export async function POST(request: NextRequest) {
       message,
     );
 
-    console.log(`[quick-generate] Created quickJob ${quickJob.id}, batch ${batch.id}, ${totalSegments} segments`);
+    logger.debug('quick-generate', `Created quickJob ${quickJob.id}, batch ${batch.id}, ${totalSegments} segments`);
 
     // Generate each segment (photo[i] → photo[i+1])
     const segmentResults: { index: number; jobId: string; success: boolean }[] = [];
@@ -140,7 +134,7 @@ export async function POST(request: NextRequest) {
         // Consume credit for this segment
         const creditResult = await consumeCredit(email, `${batch.id}_${i}`);
         if (!creditResult.success) {
-          console.error(`[quick-generate] Credit consumption failed for segment ${i}`);
+          logger.error(`[quick-generate] Credit consumption failed for segment ${i}`);
           segmentResults.push({ index: i, jobId: '', success: false });
           continue;
         }
@@ -177,18 +171,17 @@ export async function POST(request: NextRequest) {
         });
 
         segmentResults.push({ index: i, jobId, success: true });
-        console.log(`[quick-generate] Started segment ${i}, jobId ${jobId}`);
+        logger.debug('quick-generate', `Started segment ${i}, jobId ${jobId}`);
       } catch (err) {
-        console.error(`[quick-generate] Failed to start segment ${i}:`, err);
+        logger.error(`[quick-generate] Failed to start segment ${i}:`, err);
         segmentResults.push({ index: i, jobId: '', success: false });
       }
     }
 
     const successCount = segmentResults.filter(r => r.success).length;
-    console.log(`[quick-generate] Started ${successCount}/${totalSegments} segments`);
+    logger.debug('quick-generate', `Started ${successCount}/${totalSegments} segments`);
 
-    return NextResponse.json({
-      success: true,
+    return successResponse({
       quickId: quickJob.id,
       batchId: batch.id,
       projectId: project.id,
@@ -198,10 +191,7 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     captureError(error, { route: '/api/quick-generate' });
-    console.error('[quick-generate] Error:', error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : '生成失敗' },
-      { status: 500 }
-    );
+    logger.error('[quick-generate] Error:', error);
+    return errors.serverError();
   }
 }

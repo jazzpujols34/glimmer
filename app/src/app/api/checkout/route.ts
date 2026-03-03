@@ -1,10 +1,12 @@
 export const runtime = 'edge';
 
-import { NextRequest, NextResponse } from 'next/server';
-import { isValidEmail } from '@/lib/credits';
+import { NextRequest } from 'next/server';
 import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
 import { captureError } from '@/lib/errors';
 import { createPaymentFormData } from '@/lib/ecpay';
+import { isValidEmail } from '@/lib/validation';
+import { successResponse, errors } from '@/lib/api-response';
+import { logger } from '@/lib/logger';
 
 // Credit pack definitions
 const CREDIT_PACKS: Record<string, { credits: number; priceTWD: number; label: string }> = {
@@ -20,19 +22,20 @@ export async function POST(request: NextRequest) {
     const ip = getClientIP(request);
     const rateCheck = await checkRateLimit(`checkout:${ip}`, 10, 60);
     if (!rateCheck.allowed) {
-      return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
+      const retryAfter = Math.max(1, rateCheck.resetAt - Math.floor(Date.now() / 1000));
+      return errors.rateLimited(retryAfter);
     }
 
     const body = await request.json();
     const { email, packId } = body;
 
     if (!email || !isValidEmail(email)) {
-      return NextResponse.json({ error: '請提供有效的 Email 地址' }, { status: 400 });
+      return errors.invalidEmail();
     }
 
     const pack = CREDIT_PACKS[packId];
     if (!pack) {
-      return NextResponse.json({ error: '無效的方案' }, { status: 400 });
+      return errors.invalidInput('無效的方案');
     }
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://glimmer.video';
@@ -56,14 +59,14 @@ export async function POST(request: NextRequest) {
     // We use CustomField1 to pass email, and parse orderId format to get credits
 
     // Return form data for client to POST to ECPay
-    return NextResponse.json({
+    return successResponse({
       paymentUrl,
       formData,
       orderId,
     });
   } catch (error) {
     captureError(error, { route: '/api/checkout' });
-    console.error('Checkout error:', error);
-    return NextResponse.json({ error: '發生錯誤，請稍後再試' }, { status: 500 });
+    logger.error('Checkout error:', error);
+    return errors.serverError();
   }
 }
