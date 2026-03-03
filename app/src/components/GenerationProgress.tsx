@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { Progress } from '@/components/ui/progress';
 import type { GenerationStatus } from '@/types';
+import { logger } from '@/lib/logger';
 
 interface GenerationProgressProps {
   jobId: string;
@@ -24,28 +25,54 @@ const statusDescriptions: Record<GenerationStatus, string> = {
   error: '處理過程中發生問題，請稍後再試',
 };
 
-// Max polling: ~15 minutes (180 attempts * 5s)
-const MAX_POLL_ATTEMPTS = 180;
-const POLL_INTERVAL_MS = 10000; // 10s to reduce KV reads
+// Exponential backoff configuration
+const INITIAL_INTERVAL_MS = 5000;    // Start at 5s
+const MAX_INTERVAL_MS = 30000;       // Cap at 30s
+const BACKOFF_FACTOR = 1.3;          // Increase by 30% each time
+const RATE_LIMIT_BACKOFF = 2;        // Double on rate limit
+const MAX_POLL_ATTEMPTS = 200;       // ~15 minutes with backoff
 const MAX_CONSECUTIVE_ERRORS = 5;
+const PROGRESS_STALL_THRESHOLD = 3;  // Polls without progress before backoff
 
 export function GenerationProgress({ jobId, onComplete, onError }: GenerationProgressProps) {
   const [status, setStatus] = useState<GenerationStatus>('queued');
   const [progress, setProgress] = useState(0);
   const [networkError, setNetworkError] = useState(false);
 
+  // Refs for polling state (avoid stale closures)
+  const intervalRef = useRef<number>(INITIAL_INTERVAL_MS);
+  const attemptsRef = useRef(0);
+  const consecutiveErrorsRef = useRef(0);
+  const lastProgressRef = useRef(0);
+  const stallCountRef = useRef(0);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const mountedRef = useRef(true);
+
   useEffect(() => {
-    // eslint-disable-next-line prefer-const -- assigned after pollStatus is defined for closure
-    let intervalId: NodeJS.Timeout;
-    let attempts = 0;
-    let consecutiveErrors = 0;
+    mountedRef.current = true;
+
+    // Reset state for new job
+    intervalRef.current = INITIAL_INTERVAL_MS;
+    attemptsRef.current = 0;
+    consecutiveErrorsRef.current = 0;
+    lastProgressRef.current = 0;
+    stallCountRef.current = 0;
+
+    const scheduleNextPoll = (delay: number) => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+      timeoutRef.current = setTimeout(pollStatus, delay);
+    };
 
     const pollStatus = async () => {
-      attempts++;
+      if (!mountedRef.current) return;
 
-      // Timeout protection: stop after ~15 minutes
+      attemptsRef.current++;
+      const attempts = attemptsRef.current;
+
+      // Timeout protection
       if (attempts > MAX_POLL_ATTEMPTS) {
-        clearInterval(intervalId);
         onError('生成時間過長，請稍後在影片庫查看結果 (Generation timed out)');
         return;
       }
@@ -54,50 +81,84 @@ export function GenerationProgress({ jobId, onComplete, onError }: GenerationPro
         const res = await fetch(`/api/status/${jobId}`);
 
         if (!res.ok) {
-          // HTTP error but server is reachable
           const data = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+
           if (res.status === 429) {
-            // Rate limited — slow down but don't error out
+            // Rate limited — back off aggressively
+            intervalRef.current = Math.min(intervalRef.current * RATE_LIMIT_BACKOFF, MAX_INTERVAL_MS);
+            logger.debug('Polling', `Rate limited, backing off to ${intervalRef.current}ms`);
+            scheduleNextPoll(intervalRef.current);
             return;
           }
-          clearInterval(intervalId);
+
           onError(data.error || '發生錯誤');
           return;
         }
 
         const data = await res.json();
-        consecutiveErrors = 0;
-        setNetworkError(false);
+        consecutiveErrorsRef.current = 0;
+        if (mountedRef.current) setNetworkError(false);
 
-        setStatus(data.status);
-        setProgress(data.progress || 0);
+        const newProgress = data.progress || 0;
+
+        // Check if progress has stalled
+        if (newProgress === lastProgressRef.current) {
+          stallCountRef.current++;
+          if (stallCountRef.current >= PROGRESS_STALL_THRESHOLD) {
+            // Progress stalled — increase interval
+            intervalRef.current = Math.min(intervalRef.current * BACKOFF_FACTOR, MAX_INTERVAL_MS);
+            logger.debug('Polling', `Progress stalled, backing off to ${intervalRef.current}ms`);
+          }
+        } else {
+          // Progress detected — reset to faster polling
+          stallCountRef.current = 0;
+          intervalRef.current = INITIAL_INTERVAL_MS;
+          lastProgressRef.current = newProgress;
+        }
+
+        if (mountedRef.current) {
+          setStatus(data.status);
+          setProgress(newProgress);
+        }
 
         if (data.status === 'complete' && data.videoUrl) {
-          clearInterval(intervalId);
           const videoUrls = data.videoUrls || [data.videoUrl];
           onComplete(data.videoUrl, videoUrls, data.analysis);
+          return; // Stop polling
         } else if (data.status === 'error') {
-          clearInterval(intervalId);
           onError(data.error || '發生錯誤');
+          return; // Stop polling
         }
-      } catch (err) {
-        console.error('Polling error:', err);
-        consecutiveErrors++;
-        setNetworkError(true);
 
-        // If server is unreachable for too long, stop polling
-        if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
-          clearInterval(intervalId);
+        // Schedule next poll with current interval
+        scheduleNextPoll(intervalRef.current);
+      } catch (err) {
+        logger.error('Polling error:', err);
+        consecutiveErrorsRef.current++;
+        if (mountedRef.current) setNetworkError(true);
+
+        // Back off on network errors
+        intervalRef.current = Math.min(intervalRef.current * BACKOFF_FACTOR, MAX_INTERVAL_MS);
+
+        if (consecutiveErrorsRef.current >= MAX_CONSECUTIVE_ERRORS) {
           onError('網路連線失敗，請檢查網路後重新整理頁面 (Network error)');
+          return;
         }
+
+        // Retry with backoff
+        scheduleNextPoll(intervalRef.current);
       }
     };
 
-    // Poll immediately, then every 2 seconds
+    // Start polling immediately
     pollStatus();
-    intervalId = setInterval(pollStatus, POLL_INTERVAL_MS);
 
-    return () => clearInterval(intervalId);
+    return () => {
+      mountedRef.current = false;
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
   }, [jobId, onComplete, onError]);
 
   return (
