@@ -8,7 +8,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { LanguageToggle } from '@/components/LanguageToggle';
 import { useTranslation } from '@/lib/i18n';
 import { useAccess } from '@/hooks/useAccess';
-import { Play, Download, Calendar, Film, ArrowLeft, Trash2, Scissors, AlertCircle, X, Star, FolderOpen, ChevronDown, Clock, Lock, CheckSquare, Square, Wand2 } from 'lucide-react';
+import { Play, Download, Calendar, Film, ArrowLeft, Trash2, Scissors, AlertCircle, X, Star, FolderOpen, ChevronDown, Clock, Lock, CheckSquare, Square, Wand2, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Project } from '@/types';
 
@@ -54,6 +54,8 @@ export default function GalleryPage() {
   const [projectDropdownOpen, setProjectDropdownOpen] = useState(false);
   const [movingToProject, setMovingToProject] = useState(false);
   const [loadedVideos, setLoadedVideos] = useState<Set<string>>(new Set());
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshResult, setRefreshResult] = useState<{ updated: number; checked: number } | null>(null);
 
   // Stable clip labels: map URL → original letter label (set when modal opens)
   const clipLabelsRef = useRef<Map<string, string>>(new Map());
@@ -129,6 +131,33 @@ export default function GalleryPage() {
 
     loadGallery();
   }, []);
+
+  // Refresh all processing jobs by polling external providers
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    setRefreshResult(null);
+    try {
+      const res = await fetch('/api/gallery/refresh', { method: 'POST' });
+      const data = await res.json();
+      if (res.ok) {
+        setRefreshResult({ updated: data.updated, checked: data.checked });
+        // Reload gallery if any jobs were updated
+        if (data.updated > 0) {
+          const galleryRes = await fetch('/api/gallery');
+          if (galleryRes.ok) {
+            const galleryData = await galleryRes.json();
+            setJobs(galleryData.jobs || []);
+          }
+        }
+        // Clear result message after 5 seconds
+        setTimeout(() => setRefreshResult(null), 5000);
+      }
+    } catch (err) {
+      console.error('Refresh failed:', err);
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   // Load projects for the dropdown
   useEffect(() => {
@@ -423,7 +452,30 @@ export default function GalleryPage() {
                 </>
               )}
             </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleRefresh}
+              disabled={refreshing}
+              title="重新檢查生成中的影片狀態"
+            >
+              <RefreshCw className={cn("w-4 h-4 sm:mr-2", refreshing && "animate-spin")} />
+              <span className="hidden sm:inline">{refreshing ? '檢查中...' : '刷新'}</span>
+            </Button>
           </div>
+
+          {/* Refresh result message */}
+          {refreshResult && (
+            <div className="text-center text-sm text-muted-foreground">
+              {refreshResult.updated > 0 ? (
+                <span className="text-green-600">✓ 已更新 {refreshResult.updated} 支影片</span>
+              ) : refreshResult.checked > 0 ? (
+                <span>已檢查 {refreshResult.checked} 個任務，暫無新影片</span>
+              ) : (
+                <span>沒有進行中的任務</span>
+              )}
+            </div>
+          )}
 
           {/* Selection bar */}
           {selectMode && (
