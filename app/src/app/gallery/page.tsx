@@ -10,6 +10,7 @@ import { useTranslation } from '@/lib/i18n';
 import { useAccess } from '@/hooks/useAccess';
 import { Play, Download, Calendar, Film, ArrowLeft, Trash2, Scissors, AlertCircle, X, Star, FolderOpen, ChevronDown, Clock, Lock, CheckSquare, Square, Wand2, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { trackGalleryView } from '@/lib/analytics';
 import type { Project } from '@/types';
 
 type GalleryFilter = 'all' | 'favorites' | 'projects';
@@ -121,7 +122,9 @@ export default function GalleryPage() {
           throw new Error(data.error || '載入失敗');
         }
         const data = await res.json();
-        setJobs(data.jobs || []);
+        const jobList = data.jobs || [];
+        setJobs(jobList);
+        trackGalleryView(jobList.length);
       } catch (err) {
         setError(err instanceof Error ? err.message : '載入失敗');
       } finally {

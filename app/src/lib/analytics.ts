@@ -94,3 +94,53 @@ export function trackVideoExport(source: 'editor' | 'storyboard' | 'server', dur
     value: Math.round(duration),
   });
 }
+
+// Additional funnel events for drop-off tracking
+
+/** Track when user uploads photos (before generation) */
+export function trackPhotoUpload(photoCount: number, occasion: string): void {
+  trackEvent({
+    action: 'photo_upload',
+    category: 'funnel',
+    label: occasion,
+    value: photoCount,
+  });
+}
+
+/** Track when user views gallery */
+export function trackGalleryView(videoCount: number): void {
+  trackEvent({
+    action: 'gallery_view',
+    category: 'funnel',
+    value: videoCount,
+  });
+}
+
+/** Track when user views upgrade page */
+export function trackUpgradePageView(creditBalance: number): void {
+  trackEvent({
+    action: 'upgrade_view',
+    category: 'funnel',
+    value: creditBalance,
+  });
+}
+
+/** Track when generation fails */
+export function trackGenerationError(occasion: string, model: string, errorCode?: string): void {
+  trackEvent({
+    action: 'generation_error',
+    category: 'video',
+    label: occasion,
+    model,
+    error_code: errorCode,
+  });
+}
+
+/** Track when user opens editor */
+export function trackEditorOpen(clipCount: number): void {
+  trackEvent({
+    action: 'editor_open',
+    category: 'editor',
+    value: clipCount,
+  });
+}

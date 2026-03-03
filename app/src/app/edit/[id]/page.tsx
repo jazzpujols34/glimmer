@@ -10,6 +10,7 @@ import type { EditorState, TimelineClip } from '@/types/editor';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
+import { trackEditorOpen } from '@/lib/analytics';
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -114,6 +115,7 @@ function EditorLoader({ jobId }: { jobId: string }) {
         },
       });
 
+      trackEditorOpen(clips.length);
       setShowRestore(false);
       setLoading(false);
     } catch (err) {

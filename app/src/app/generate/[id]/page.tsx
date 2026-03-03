@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { GenerationProgress } from '@/components/GenerationProgress';
 import { ChevronLeft, ChevronRight, Clock, FolderOpen, Share2 } from 'lucide-react';
-import { trackGenerationComplete } from '@/lib/analytics';
+import { trackGenerationComplete, trackGenerationError } from '@/lib/analytics';
 
 // Share button icons
 function LineIcon({ className }: { className?: string }) {
@@ -61,6 +61,15 @@ export default function GeneratePage({ params }: PageProps) {
 
   const handleError = (err: string) => {
     setError(err);
+
+    // Track generation error
+    try {
+      const stored = localStorage.getItem('glimmer_last_generation');
+      if (stored) {
+        const { occasion, model } = JSON.parse(stored);
+        trackGenerationError(occasion, model, err);
+      }
+    } catch { /* ignore */ }
   };
 
   // Current video URL based on carousel index

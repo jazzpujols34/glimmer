@@ -23,11 +23,16 @@ Generated and deployed all showcase videos:
 
 **Remaining (can be done incrementally):**
 - Audit silent `.catch()` blocks
-- Add polling backoff for status checks
 - Add funnel analytics events
 - Continue updating remaining console.logs (~50 files)
 
-### 3. Gallery & Storyboard Fixes (Earlier)
+### 3. Polling Backoff — DONE
+- Updated `GenerationProgress.tsx` with exponential backoff
+- Start at 5s, cap at 30s max interval
+- Backs off on progress stall (3+ polls), rate limit (429), network errors
+- Resets to fast polling when progress detected
+
+### 4. Gallery & Storyboard Fixes (Earlier)
 - Gallery refresh button (bulk-polls processing jobs)
 - Storyboard color presets synced (10 total)
 - Preview transitions fixed (no more black flash)
@@ -40,9 +45,9 @@ Generated and deployed all showcase videos:
 
 **Latest commits:**
 ```
+9f7ca65 feat: add exponential backoff to status polling
 8316263 feat: add validation and API response utilities
 09f8af5 feat: add logger utility and health endpoint
-dca8937 feat: add other occasions showcase video to homepage
 ```
 
 **Production:** https://glimmer.video — All working
@@ -85,7 +90,7 @@ return errorResponse('Custom message', 400, 'INVALID_INPUT');
 ## Next Priorities
 
 ### Quick (~1 hour each)
-1. **Polling backoff** — Update `GenerationProgress.tsx` with exponential backoff
+1. ~~**Polling backoff**~~ ✅ Done — Exponential backoff in `GenerationProgress.tsx`
 2. **Update remaining console.logs** — Use logger in remaining 50 files
 
 ### Medium (~1 day each)

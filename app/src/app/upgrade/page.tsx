@@ -1,10 +1,12 @@
 'use client';
 
+import { useEffect } from 'react';
 import Link from 'next/link';
 import { Logo } from '@/components/Logo';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Lock, Sparkles, Video, Layers, FolderOpen } from 'lucide-react';
+import { trackUpgradePageView } from '@/lib/analytics';
 
 const FEATURES = [
   {
@@ -25,6 +27,10 @@ const FEATURES = [
 ];
 
 export default function UpgradePage() {
+  useEffect(() => {
+    trackUpgradePageView(0); // Credit balance unknown at this point
+  }, []);
+
   return (
     <div className="min-h-screen flex flex-col">
       <header className="border-b border-border">
