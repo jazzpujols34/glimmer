@@ -3,6 +3,7 @@ export const runtime = 'edge';
 import { NextRequest, NextResponse } from 'next/server';
 import { r2Get } from '@/lib/r2';
 import { captureError } from '@/lib/errors';
+import { logger } from '@/lib/logger';
 
 /**
  * Proxy R2 objects for external access (e.g., Cloud Run export service).
@@ -23,15 +24,15 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid key prefix' }, { status: 403 });
     }
 
-    console.log(`[proxy-r2] Fetching key: ${key}`);
+    logger.debug('proxy-r2', `Fetching key: ${key}`);
 
     const r2Object = await r2Get(key);
     if (!r2Object) {
-      console.error(`[proxy-r2] Object not found: ${key}`);
+      logger.error(`[proxy-r2] Object not found: ${key}`);
       return NextResponse.json({ error: 'Object not found' }, { status: 404 });
     }
 
-    console.log(`[proxy-r2] Found object: ${key}, size=${r2Object.size}`);
+    logger.debug('proxy-r2', `Found object: ${key}, size=${r2Object.size}`);
 
     const headers = new Headers({
       'Content-Type': r2Object.contentType,

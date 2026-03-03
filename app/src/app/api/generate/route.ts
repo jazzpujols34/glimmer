@@ -7,6 +7,7 @@ import { createVideoTask } from '@/lib/veo';
 import { checkCredits, consumeCredit, isValidEmail } from '@/lib/credits';
 import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
 import { captureError } from '@/lib/errors';
+import { logger } from '@/lib/logger';
 import type { GenerationSettings, OccasionType } from '@/types';
 import { defaultSettings } from '@/types';
 
@@ -89,7 +90,7 @@ export async function POST(request: NextRequest) {
       try {
         settings = { ...defaultSettings, ...JSON.parse(settingsJson) };
       } catch {
-        console.warn('Failed to parse settings, using defaults');
+        logger.warn('Failed to parse settings, using defaults');
       }
     }
 
@@ -159,10 +160,10 @@ export async function POST(request: NextRequest) {
       if (dimensions.width && dimensions.height) {
         const isPortrait = dimensions.height > dimensions.width;
         settings.aspectRatio = isPortrait ? '9:16' : '16:9';
-        console.log(`[API] Auto-detected aspect ratio: ${settings.aspectRatio} (${dimensions.width}x${dimensions.height})`);
+        logger.debug('API', `Auto-detected aspect ratio: ${settings.aspectRatio} (${dimensions.width}x${dimensions.height})`);
       }
-    } catch (err) {
-      console.warn('[API] Could not detect image dimensions, using default aspect ratio');
+    } catch {
+      logger.warn('[API] Could not detect image dimensions, using default aspect ratio');
     }
 
     // --- Credit check (fail fast before creating job) ---
@@ -185,18 +186,11 @@ export async function POST(request: NextRequest) {
       email,
     });
 
-    console.log(`[API] Starting generation job ${jobId}`, {
+    logger.debug('API', `Starting generation job ${jobId}`, {
       name,
       occasion,
       photoCount: photos.length,
-      settings: {
-        model: settings.model,
-        taskType: settings.taskType,
-        aspectRatio: settings.aspectRatio,
-        videoLength: settings.videoLength,
-        resolution: settings.resolution,
-        numResults: settings.numResults,
-      },
+      model: settings.model,
     });
 
     // Create external video task — returns immediately with tracking data
@@ -220,7 +214,7 @@ export async function POST(request: NextRequest) {
     const creditResult = await consumeCredit(email, jobId);
     if (!creditResult.success) {
       // Shouldn't happen (we checked above), but log defensively
-      console.error(`[API] Credit deduction failed for ${email} on job ${jobId}`);
+      logger.error(`[API] Credit deduction failed for ${email} on job ${jobId}`);
     }
 
     // Add job to project if projectId provided

@@ -3,6 +3,8 @@
  * Follows the same getRequestContext() pattern as kv.ts.
  */
 
+import { logger } from '@/lib/logger';
+
 // --- R2 access (Cloudflare Pages) ---
 
 interface R2ObjectLike {
@@ -87,7 +89,7 @@ export async function archiveVideos(
     try {
       const res = await fetch(cdnUrl);
       if (!res.ok || !res.body) {
-        console.error(`[R2] Failed to fetch CDN video ${i} for job ${jobId}: ${res.status}`);
+        logger.error(`[R2] Failed to fetch CDN video ${i} for job ${jobId}: ${res.status}`);
         // Fall back to CDN URL for this video
         archivedUrls.push(cdnUrl);
         continue;
@@ -95,9 +97,9 @@ export async function archiveVideos(
 
       await r2.put(r2Key, res.body, { httpMetadata: { contentType: 'video/mp4' } });
       archivedUrls.push(r2Key);
-      console.log(`[R2] Archived video ${i} for job ${jobId} → ${r2Key}`);
+      logger.debug('R2', `Archived video ${i} for job ${jobId} → ${r2Key}`);
     } catch (err) {
-      console.error(`[R2] Archive error for video ${i} of job ${jobId}:`, err);
+      logger.error(`[R2] Archive error for video ${i} of job ${jobId}:`, err);
       // Fall back to CDN URL for this video
       archivedUrls.push(cdnUrl);
     }

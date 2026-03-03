@@ -3,6 +3,7 @@ import { fetchFile } from '@ffmpeg/util';
 import type { EditorState } from '@/types/editor';
 import { getClipDuration, clipsSortedByPosition, getOutroStart } from './timeline-utils';
 import { FFMPEG_FILTERS } from './filter-maps';
+import { logger } from '@/lib/logger';
 
 let ffmpegInstance: FFmpeg | null = null;
 
@@ -15,7 +16,7 @@ async function getFFmpeg(onProgress?: (ratio: number) => void): Promise<FFmpeg> 
 
   const ffmpeg = new FFmpeg();
   ffmpeg.on('log', ({ message }) => {
-    console.log('[FFmpeg]', message);
+    logger.debug('FFmpeg', message);
     // Extract progress from FFmpeg output
     const match = message.match(/time=(\d+):(\d+):(\d+\.\d+)/);
     if (match && onProgress) {
@@ -26,13 +27,13 @@ async function getFFmpeg(onProgress?: (ratio: number) => void): Promise<FFmpeg> 
 
   // Load single-threaded (avoids COOP/COEP header requirement)
   try {
-    console.log('[FFmpeg] Loading FFmpeg.wasm...');
+    logger.debug('FFmpeg', 'Loading FFmpeg.wasm...');
     await ffmpeg.load();
-    console.log('[FFmpeg] FFmpeg.wasm loaded successfully');
+    logger.debug('FFmpeg', 'FFmpeg.wasm loaded successfully');
     ffmpegInstance = ffmpeg;
     return ffmpeg;
   } catch (err) {
-    console.error('[FFmpeg] Failed to load FFmpeg.wasm:', err);
+    logger.error('[FFmpeg] Failed to load FFmpeg.wasm:', err);
     throw new Error(`FFmpeg 載入失敗: ${err instanceof Error ? err.message : '請重新整理頁面再試'}`);
   }
 }

@@ -1,127 +1,102 @@
-# Session Handover — 2026-03-01
+# Session Handover — 2026-03-03 (Updated)
 
-## Session Summary
+**File Path:** `/Users/jazz.lien/Desktop/jazz/0_GitHub/Repositories/17_ultimate_Claude/拾光glimmer/HANDOVER.md`
 
-Built complete **Showcase Video Arsenal** - gallery multi-select, showcase builder page, template quick-apply, and Cloud Run transitions. Fixed critical bug where showcase page couldn't load clips.
+## What We Did This Session
 
-## What Was Done
+### 1. Wedding Showcase Video — COMPLETE
+- Generated 15 videos from 5 wedding photos using batch script
+- All 5 jobs completed successfully (3 clips each)
+- Created export: `demo-videos/uploaded-as-showcase-video-wedding.mp4`
+- Deployed to `app/public/showcase-video-wedding.mp4`
+- Added to landing page Wedding ShowcaseCard
+- Fixed Cloudflare deployment failure (internal error → retry commit succeeded)
 
-### 1. Showcase Video Arsenal (Complete)
+### 2. Gallery Refresh Button
+- **Problem:** Gallery shows stale data because it only reads KV, doesn't poll providers
+- **Solution:** Created `/api/gallery/refresh` endpoint + refresh button
+- Button bulk-polls all processing jobs, updates KV, refreshes gallery
+- Added learning to CLAUDE.md about client-driven polling architecture
 
-**Gallery Multi-Select** (`app/src/app/gallery/page.tsx`)
-- "選取製作" button toggles checkbox mode
-- Selection bar shows count + "製作展示影片" button (≥2 clips)
-- Clips stored as `Set<string>` with format `jobId:videoIndex`
+### 3. Storyboard Color Presets
+- Synced `TitleCardModal.tsx` with editor's 10 presets (was only 5)
+- Added 5 elegant tones: 玫瑰木, 皇家靛, 可可棕, 金銅色, 橄欖綠
+- Added `flex-wrap` for proper layout of 10 color circles
 
-**Showcase Builder** (`app/src/app/showcase/page.tsx`)
-- URL: `/showcase?clips=jobId:0,jobId:1,...`
-- Left panel: clip arrangement (reorder, remove)
-- Right panel: template picker with occasion filter
-- Input fields for name/date/message placeholders
-- Export button calls Cloud Run with transitions
+### 4. Storyboard Preview Transitions — FIXED
+**Issues fixed:**
+1. Black flash between intro and first clip
+2. Transitions stuck at second clip with 0.5s fade
+3. Progress bar twitching during intro/outro
 
-**Template Quick-Apply** (`app/src/components/editor/TemplatePanel.tsx`)
-- Added to editor sidebar (Wand2 icon, "範本" tab)
-- Occasion filter (追思/生日/婚禮/寵物/其他)
-- Live preview of title/outro cards
-- One-click applies: title card + outro card + all transitions
+**Root causes:**
+- `elapsedTime` in useEffect deps caused infinite re-render
+- Mixed setTimeout + requestAnimationFrame was unreliable
 
-**Transitions in Cloud Run** (`cloud-run/export-service/main.py`)
-- 13 transition types: fade, fadeblack, fadewhite, wipe*, slide*, dissolve
-- FFmpeg xfade filter for video, acrossfade for audio
-- Duration slider 300-1500ms
-- `concatenate_with_transitions()` function
+**Fixes:**
+- Removed `elapsedTime` from useEffect dependencies, use refs instead
+- Pure requestAnimationFrame loop for transitions
+- Preload next video during current item playback
+- Guard against double-trigger in `startTransition`
 
-### 2. Bug Fixes
+### 5. Showcase Videos Status — ALL COMPLETE
+| Section | File | Status |
+|---------|------|--------|
+| 追思紀念 (Memorial) | `showcase-video-1.mp4` | ✅ Live |
+| 壽宴慶生 (Birthday) | `showcase-video-birthday.mp4` | ✅ Live |
+| 寵物紀念 (Pet) | `showcase-video-pets.mp4` | ✅ Live |
+| 婚禮紀念 (Wedding) | `showcase-video-wedding.mp4` | ✅ Live |
+| 其他場合 (Other) | — | Placeholder (no video) |
 
-| Bug | Fix |
-|-----|-----|
-| Prompt tests failing | Updated to match "living portrait" prompts (empty occasion/task) |
-| Showcase shows "未選取影片" | Fixed API parsing: `data.job?.videoUrls` → `job.videoUrls` |
-
-### 3. Cloud Run Deployment
-
-**IMPORTANT**: Glimmer uses personal GCP, not company account!
-
-```bash
-# Correct (personal)
-gcloud config configurations activate personal
-# Project: concise-honor-486903-j3
-# URL: https://glimmer-export-400681766869.asia-east1.run.app
-
-# Wrong (company) - deleted the accidental deployment
-gcloud config configurations activate work
-# Project: tw-rd-sa-jazz-lien
-```
-
-## Files Changed
-
-```
-# New files
-app/src/app/showcase/page.tsx           # Showcase builder
-app/src/app/showcase/layout.tsx         # Edge runtime export
-app/src/components/editor/TemplatePanel.tsx  # Template quick-apply
-
-# Modified
-app/src/app/gallery/page.tsx            # Multi-select UI
-app/src/components/editor/TransitionPicker.tsx  # Dropdown with 13 types
-app/src/components/editor/EditorLayout.tsx      # Added Templates tab
-app/src/components/editor/ExportPanel.tsx       # Send transitions
-app/src/lib/templates.ts                # buildEditorTitleCard/Outro/Transitions
-app/src/lib/editor/auto-save.ts         # Migration for old transition types
-app/src/lib/prompts.test.ts             # Fixed tests
-app/src/types/editor.ts                 # 13 TransitionTypes
-app/src/app/api/export-server/route.ts  # Pass transitions to Cloud Run
-cloud-run/export-service/main.py        # xfade implementation
-CLAUDE.md                               # New learnings
-```
-
-## Commits This Session
-
-```
-f229cf7 fix: showcase page API response parsing
-6c7bc55 docs: add learnings - xfade transitions, showcase arsenal, edge runtime
-ac44756 feat: showcase video arsenal - transitions, templates, multi-select
-```
-
-## Test Results
-
-| Test | Status |
-|------|--------|
-| Build | ✅ Pass |
-| Unit tests (53) | ✅ Pass |
-| Gallery multi-select | ✅ Working |
-| Showcase page loads clips | ✅ Working |
-| Cloud Run export with transitions | ✅ 16s video, 0.88MB |
+---
 
 ## Current State
 
-- All code on `main`, deployed to Cloudflare Pages
-- Cloud Run healthy on personal GCP (`400681766869`)
-- Showcase feature fully functional end-to-end
+**Git:** All changes pushed to `origin/main`
 
-## Next Actions
+**Latest commits:**
+```
+594d4f0 chore: retry deploy (CF internal error)
+a0cb1ea feat: add wedding showcase video to homepage
+37ee0b8 fix: storyboard preview transitions and progress bar
+c7a84f8 feat: sync storyboard title card presets with editor (10 total)
+f9b6f1e feat: add gallery refresh button to poll processing jobs
+```
 
-### User's Current Research
-**AI Music Generation** - Exploring options for royalty-free background music:
-- **Mubert** - Cheapest API ($0.01-0.05/track), designed for apps
-- **Suno** - Higher quality (~$0.05/song), full ownership
-- **AIVA** - Orchestral/cinematic (€11/mo)
+**Production:** https://glimmer.video — All 4 showcase videos playing correctly
 
-Approach: Pre-generate 10-20 tracks per occasion, store in R2
+---
 
-### Backlog
-1. ECPay integration (Taiwan payments)
-2. Error monitoring (Sentry)
-3. OG Image for social previews
-4. Analytics dashboard
+## What's Left / Next Priorities
 
-## Key Learnings Added to CLAUDE.md
+### 1. ECPay Integration (Main Priority)
+Swap Stripe → ECPay for Taiwan-native payments (credit card, ATM, 超商代碼, LINE Pay)
+- See `reports/backlog.md` for details
 
-- **FFmpeg xfade**: `[0:v][1:v]xfade=transition=fade:duration=0.5:offset=4.5[v]`
-- **Edge Runtime**: Client pages need sibling `layout.tsx` with runtime export
-- **Transition migration**: Handle old enum values in auto-save restore
-- **GCP accounts**: Always use personal config for Glimmer
+### 2. Error Monitoring
+No Sentry. Production errors are invisible. Need to add error tracking.
+
+### 3. OG Image
+Proper 1200x630 social card for link previews (currently missing)
+
+### 4. Analytics Dashboard
+Track generation counts, model usage, error rates
+
+---
+
+## Key Files Reference
+
+| Purpose | Path |
+|---------|------|
+| Landing page | `app/src/app/page.tsx` |
+| Gallery page | `app/src/app/gallery/page.tsx` |
+| Gallery refresh API | `app/src/app/api/gallery/refresh/route.ts` |
+| Storyboard preview | `app/src/components/storyboard/StoryboardPreviewModal.tsx` |
+| Storyboard title cards | `app/src/components/storyboard/TitleCardModal.tsx` |
+| Color presets (editor) | `app/src/components/editor/TitleCardPanel.tsx` |
+| Public showcase videos | `app/public/showcase-video-*.mp4` |
+| Source videos | `demo-videos/uploaded-as-*.mp4` |
+| Batch generate script | `scripts/batch-generate.mjs` |
 
 ## Quick Commands
 
@@ -129,31 +104,23 @@ Approach: Pre-generate 10-20 tracks per occasion, store in R2
 # Dev server
 cd app && npm run dev -- --port 3200
 
-# Run tests
-cd app && npm test
+# Batch generate (always use production!)
+node scripts/batch-generate.mjs /path/to/photos \
+  --email glimmer.hello@gmail.com \
+  --clips 3 \
+  --base-url https://glimmer.video
 
-# Deploy Cloud Run (MUST use personal account!)
-gcloud config configurations activate personal
-cd cloud-run/export-service
-gcloud builds submit --tag gcr.io/concise-honor-486903-j3/glimmer-export .
-gcloud run deploy glimmer-export --image gcr.io/concise-honor-486903-j3/glimmer-export --region asia-east1
+# Check batch status
+node scripts/batch-status.mjs
 
-# Check Cloud Run health
-curl https://glimmer-export-400681766869.asia-east1.run.app/health
+# Check specific job
+curl -s "https://glimmer.video/api/status/job_xxx"
 ```
 
-## Showcase Feature Flow
+## Important Notes
 
-```
-Gallery → "選取製作" → Select clips → "製作展示影片"
-                              ↓
-Showcase Page (/showcase?clips=...)
-    ├── Arrange clips (reorder/remove)
-    ├── Pick template (occasion filter)
-    ├── Fill placeholders (name/date/message)
-    └── "製作展示影片" → Cloud Run export
-                              ↓
-Cloud Run: Download clips → Add title/outro → Apply transitions → Upload to R2
-                              ↓
-Download URL returned to user
-```
+- **Aspect ratio:** Auto-detected by API from photo dimensions
+- **Portrait videos:** Don't work in ShowcaseCards — use landscape (16:9) only
+- **Gallery URL:** `/generate/job_xxx` (path, NOT query param `?id=`)
+- **Production only:** Never generate via localhost (no KV/R2 bindings)
+- **Cloudflare:** If deployment fails with internal error, push empty commit to retry
