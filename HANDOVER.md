@@ -12,37 +12,43 @@ Generated and deployed all showcase videos:
 | 寵物紀念 (Pet) | `showcase-video-pets.mp4` | ✅ Live |
 | 其他場合 (Other) | `showcase-video-other.mp4` | ✅ Live |
 
-### 2. Service Improvements — Foundation Laid
+### 2. Service Improvements — 9/11 COMPLETE
 
-**Completed:**
-- **Logger utility** (`lib/logger.ts`) — Debug logs stripped in production
-- **Health endpoint** (`/api/health`) — For deployment monitoring
-- **Validation utilities** (`lib/validation.ts`) — Shared validators for API routes
-- **API response utilities** (`lib/api-response.ts`) — Standardized error responses with codes
-- Updated key routes: `proxy-video`, `proxy-r2`, `generate`, `r2`, `ffmpeg-export`
+**Quick Wins (All Done):**
+- ✅ **Logger utility** (`lib/logger.ts`) — Debug logs stripped in production
+- ✅ **Health endpoint** (`/api/health`) — For deployment monitoring
+- ✅ **Silent .catch() audit** — All 26 instances are intentional
+- ✅ **Video error UI** — Already existed in gallery
 
-**Remaining (can be done incrementally):**
-- ~~Audit silent `.catch()` blocks~~ ✅ Audited — all are intentional
-- ~~Add funnel analytics events~~ ✅ Done — gallery_view, upgrade_view, editor_open, generation_error
-- Continue updating remaining console.logs (~50 files)
+**Medium Effort (All Done):**
+- ✅ **Validation utilities** (`lib/validation.ts`) — Shared validators
+- ✅ **API response utilities** (`lib/api-response.ts`) — Standardized errors with codes
+- ✅ **Polling backoff** — Exponential backoff in GenerationProgress.tsx
+- ✅ **Funnel analytics** — gallery_view, upgrade_view, editor_open, generation_error
 
-### 3. Polling Backoff — DONE
-- Updated `GenerationProgress.tsx` with exponential backoff
-- Start at 5s, cap at 30s max interval
-- Backs off on progress stall (3+ polls), rate limit (429), network errors
-- Resets to fast polling when progress detected
+**Business Impact (Not Started):**
+- ❌ **A/B test pricing** — Requires feature flag system
+- ❌ **Webhook retry queue** — Requires queue infrastructure
+- ✅ **Video quality presets UI** — Already existed in SettingsSidebar
 
-### 4. Funnel Analytics — DONE
-- Added `trackGalleryView(videoCount)` — gallery page view
-- Added `trackUpgradePageView(creditBalance)` — upgrade page view
-- Added `trackEditorOpen(clipCount)` — editor opened
-- Added `trackGenerationError(occasion, model, errorCode)` — generation failures
-- Audited silent `.catch()` blocks — all intentional (play(), deleteFile(), sendToSentry())
+### 3. Validation Adoption — ALL 10 API ROUTES UPDATED
 
-### 5. Gallery & Storyboard Fixes (Earlier)
-- Gallery refresh button (bulk-polls processing jobs)
-- Storyboard color presets synced (10 total)
-- Preview transitions fixed (no more black flash)
+Refactored all API routes to use shared validation and response utilities:
+
+| Route | Changes |
+|-------|---------|
+| `/api/generate` | Full validation suite, ~60 lines removed |
+| `/api/checkout` | Email + rate limit + responses |
+| `/api/credits` | Email + responses |
+| `/api/quick-generate` | Full validation suite |
+| `/api/generate-batch` | Full validation suite, ~80 lines removed |
+| `/api/verify/send` | Email + rate limit + logger |
+| `/api/verify/confirm` | Logger for debug |
+| `/api/access` | successResponse |
+| `/api/admin/users` | Auth + responses |
+| `/api/admin/stats` | Auth + responses |
+
+**Impact:** ~150 lines of duplicated validation code removed
 
 ---
 
@@ -52,9 +58,10 @@ Generated and deployed all showcase videos:
 
 **Latest commits:**
 ```
+679b5e3 refactor: adopt validation utilities in remaining API routes
+58b4cbe refactor: adopt validation utilities across API routes
 1b4e631 feat: add funnel analytics events for drop-off tracking
 9f7ca65 feat: add exponential backoff to status polling
-8316263 feat: add validation and API response utilities
 ```
 
 **Production:** https://glimmer.video — All working
@@ -75,38 +82,37 @@ logger.error('message');         // Always
 
 ### lib/validation.ts
 ```typescript
-import { isValidEmail, validateSettings, validateName } from '@/lib/validation';
-import { VALID_OCCASIONS, VALID_MODELS } from '@/lib/validation';
+import { isValidEmail, validateSettings, validateName, validatePhoto } from '@/lib/validation';
+import { isValidOccasion, VALID_OCCASIONS, VALID_MODELS } from '@/lib/validation';
 
-// Use in API routes for consistent validation
+// All validation in one place - no more duplicated constants
 ```
 
 ### lib/api-response.ts
 ```typescript
 import { errorResponse, successResponse, errors } from '@/lib/api-response';
 
-// Standardized responses
-return errors.insufficientCredits();
-return errors.notFound('影片');
-return errors.rateLimited(60);
+// Pre-built error responses
+return errors.invalidEmail();           // 400 INVALID_EMAIL
+return errors.insufficientCredits();    // 402 INSUFFICIENT_CREDITS
+return errors.notFound('影片');          // 404 NOT_FOUND
+return errors.rateLimited(60);          // 429 RATE_LIMITED with Retry-After
+return errors.serverError();            // 500 SERVER_ERROR
+
+// Custom errors
 return errorResponse('Custom message', 400, 'INVALID_INPUT');
 ```
 
 ---
 
-## Next Priorities
+## Remaining Work
 
-### Quick (~1 hour each)
-1. ~~**Polling backoff**~~ ✅ Done — Exponential backoff in `GenerationProgress.tsx`
-2. **Update remaining console.logs** — Use logger in remaining 50 files
+### Low Priority
+1. **Update remaining console.logs** — ~50 files still have console.log (non-critical)
 
-### Medium (~1 day each)
-3. **Funnel analytics** — Track drop-off points (generation start/complete, purchase)
-4. **Adopt validation utilities** — Refactor API routes to use shared validators
-
-### Business Impact
-5. **A/B test pricing** — Test NT$1,799 vs NT$1,999 pack pricing
-6. **Webhook retry queue** — Prevent lost credits on network glitches
+### Business Decisions Needed
+2. **A/B test pricing** — Requires feature flag infrastructure decision
+3. **Webhook retry queue** — Requires queue service decision (KV-based? External?)
 
 ---
 
@@ -121,6 +127,10 @@ cd app && npm run build
 
 # Check health
 curl https://glimmer.video/api/health
+
+# Check API error format
+curl https://glimmer.video/api/credits?email=invalid
+# Returns: {"error":"請提供有效的 Email 地址","code":"INVALID_EMAIL"}
 ```
 
 ---
@@ -128,6 +138,7 @@ curl https://glimmer.video/api/health
 ## Important Notes
 
 - All 5 showcase videos are live
-- Logger utility available for dev-only debugging
-- Validation utilities ready for gradual adoption
-- Remaining improvements can be done incrementally
+- 9/11 service improvements complete
+- All API routes now use shared validation/response utilities
+- Error responses include error codes for programmatic handling
+- Rate limit responses include Retry-After header
