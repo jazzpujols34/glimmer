@@ -1,8 +1,9 @@
 export const runtime = 'edge';
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { kvListKeys, kvGet } from '@/lib/kv';
 import { captureError } from '@/lib/errors';
+import { successResponse, errorResponse, errors } from '@/lib/api-response';
 import type { GenerationJob, CreditRecord } from '@/types';
 
 // Admin emails - same as in credits.ts
@@ -19,7 +20,7 @@ export async function GET(request: NextRequest) {
   // Check admin auth via query param
   const email = request.nextUrl.searchParams.get('email');
   if (!email || !isAdmin(email)) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    return errorResponse('Unauthorized', 401, 'UNAUTHORIZED');
   }
 
   try {
@@ -109,7 +110,7 @@ export async function GET(request: NextRequest) {
       ...credits.map(c => c.email.toLowerCase()),
     ]).size;
 
-    return NextResponse.json({
+    return successResponse({
       jobs: {
         total: totalJobs,
         completed: completedJobs,
@@ -137,6 +138,6 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     captureError(error, { route: '/api/admin/stats' });
-    return NextResponse.json({ error: 'Failed to fetch stats' }, { status: 500 });
+    return errors.serverError();
   }
 }

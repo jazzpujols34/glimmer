@@ -1,10 +1,11 @@
 export const runtime = 'edge';
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { kvListKeys, kvGet, kvPut } from '@/lib/kv';
 import { getCreditRecord, checkCredits } from '@/lib/credits';
 import { captureError } from '@/lib/errors';
-import type { GenerationJob, CreditRecord, CreditBalance } from '@/types';
+import { successResponse, errorResponse, errors } from '@/lib/api-response';
+import type { GenerationJob, CreditRecord } from '@/types';
 
 // Admin emails - same as in credits.ts
 const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || 'glimmer.hello@gmail.com,aipujol34@gmail.com,cocoshell8988@gmail.com')
@@ -25,11 +26,11 @@ export async function GET(request: NextRequest) {
   const userEmail = request.nextUrl.searchParams.get('email');
 
   if (!adminEmail || !isAdmin(adminEmail)) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    return errorResponse('Unauthorized', 401, 'UNAUTHORIZED');
   }
 
   if (!userEmail) {
-    return NextResponse.json({ error: 'User email required' }, { status: 400 });
+    return errors.missingField('email');
   }
 
   const normalizedEmail = userEmail.toLowerCase().trim();
@@ -58,7 +59,7 @@ export async function GET(request: NextRequest) {
     // Check if user is admin
     const userIsAdmin = isAdmin(normalizedEmail);
 
-    return NextResponse.json({
+    return successResponse({
       email: normalizedEmail,
       isAdmin: userIsAdmin,
       credits: creditBalance,
@@ -68,7 +69,7 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     captureError(error, { route: '/api/admin/users', userEmail: normalizedEmail });
-    return NextResponse.json({ error: 'Failed to fetch user' }, { status: 500 });
+    return errors.serverError();
   }
 }
 
@@ -83,11 +84,11 @@ export async function POST(request: NextRequest) {
     const { adminEmail, userEmail, credits, reason } = body;
 
     if (!adminEmail || !isAdmin(adminEmail)) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return errorResponse('Unauthorized', 401, 'UNAUTHORIZED');
     }
 
     if (!userEmail || typeof credits !== 'number' || credits <= 0) {
-      return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
+      return errors.invalidInput('Invalid request: userEmail and credits required');
     }
 
     const normalizedEmail = userEmail.toLowerCase().trim();
@@ -115,14 +116,13 @@ export async function POST(request: NextRequest) {
     // Save updated record
     await kvPut(key, JSON.stringify(record));
 
-    return NextResponse.json({
-      success: true,
+    return successResponse({
       grantId,
       newTotal: record.total,
       newRemaining: record.total - record.used,
     });
   } catch (error) {
     captureError(error, { route: '/api/admin/users POST' });
-    return NextResponse.json({ error: 'Failed to grant credits' }, { status: 500 });
+    return errors.serverError();
   }
 }
