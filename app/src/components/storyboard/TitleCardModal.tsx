@@ -13,11 +13,18 @@ interface TitleCardModalProps {
 }
 
 const COLOR_PRESETS = [
-  { bg: '#000000', text: '#FFFFFF', label: '黑底白字' },
-  { bg: '#FFFFFF', text: '#1a1a1a', label: '白底黑字' },
-  { bg: '#1e3a5f', text: '#e0e7ef', label: '深藍' },
+  // Classic
+  { bg: '#000000', text: '#ffffff', label: '黑底白字' },
+  { bg: '#ffffff', text: '#1a1a1a', label: '白底黑字' },
+  { bg: '#1e293b', text: '#e2e8f0', label: '深藍' },
   { bg: '#fef3c7', text: '#78350f', label: '暖黃' },
-  { bg: '#ede9fe', text: '#5b21b6', label: '淡紫' },
+  { bg: '#f3e8ff', text: '#581c87', label: '淡紫' },
+  // Elegant tones
+  { bg: '#85325c', text: '#f0eada', label: '玫瑰木' },
+  { bg: '#3d348b', text: '#e1e2dc', label: '皇家靛' },
+  { bg: '#73362a', text: '#f0eada', label: '可可棕' },
+  { bg: '#aa7733', text: '#f5edd7', label: '金銅色' },
+  { bg: '#73754c', text: '#edeae5', label: '橄欖綠' },
 ];
 
 function defaultTitleCard(type: 'intro' | 'outro'): StoryboardTitleCard {
@@ -125,7 +132,7 @@ function CardEditor({ label, card, enabled, onToggle, onChange, defaultCard }: C
           {/* Color presets */}
           <div className="space-y-2">
             <label className="text-sm text-muted-foreground">配色</label>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               {COLOR_PRESETS.map((preset) => (
                 <button
                   key={preset.label}
