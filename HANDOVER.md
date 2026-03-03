@@ -22,8 +22,8 @@ Generated and deployed all showcase videos:
 - Updated key routes: `proxy-video`, `proxy-r2`, `generate`, `r2`, `ffmpeg-export`
 
 **Remaining (can be done incrementally):**
-- Audit silent `.catch()` blocks
-- Add funnel analytics events
+- ~~Audit silent `.catch()` blocks~~ ✅ Audited — all are intentional
+- ~~Add funnel analytics events~~ ✅ Done — gallery_view, upgrade_view, editor_open, generation_error
 - Continue updating remaining console.logs (~50 files)
 
 ### 3. Polling Backoff — DONE
@@ -32,7 +32,14 @@ Generated and deployed all showcase videos:
 - Backs off on progress stall (3+ polls), rate limit (429), network errors
 - Resets to fast polling when progress detected
 
-### 4. Gallery & Storyboard Fixes (Earlier)
+### 4. Funnel Analytics — DONE
+- Added `trackGalleryView(videoCount)` — gallery page view
+- Added `trackUpgradePageView(creditBalance)` — upgrade page view
+- Added `trackEditorOpen(clipCount)` — editor opened
+- Added `trackGenerationError(occasion, model, errorCode)` — generation failures
+- Audited silent `.catch()` blocks — all intentional (play(), deleteFile(), sendToSentry())
+
+### 5. Gallery & Storyboard Fixes (Earlier)
 - Gallery refresh button (bulk-polls processing jobs)
 - Storyboard color presets synced (10 total)
 - Preview transitions fixed (no more black flash)
@@ -45,9 +52,9 @@ Generated and deployed all showcase videos:
 
 **Latest commits:**
 ```
+1b4e631 feat: add funnel analytics events for drop-off tracking
 9f7ca65 feat: add exponential backoff to status polling
 8316263 feat: add validation and API response utilities
-09f8af5 feat: add logger utility and health endpoint
 ```
 
 **Production:** https://glimmer.video — All working
