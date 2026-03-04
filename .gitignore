@@ -40,3 +40,14 @@ scripts/compound/prd.json
 demo-videos/*.mp4
 demo-videos/*.mov
 demo-videos/*.webm
+
+# Temporary media (large binary files)
+tmp-music/
+scripts/demo-photos/
+
+# Generated script output
+scripts/batch-jobs.json
+scripts/batch-results.json
+
+# Prompt reference files
+prompts/
