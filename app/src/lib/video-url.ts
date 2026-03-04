@@ -12,6 +12,8 @@
  * Every component that needs a video URL MUST use this.
  */
 
+import { logger } from '@/lib/logger';
+
 export type VideoUrlContext = 'playback' | 'export';
 
 export function resolveVideoUrl(
@@ -37,7 +39,7 @@ export function resolveVideoUrl(
   // 2. Local blob reference (only works for playback in browser)
   if (url.startsWith('local://')) {
     if (context === 'export') {
-      console.warn('[resolveVideoUrl] local:// URL cannot be used for export');
+      logger.warn('[resolveVideoUrl] local:// URL cannot be used for export');
       return '';
     }
     return url.replace('local://', '');
@@ -67,7 +69,7 @@ export function resolveVideoUrl(
   }
 
   // 5. Unknown format — try proxy-r2 as last resort
-  console.warn(`[resolveVideoUrl] Unknown URL format: ${url}`);
+  logger.warn(`[resolveVideoUrl] Unknown URL format: ${url}`);
   const fallbackPath = `/api/proxy-r2?key=${encodeURIComponent(url)}`;
   return context === 'export' ? `${origin}${fallbackPath}` : fallbackPath;
 }

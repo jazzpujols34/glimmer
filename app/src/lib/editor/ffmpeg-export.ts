@@ -98,7 +98,7 @@ export async function exportVideo(
 
   if (clips.length === 0) throw new Error('沒有影片片段可匯出');
 
-  console.log(`[FFmpeg] Starting export: ${clips.length} clips, chunk size ${CHUNK_SIZE}`);
+  logger.debug('FFmpeg', `Starting export: ${clips.length} clips, chunk size ${CHUNK_SIZE}`);
 
   // Track all intermediate chunk files for final concatenation
   const chunkFiles: string[] = [];
@@ -152,12 +152,12 @@ export async function exportVideo(
       throw new Error(`片段 ${i + 1} 沒有影片資料，請重新載入頁面`);
     }
 
-    console.log(`[FFmpeg] Loading clip ${i + 1}/${sorted.length}...`);
+    logger.debug('FFmpeg', `Loading clip ${i + 1}/${sorted.length}...`);
     let data: Uint8Array;
     try {
       data = await fetchFile(clip.blobUrl);
     } catch (err) {
-      console.error(`[FFmpeg] Failed to fetch clip ${i + 1}:`, err);
+      logger.error(`[FFmpeg] Failed to fetch clip ${i + 1}:`, err);
       throw new Error(`無法載入片段 ${i + 1}，影片可能已過期，請重新載入頁面`);
     }
     await ffmpeg.writeFile(inputName, data);
@@ -194,7 +194,7 @@ export async function exportVideo(
         '-y', outputName,
       ]);
     } catch (err) {
-      console.error(`[FFmpeg] Failed to process clip ${i + 1}:`, err);
+      logger.error(`[FFmpeg] Failed to process clip ${i + 1}:`, err);
       throw new Error(`處理片段 ${i + 1} 失敗: ${err instanceof Error ? err.message : '未知錯誤'}`);
     }
 
@@ -215,7 +215,7 @@ export async function exportVideo(
     if (shouldCreateChunk && !isLastClip) {
       // Concatenate current chunk parts into intermediate file
       const chunkFile = `chunk${chunkIndex}.mp4`;
-      console.log(`[FFmpeg] Creating chunk ${chunkIndex + 1}: ${currentChunkParts.length} parts`);
+      logger.debug('FFmpeg', `Creating chunk ${chunkIndex + 1}: ${currentChunkParts.length} parts`);
       await concatFiles(ffmpeg, currentChunkParts, chunkFile);
 
       // Delete the source parts to free memory
@@ -226,7 +226,7 @@ export async function exportVideo(
       chunkFiles.push(chunkFile);
       currentChunkParts = [];
       chunkIndex++;
-      console.log(`[FFmpeg] Chunk ${chunkIndex} created, memory freed`);
+      logger.debug('FFmpeg', `Chunk ${chunkIndex} created, memory freed`);
     }
 
     onProgress(5 + Math.round(clipsProcessed / sorted.length * 50));
@@ -267,7 +267,7 @@ export async function exportVideo(
     // Add remaining parts as the last chunk
     if (currentChunkParts.length > 0) {
       const lastChunkFile = `chunk${chunkIndex}.mp4`;
-      console.log(`[FFmpeg] Creating final chunk: ${currentChunkParts.length} parts`);
+      logger.debug('FFmpeg', `Creating final chunk: ${currentChunkParts.length} parts`);
       await concatFiles(ffmpeg, currentChunkParts, lastChunkFile);
       for (const part of currentChunkParts) {
         await ffmpeg.deleteFile(part).catch(() => {});
@@ -277,18 +277,18 @@ export async function exportVideo(
 
     // Concatenate all chunks
     videoOnlyFile = 'video_concatenated.mp4';
-    console.log(`[FFmpeg] Concatenating ${chunkFiles.length} chunks...`);
+    logger.debug('FFmpeg', `Concatenating ${chunkFiles.length} chunks...`);
     await concatFiles(ffmpeg, chunkFiles, videoOnlyFile);
 
     // Delete chunk files
     for (const chunk of chunkFiles) {
       await ffmpeg.deleteFile(chunk).catch(() => {});
     }
-    console.log(`[FFmpeg] All chunks merged, memory freed`);
+    logger.debug('FFmpeg', 'All chunks merged, memory freed');
   } else {
     // Few clips, no chunking needed - concat directly
     videoOnlyFile = 'video_concatenated.mp4';
-    console.log(`[FFmpeg] Concatenating ${currentChunkParts.length} parts directly...`);
+    logger.debug('FFmpeg', `Concatenating ${currentChunkParts.length} parts directly...`);
     await concatFiles(ffmpeg, currentChunkParts, videoOnlyFile);
 
     // Delete source parts
@@ -306,7 +306,7 @@ export async function exportVideo(
     await ffmpeg.writeFile('subtitles.ass', assContent);
 
     const withSubsFile = 'video_with_subs.mp4';
-    console.log(`[FFmpeg] Burning in ${subtitles.length} subtitles...`);
+    logger.debug('FFmpeg', `Burning in ${subtitles.length} subtitles...`);
     await ffmpeg.exec([
       '-i', videoOnlyFile,
       '-vf', 'ass=subtitles.ass',
@@ -408,12 +408,12 @@ export async function exportVideo(
   onProgress(95);
 
   // --- Read result ---
-  console.log(`[FFmpeg] Reading final file: ${finalFile}`);
+  logger.debug('FFmpeg', `Reading final file: ${finalFile}`);
   let result: Uint8Array | string;
   try {
     result = await ffmpeg.readFile(finalFile);
   } catch (err) {
-    console.error('[FFmpeg] Failed to read output file:', err);
+    logger.error('[FFmpeg] Failed to read output file:', err);
     throw new Error(`無法讀取匯出檔案: ${err instanceof Error ? err.message : '記憶體可能不足，請嘗試較短的影片'}`);
   }
 
@@ -421,7 +421,7 @@ export async function exportVideo(
   if (bytes.length === 0) {
     throw new Error('匯出檔案為空，FFmpeg 處理可能失敗。請檢查影片來源。');
   }
-  console.log(`[FFmpeg] Export complete! Output size: ${(bytes.length / 1024 / 1024).toFixed(2)} MB`);
+  logger.debug('FFmpeg', `Export complete! Output size: ${(bytes.length / 1024 / 1024).toFixed(2)} MB`);
   const blob = new Blob([bytes.buffer], { type: 'video/mp4' });
 
   // Final cleanup

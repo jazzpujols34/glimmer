@@ -6,6 +6,7 @@ import { TransitionPicker } from './TransitionPicker';
 import { AddToSlotModal } from './AddToSlotModal';
 import { Button } from '@/components/ui/button';
 import type { Storyboard, StoryboardSlot, StoryboardTransitionType, GenerationJob, StoryboardClip } from '@/types';
+import { logger } from '@/lib/logger';
 
 interface StoryboardGridProps {
   storyboard: Storyboard;
@@ -128,7 +129,7 @@ export function StoryboardGrid({
             uploadProgress: undefined,
           });
         } catch (error) {
-          console.error('Error processing upload:', error);
+          logger.error('Error processing upload:', error);
           await onUpdateSlot(currentSlotIndex, {
             status: 'empty',
             uploadProgress: undefined,

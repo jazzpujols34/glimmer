@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { captureError } from '@/lib/errors';
 import { checkCredits } from '@/lib/credits';
 import { resolveVideoUrl } from '@/lib/video-url';
+import { logger } from '@/lib/logger';
 
 /**
  * Server-side video export via Cloud Run.
@@ -74,7 +75,7 @@ export async function POST(request: NextRequest) {
     const body: ExportRequest = await request.json();
     const { jobId, clips, transitions, subtitles, musicClips, titleCard, outroCard, email } = body;
 
-    console.log(`[export-server] Starting export for job ${jobId}, ${clips.length} clips`);
+    logger.debug('export-server', `Starting export for job ${jobId}, ${clips.length} clips`);
 
     // Determine if watermark should be applied (free tier users only)
     let applyWatermark = true;  // Default: apply watermark
@@ -85,7 +86,7 @@ export async function POST(request: NextRequest) {
         applyWatermark = false;
       }
     }
-    console.log(`[export-server] Watermark: ${applyWatermark} (email: ${email || 'none'})`);
+    logger.debug('export-server', `Watermark: ${applyWatermark} (email: ${email || 'none'})`);
 
     if (!jobId || !clips || clips.length === 0) {
       return NextResponse.json(
@@ -115,11 +116,11 @@ export async function POST(request: NextRequest) {
       const clip = clips[idx];
       const sourceUrl = clip.sourceUrl || '';
 
-      console.log(`[export-server] Clip ${idx}: sourceUrl=${sourceUrl.substring(0, 80)}...`);
+      logger.debug('export-server', `Clip ${idx}: sourceUrl=${sourceUrl.substring(0, 80)}...`);
 
       // Check for local files which cannot be exported server-side
       if (sourceUrl.startsWith('local://')) {
-        console.error(`[export-server] Clip ${idx} is a local file: ${sourceUrl}`);
+        logger.error(`[export-server] Clip ${idx} is a local file: ${sourceUrl}`);
         return NextResponse.json(
           {
             error: `片段 ${idx + 1} 是本機檔案，無法使用伺服器匯出。請使用瀏覽器匯出，或從影片庫選擇片段。`,
@@ -155,13 +156,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Pre-validate all clip URLs before sending to Cloud Run
-    console.log(`[export-server] Validating ${clipDataForService.length} clip URLs...`);
+    logger.debug('export-server', `Validating ${clipDataForService.length} clip URLs...`);
     for (let idx = 0; idx < clipDataForService.length; idx++) {
       const clipData = clipDataForService[idx];
       try {
         const testRes = await fetch(clipData.url, { method: 'HEAD' });
         if (!testRes.ok) {
-          console.error(`[export-server] Clip ${idx} URL validation failed: ${testRes.status}`);
+          logger.error(`[export-server] Clip ${idx} URL validation failed: ${testRes.status}`);
           return NextResponse.json(
             {
               error: `影片 ${idx + 1} 無法存取，可能已過期。請返回重新選擇影片。`,
@@ -172,7 +173,7 @@ export async function POST(request: NextRequest) {
           );
         }
       } catch (err) {
-        console.error(`[export-server] Clip ${idx} URL fetch error:`, err);
+        logger.error(`[export-server] Clip ${idx} URL fetch error:`, err);
         return NextResponse.json(
           {
             error: `無法連接影片來源，請稍後再試。`,
@@ -183,7 +184,7 @@ export async function POST(request: NextRequest) {
         );
       }
     }
-    console.log(`[export-server] All clip URLs validated successfully`);
+    logger.debug('export-server', 'All clip URLs validated successfully');
 
     // Build music URLs
     const musicDataForService = musicClips.map((mc) => {
@@ -226,7 +227,7 @@ export async function POST(request: NextRequest) {
       watermark: applyWatermark,
     };
 
-    console.log(`[export-server] Calling Cloud Run async service at ${CLOUD_RUN_URL}...`);
+    logger.debug('export-server', `Calling Cloud Run async service at ${CLOUD_RUN_URL}...`);
 
     // Call Cloud Run async endpoint - returns immediately with exportId
     try {
@@ -240,7 +241,7 @@ export async function POST(request: NextRequest) {
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error(`[export-server] Cloud Run error: ${response.status} ${errorText}`);
+        logger.error(`[export-server] Cloud Run error: ${response.status} ${errorText}`);
         return NextResponse.json(
           { error: `匯出服務錯誤: ${response.status}` },
           { status: 502 }
@@ -248,7 +249,7 @@ export async function POST(request: NextRequest) {
       }
 
       const result = await response.json();
-      console.log(`[export-server] Cloud Run async response:`, result);
+      logger.debug('export-server', 'Cloud Run async response:', result);
 
       // Return exportId for client to poll
       return NextResponse.json({
@@ -257,13 +258,13 @@ export async function POST(request: NextRequest) {
         status: 'processing',
       });
     } catch (fetchError) {
-      console.error(`[export-server] Fetch error:`, fetchError);
+      logger.error('[export-server] Fetch error:', fetchError);
       throw fetchError;
     }
 
   } catch (error) {
     captureError(error, { route: '/api/export-server' });
-    console.error('[export-server] Error:', error);
+    logger.error('[export-server] Error:', error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : '匯出失敗' },
       { status: 500 }

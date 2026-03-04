@@ -3,6 +3,7 @@ export const runtime = 'edge';
 import { NextRequest, NextResponse } from 'next/server';
 import { r2Get } from '@/lib/r2';
 import { captureError } from '@/lib/errors';
+import { logger } from '@/lib/logger';
 
 /**
  * Download exported video from R2.
@@ -22,7 +23,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid key format' }, { status: 400 });
     }
 
-    console.log(`[export-download] Fetching: ${key}`);
+    logger.debug('export-download', `Fetching: ${key}`);
 
     const r2Object = await r2Get(key);
     if (!r2Object) {
@@ -46,7 +47,7 @@ export async function GET(request: NextRequest) {
 
   } catch (error) {
     captureError(error, { route: '/api/export-download' });
-    console.error('[export-download] Error:', error);
+    logger.error('[export-download] Error:', error);
     return NextResponse.json(
       { error: '下載失敗' },
       { status: 500 }

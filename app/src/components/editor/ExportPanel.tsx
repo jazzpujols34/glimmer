@@ -7,6 +7,7 @@ import { Progress } from '@/components/ui/progress';
 import { exportVideo } from '@/lib/editor/ffmpeg-export';
 import { Download, Loader2, Film, CheckCircle, Server, Monitor, AlertTriangle } from 'lucide-react';
 import { trackVideoExport } from '@/lib/analytics';
+import { logger } from '@/lib/logger';
 
 type ExportMode = 'browser' | 'server';
 
@@ -60,7 +61,7 @@ export function ExportPanel() {
       dispatch({ type: 'SET_EXPORT_PROGRESS', payload: null });
       trackVideoExport('editor', state.totalDuration);
     } catch (err) {
-      console.error('Export failed:', err);
+      logger.error('Export failed:', err);
       setError(err instanceof Error ? err.message : '匯出失敗');
       dispatch({ type: 'SET_EXPORT_PROGRESS', payload: null });
     } finally {
@@ -85,7 +86,7 @@ export function ExportPanel() {
 
     try {
       // Debug: log sourceUrls
-      console.log('[ExportPanel] Clips to export:', state.clips.map((c, i) => ({
+      logger.debug('ExportPanel', 'Clips to export:', state.clips.map((c, i) => ({
         index: i,
         sourceUrl: c.sourceUrl?.substring(0, 80),
       })));
@@ -190,7 +191,7 @@ export function ExportPanel() {
       throw new Error('匯出逾時，請重試或減少片段數量');
 
     } catch (err) {
-      console.error('Server export failed:', err);
+      logger.error('Server export failed:', err);
       setError(err instanceof Error ? err.message : '伺服器匯出失敗');
       dispatch({ type: 'SET_EXPORT_PROGRESS', payload: null });
       setServerExportStatus(null);

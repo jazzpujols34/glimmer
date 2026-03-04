@@ -3,6 +3,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import type { GenerationJob } from '@/types';
+import { logger } from '@/lib/logger';
 
 interface AddToSlotModalProps {
   isOpen: boolean;
@@ -109,7 +110,7 @@ export function AddToSlotModal({
       await onAddFromGallery(jobsToAdd, indices);
       onClose();
     } catch (err) {
-      console.error('Error adding from gallery:', err);
+      logger.error('Error adding from gallery:', err);
       setError(err instanceof Error ? err.message : '新增影片失敗，請重試');
     } finally {
       setIsAdding(false);

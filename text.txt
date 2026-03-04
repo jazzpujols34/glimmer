@@ -1,0 +1,91 @@
+
+Write
+
+When Session about to end:
+We've done a lot so far! Now this session is about to be compacted, write a handover.md, indicating the status, and next actions so I can start fresh next session. Don't forget to indicate the path of the file to avoid confusion. Thanks.
+
+
+After starting a new Session:
+Hi, please read HANDOVER.md and let's keep working and pick up right where we left off. Don't forget to remove or update the handover.md so that it doesn't build up and create confusion in the future session.
+
+Before commit and push, better do a full test:
+i believe we have not commit and pushed yet(? before we do that please do a thorough and full check 
+make sure there's no error 
+
+Building web ui:
+ yeah let's do it but can we care a bit about ui? like dont make it very simple and only for engineers, which we don't care much about ui, but i think taste is very 
+important, and we could make it look good so when others see they feel wow 好有質感 
+
+
+-=
+
+⏺ The Pub/Sub is set up. For the budget, it's easier to create via Console:
+
+  Quick Setup (2 minutes):
+
+  1. Go to: https://console.cloud.google.com/billing/budgets?project=tw-rd-sa-jazz-lien
+  2. Click "Create Budget"
+  3. Set:
+    - Name: TAM Toolkit Test
+    - Projects: tw-rd-sa-jazz-lien
+    - Amount: $10 (for testing)
+  4. Thresholds: 50%, 80%, 100%
+  5. Important - Notifications:
+    - Check "Connect a Pub/Sub topic"
+    - Select: projects/tw-rd-sa-jazz-lien/topics/budget-alerts
+  6. Click Create
+
+  Once created, you'll receive Telegram alerts when spend hits those thresholds!
+
+  ---
+  What's deployed:
+  Pub/Sub Topic: budget-alerts
+  Push Subscription: → https://tam-toolkit-524621850236.asia-east1.run.app/webhook/budget
+  Cloud Run: tam-toolkit (asia-east1)
+  
+  
+  
+
+Image Generation Prompts for 其他場合 (Other Occasions)
+
+  Since this section covers multiple occasions, I'd suggest 5-6 diverse photos:
+
+  1. Graduation (畢業典禮)
+
+  Young Asian woman in black graduation gown and cap, holding diploma, university campus background, cherry blossoms, proud smile, golden hour lighting, 2020s Taiwan, celebratory moment, cinematic film photography - ar 16:9
+
+  2. Retirement (退休歡送)
+
+  Asian man in his 60s, office farewell party, colleagues gathered around, holding a gift or plaque, warm smile, office decorations with "謝謝" banner, soft indoor lighting, heartfelt moment, documentary style - ar 16:9
+
+  3. Family Reunion (家庭聚會)
+
+  Multi-generational Asian family around a dining table, lunar new year dinner, red decorations, grandparents with grandchildren, warm indoor lighting, joyful laughter, candid moment, nostalgic film photography - ar 16:9
+
+  4. Friends Reunion (同學會)
+
+  Group of 5-6 Asian adults in their 40s, casual restaurant setting, old photos on table, reminiscing together, warm ambient lighting, genuine laughter, documentary photography style - ar 16:9
+
+  5. Milestone Celebration (里程碑慶祝)
+
+  Asian couple cutting a cake, "10th Anniversary" or "新居落成" decorations, cozy home interior, balloons, champagne glasses, intimate celebration, soft natural window light, lifestyle photography - ar 16:9
+
+  6. Travel Memory (旅行回憶)
+
+  Asian elderly couple at scenic landmark (Alishan, Sun Moon Lake, or temple), wearing hiking gear, holding hands, misty mountain background, golden hour, adventure travel photography - ar 16:9
+
+  ---
+  Suggested Intro/Outro Text
+
+  Intro:
+  - 值得紀念的時刻 / Moments Worth Remembering
+  - OR: 每一刻都值得珍藏 / Every Moment Matters
+
+  Outro:
+  - 讓回憶永存 / Memories Last Forever
+  - OR: 謝謝觀看 / Thank You for Watching\
+  
+  
+
+   
+   

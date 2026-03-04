@@ -8,6 +8,7 @@ import { checkCredits } from '@/lib/credits';
 import { sendCompletionEmail } from '@/lib/email';
 import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
 import { captureError } from '@/lib/errors';
+import { logger } from '@/lib/logger';
 
 /**
  * Transform video URL to proxy URL if it's an R2 key (not starting with http)
@@ -120,7 +121,7 @@ export async function GET(
               // Send completion email for first segment only (as notification)
               if (job.segmentIndex === 0 && job.email) {
                 sendCompletionEmail(job.email, batchId, batch.name || '').catch(err =>
-                  console.error(`[Email] Batch completion notification failed:`, err)
+                  logger.error(`[Email] Batch completion notification failed:`, err)
                 );
               }
             }
@@ -137,7 +138,7 @@ export async function GET(
             });
           }
         } catch (err) {
-          console.error(`[Batch] Error checking segment ${jobId}:`, err);
+          logger.error(`[Batch] Error checking segment ${jobId}:`, err);
           segments.push({
             jobId,
             segmentIndex: job.segmentIndex ?? segments.length,

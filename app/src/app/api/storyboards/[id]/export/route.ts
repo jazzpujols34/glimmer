@@ -5,6 +5,7 @@ import { getStoryboard } from '@/lib/storage';
 import { captureError } from '@/lib/errors';
 import { checkCredits } from '@/lib/credits';
 import { resolveVideoUrl } from '@/lib/video-url';
+import { logger } from '@/lib/logger';
 
 const CLOUD_RUN_URL = process.env.EXPORT_SERVICE_URL;
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://glimmer.video';
@@ -26,7 +27,7 @@ export async function POST(
   try {
     const { id: storyboardId } = await params;
 
-    console.log(`[storyboard-export] Starting export for storyboard ${storyboardId}`);
+    logger.debug('storyboard-export', `Starting export for storyboard ${storyboardId}`);
 
     // Fetch storyboard
     const storyboard = await getStoryboard(storyboardId);
@@ -71,10 +72,10 @@ export async function POST(
       const clip = slot.clip!;
 
       const sourceUrl = clip.videoUrl || '';
-      console.log(`[storyboard-export] Slot ${slot.index}: sourceUrl=${sourceUrl.substring(0, 80)}...`);
+      logger.debug('storyboard-export', `Slot ${slot.index}: sourceUrl=${sourceUrl.substring(0, 80)}...`);
 
       if (!sourceUrl) {
-        console.warn(`[storyboard-export] Slot ${slot.index} has no videoUrl`);
+        logger.warn(`[storyboard-export] Slot ${slot.index} has no videoUrl`);
         continue;
       }
 
@@ -82,7 +83,7 @@ export async function POST(
       const videoUrl = resolveVideoUrl(sourceUrl, 'export', BASE_URL);
 
       if (!videoUrl) {
-        console.warn(`[storyboard-export] Slot ${slot.index} has invalid videoUrl`);
+        logger.warn(`[storyboard-export] Slot ${slot.index} has invalid videoUrl`);
         continue;
       }
 
@@ -97,13 +98,13 @@ export async function POST(
     }
 
     // Pre-validate all clip URLs before sending to Cloud Run
-    console.log(`[storyboard-export] Validating ${clips.length} clip URLs...`);
+    logger.debug('storyboard-export', `Validating ${clips.length} clip URLs...`);
     for (let idx = 0; idx < clips.length; idx++) {
       const clipData = clips[idx];
       try {
         const testRes = await fetch(clipData.url, { method: 'HEAD' });
         if (!testRes.ok) {
-          console.error(`[storyboard-export] Clip ${idx} URL validation failed: ${testRes.status}`);
+          logger.error(`[storyboard-export] Clip ${idx} URL validation failed: ${testRes.status}`);
           return NextResponse.json(
             {
               error: `影片 ${idx + 1} 無法存取，可能已過期。請返回重新選擇影片。`,
@@ -113,7 +114,7 @@ export async function POST(
           );
         }
       } catch (err) {
-        console.error(`[storyboard-export] Clip ${idx} URL fetch error:`, err);
+        logger.error(`[storyboard-export] Clip ${idx} URL fetch error:`, err);
         return NextResponse.json(
           {
             error: `無法連接影片來源，請稍後再試。`,
@@ -123,7 +124,7 @@ export async function POST(
         );
       }
     }
-    console.log(`[storyboard-export] All clip URLs validated successfully`);
+    logger.debug('storyboard-export', 'All clip URLs validated successfully');
 
     if (clips.length === 0) {
       return NextResponse.json(
@@ -166,7 +167,7 @@ export async function POST(
         volume: storyboard.music.volume,
       });
 
-      console.log(`[storyboard-export] Including music: ${storyboard.music.name}, volume ${storyboard.music.volume}`);
+      logger.debug('storyboard-export', `Including music: ${storyboard.music.name}, volume ${storyboard.music.volume}`);
     }
 
     // Determine if watermark should be applied (free tier users only)
@@ -178,7 +179,7 @@ export async function POST(
         applyWatermark = false;
       }
     }
-    console.log(`[storyboard-export] Watermark: ${applyWatermark} (email: ${storyboard.email || 'none'})`);
+    logger.debug('storyboard-export', `Watermark: ${applyWatermark} (email: ${storyboard.email || 'none'})`);
 
     // Build Cloud Run request
     const cloudRunRequest = {
@@ -192,9 +193,9 @@ export async function POST(
       watermark: applyWatermark,
     };
 
-    console.log(`[storyboard-export] Calling Cloud Run with ${clips.length} clips, resolution ${resolution}`);
-    if (storyboard.titleCard) console.log(`[storyboard-export] Including title card: ${storyboard.titleCard.text}`);
-    if (storyboard.outroCard) console.log(`[storyboard-export] Including outro card: ${storyboard.outroCard.text}`);
+    logger.debug('storyboard-export', `Calling Cloud Run with ${clips.length} clips, resolution ${resolution}`);
+    if (storyboard.titleCard) logger.debug('storyboard-export', `Including title card: ${storyboard.titleCard.text}`);
+    if (storyboard.outroCard) logger.debug('storyboard-export', `Including outro card: ${storyboard.outroCard.text}`);
 
     // Call Cloud Run async endpoint
     const response = await fetch(`${CLOUD_RUN_URL}/export-async`, {
@@ -205,7 +206,7 @@ export async function POST(
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`[storyboard-export] Cloud Run error: ${response.status} ${errorText}`);
+      logger.error(`[storyboard-export] Cloud Run error: ${response.status} ${errorText}`);
       return NextResponse.json(
         { error: `匯出服務錯誤: ${response.status}` },
         { status: 502 }
@@ -213,7 +214,7 @@ export async function POST(
     }
 
     const result = await response.json();
-    console.log(`[storyboard-export] Cloud Run response:`, result);
+    logger.debug('storyboard-export', 'Cloud Run response:', result);
 
     return NextResponse.json({
       success: true,
@@ -223,7 +224,7 @@ export async function POST(
 
   } catch (error) {
     captureError(error, { route: '/api/storyboards/[id]/export' });
-    console.error('[storyboard-export] Error:', error);
+    logger.error('[storyboard-export] Error:', error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : '匯出失敗' },
       { status: 500 }

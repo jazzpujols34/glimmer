@@ -29,6 +29,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { resolveVideoUrl } from '@/lib/video-url';
+import { logger } from '@/lib/logger';
 
 interface ClipData {
   jobId: string;
@@ -91,7 +92,7 @@ function ShowcaseContent() {
             }
           }
         } catch (e) {
-          console.error(`Failed to load clip ${key}:`, e);
+          logger.error(`Failed to load clip ${key}:`, e);
         }
       }
 
@@ -212,7 +213,7 @@ function ShowcaseContent() {
 
       throw new Error('匯出逾時');
     } catch (err) {
-      console.error('Export failed:', err);
+      logger.error('Export failed:', err);
       setExportError(err instanceof Error ? err.message : '匯出失敗');
     } finally {
       setExporting(false);

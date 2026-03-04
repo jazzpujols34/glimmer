@@ -11,6 +11,7 @@ import { useAccess } from '@/hooks/useAccess';
 import { Play, Download, Calendar, Film, ArrowLeft, Trash2, Scissors, AlertCircle, X, Star, FolderOpen, ChevronDown, Clock, Lock, CheckSquare, Square, Wand2, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { trackGalleryView } from '@/lib/analytics';
+import { logger } from '@/lib/logger';
 import type { Project } from '@/types';
 
 type GalleryFilter = 'all' | 'favorites' | 'projects';
@@ -156,7 +157,7 @@ export default function GalleryPage() {
         setTimeout(() => setRefreshResult(null), 5000);
       }
     } catch (err) {
-      console.error('Refresh failed:', err);
+      logger.error('Refresh failed:', err);
     } finally {
       setRefreshing(false);
     }

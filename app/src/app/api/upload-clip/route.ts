@@ -3,6 +3,7 @@ export const runtime = 'edge';
 import { NextRequest, NextResponse } from 'next/server';
 import { r2Put } from '@/lib/r2';
 import { captureError } from '@/lib/errors';
+import { logger } from '@/lib/logger';
 
 /**
  * Upload a video clip to R2 storage for server-side export.
@@ -16,13 +17,13 @@ import { captureError } from '@/lib/errors';
 const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB limit
 
 export async function POST(request: NextRequest) {
-  console.log('[upload-clip] Request received');
+  logger.debug('upload-clip', 'Request received');
   try {
     const formData = await request.formData();
     const file = formData.get('file') as File | null;
     const jobId = formData.get('jobId') as string | null;
 
-    console.log('[upload-clip] Parsed formData:', {
+    logger.debug('upload-clip', 'Parsed formData:', {
       hasFile: !!file,
       fileName: file?.name,
       fileSize: file?.size,
@@ -30,12 +31,12 @@ export async function POST(request: NextRequest) {
     });
 
     if (!file) {
-      console.log('[upload-clip] Error: Missing file');
+      logger.debug('upload-clip', 'Error: Missing file');
       return NextResponse.json({ error: 'Missing file' }, { status: 400 });
     }
 
     if (!jobId) {
-      console.log('[upload-clip] Error: Missing jobId');
+      logger.debug('upload-clip', 'Error: Missing jobId');
       return NextResponse.json({ error: 'Missing jobId' }, { status: 400 });
     }
 
@@ -57,21 +58,21 @@ export async function POST(request: NextRequest) {
     const extension = file.name.split('.').pop() || 'mp4';
     const r2Key = `uploads/${jobId}/${uuid}.${extension}`;
 
-    console.log(`[upload-clip] Uploading ${file.name} (${(file.size / 1024 / 1024).toFixed(2)}MB) to ${r2Key}`);
+    logger.debug('upload-clip', `Uploading ${file.name} (${(file.size / 1024 / 1024).toFixed(2)}MB) to ${r2Key}`);
 
     // Upload to R2
     const arrayBuffer = await file.arrayBuffer();
     const success = await r2Put(r2Key, arrayBuffer, file.type);
 
     if (!success) {
-      console.error('[upload-clip] R2 upload failed - R2 may not be configured');
+      logger.error('[upload-clip] R2 upload failed - R2 may not be configured');
       return NextResponse.json(
         { error: 'Storage not available. Please use browser export.' },
         { status: 503 }
       );
     }
 
-    console.log(`[upload-clip] Successfully uploaded to ${r2Key}`);
+    logger.debug('upload-clip', `Successfully uploaded to ${r2Key}`);
 
     return NextResponse.json({
       success: true,

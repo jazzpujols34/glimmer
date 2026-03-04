@@ -8,6 +8,7 @@ import { archiveVideos } from '@/lib/r2';
 import { checkCredits } from '@/lib/credits';
 import { sendCompletionEmail } from '@/lib/email';
 import { captureError } from '@/lib/errors';
+import { logger } from '@/lib/logger';
 import type { GenerationJob } from '@/types';
 
 /**
@@ -68,7 +69,7 @@ export async function POST() {
             // Send completion email (fire-and-forget)
             if (job.email) {
               sendCompletionEmail(job.email, job.id, job.name || '').catch(err =>
-                console.error(`[Email] Completion notification failed for job ${job.id}:`, err)
+                logger.error(`[Email] Completion notification failed for job ${job.id}:`, err)
               );
             }
 
@@ -80,7 +81,7 @@ export async function POST() {
           await updateJob(job.id, { progress: result.progress });
         }
       } catch (err) {
-        console.error(`[Refresh] Failed to check job ${job.id}:`, err);
+        logger.error(`[Refresh] Failed to check job ${job.id}:`, err);
         errors++;
       }
     }

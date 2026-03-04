@@ -2,6 +2,7 @@
 
 import { useRef, useCallback, useState } from 'react';
 import type * as NSFWJS from 'nsfwjs';
+import { logger } from '@/lib/logger';
 
 // Lazy-loaded NSFW.js model
 type NSFWModel = Awaited<ReturnType<typeof NSFWJS.load>>;
@@ -123,7 +124,7 @@ export function useNSFWCheck(): UseNSFWCheckResult {
 
       return { safe, blocked };
     } catch (error) {
-      console.error('NSFW check error:', error);
+      logger.error('NSFW check error:', error);
       // On model load failure, allow all files (fail open)
       return { safe: files, blocked: [], error: 'Content check unavailable' };
     } finally {

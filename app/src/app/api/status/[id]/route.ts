@@ -8,6 +8,7 @@ import { checkCredits } from '@/lib/credits';
 import { sendCompletionEmail } from '@/lib/email';
 import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
 import { captureError } from '@/lib/errors';
+import { logger } from '@/lib/logger';
 
 /**
  * Transform video URL to proxy URL if it's an R2 key (not starting with http)
@@ -88,7 +89,7 @@ export async function GET(
           // Send completion notification email (fire-and-forget)
           if (job.email) {
             sendCompletionEmail(job.email, id, job.name || '').catch(err =>
-              console.error(`[Email] Completion notification failed for job ${id}:`, err)
+              logger.error(`[Email] Completion notification failed for job ${id}:`, err)
             );
           }
 

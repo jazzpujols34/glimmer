@@ -3,6 +3,7 @@ export const runtime = 'edge';
 import { NextResponse } from 'next/server';
 import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
 import { captureError } from '@/lib/errors';
+import { logger } from '@/lib/logger';
 
 /**
  * POST /api/transcribe
@@ -51,7 +52,7 @@ export async function POST(request: Request) {
 
     if (!whisperRes.ok) {
       const err = await whisperRes.text();
-      console.error('Whisper API error:', err);
+      logger.error('Whisper API error:', err);
       return NextResponse.json(
         { error: `語音轉文字失敗 (${whisperRes.status})` },
         { status: 502 }

@@ -3,6 +3,8 @@
  * Works on Cloudflare Workers where @sentry/nextjs SDK doesn't.
  */
 
+import { logger } from '@/lib/logger';
+
 export interface ErrorContext {
   route?: string;
   jobId?: string;
@@ -80,7 +82,7 @@ async function sendToSentry(
     });
   } catch (e) {
     // Don't let Sentry errors break the app
-    console.error('Failed to send to Sentry:', e);
+    logger.error('Failed to send to Sentry:', e);
   }
 }
 
@@ -113,7 +115,7 @@ export function captureError(
   const message = isError ? error.message : String(error);
 
   // Always log to console for debugging
-  console.error(`[Error] ${context.route || "unknown"}:`, message, context);
+  logger.error(`[Error] ${context.route || "unknown"}:`, message, context);
 
   // In production, send to Sentry via HTTP
   if (process.env.NODE_ENV === "production" && process.env.SENTRY_DSN) {
@@ -129,7 +131,7 @@ export function captureWarning(
   message: string,
   context: ErrorContext = {}
 ): void {
-  console.warn(`[Warning] ${context.route || "unknown"}:`, message, context);
+  logger.warn(`[Warning] ${context.route || "unknown"}:`, message, context);
 
   if (process.env.NODE_ENV === "production" && process.env.SENTRY_DSN) {
     sendToSentry('warning', message, null, context).catch(() => {});

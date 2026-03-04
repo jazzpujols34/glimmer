@@ -11,6 +11,7 @@ import {
 } from '@/lib/storage';
 import { getTemplateById, buildTitleCard, buildOutroCard } from '@/lib/templates';
 import { captureError } from '@/lib/errors';
+import { logger } from '@/lib/logger';
 import { checkCredits } from '@/lib/credits';
 import type { StoryboardSlot, StoryboardClip, StoryboardTransitionType } from '@/types';
 
@@ -85,7 +86,7 @@ export async function GET(
 
     if (batchComplete && quickJob.status === 'generating') {
       // Batch just completed - create storyboard and start export
-      console.log(`[quick-status] Batch ${batch.id} completed, starting export...`);
+      logger.debug('quick-status', `Batch ${batch.id} completed, starting export...`);
 
       try {
         const exportResult = await startQuickExport(quickJob, batch, segments);
@@ -96,7 +97,7 @@ export async function GET(
         });
         exportStatus = 'processing';
       } catch (err) {
-        console.error('[quick-status] Export start failed:', err);
+        logger.error('[quick-status] Export start failed:', err);
         await updateQuickJob(quickId, {
           status: 'error',
           error: err instanceof Error ? err.message : '匯出啟動失敗',
@@ -122,7 +123,7 @@ export async function GET(
           });
         }
       } catch (err) {
-        console.error('[quick-status] Export check failed:', err);
+        logger.error('[quick-status] Export check failed:', err);
       }
     } else if (quickJob.status === 'complete' && quickJob.videoR2Key) {
       exportStatus = 'complete';
@@ -152,7 +153,7 @@ export async function GET(
     });
   } catch (error) {
     captureError(error, { route: '/api/quick-status/[id]' });
-    console.error('[quick-status] Error:', error);
+    logger.error('[quick-status] Error:', error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : '取得狀態失敗' },
       { status: 500 }
@@ -230,7 +231,7 @@ async function startQuickExport(
     music: template.music,
   });
 
-  console.log(`[quick-status] Created storyboard ${storyboard.id} with ${slots.length} slots`);
+  logger.debug('quick-status', `Created storyboard ${storyboard.id} with ${slots.length} slots`);
 
   // Start export
   if (!CLOUD_RUN_URL) {
@@ -296,7 +297,7 @@ async function startQuickExport(
     watermark: applyWatermark,
   };
 
-  console.log(`[quick-status] Calling Cloud Run with ${clips.length} clips`);
+  logger.debug('quick-status', `Calling Cloud Run with ${clips.length} clips`);
 
   const response = await fetch(`${CLOUD_RUN_URL}/export-async`, {
     method: 'POST',
@@ -310,7 +311,7 @@ async function startQuickExport(
   }
 
   const result = await response.json();
-  console.log(`[quick-status] Export started: ${result.exportId}`);
+  logger.debug('quick-status', `Export started: ${result.exportId}`);
 
   return {
     storyboardId: storyboard.id,

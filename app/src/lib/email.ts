@@ -3,6 +3,8 @@
  * Edge-compatible: uses fetch(), no SDK needed.
  */
 
+import { logger } from '@/lib/logger';
+
 const RESEND_API_URL = 'https://api.resend.com/emails';
 const FROM_EMAIL_FALLBACK = 'onboarding@resend.dev'; // Resend sandbox
 
@@ -12,7 +14,7 @@ export async function sendVerificationEmail(
 ): Promise<{ success: boolean; error?: string }> {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) {
-    console.error('[Email] RESEND_API_KEY not configured');
+    logger.error('[Email] RESEND_API_KEY not configured');
     return { success: false, error: 'Email service not configured' };
   }
 
@@ -38,7 +40,7 @@ export async function sendVerificationEmail(
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    console.error('[Email] Resend API error:', err);
+    logger.error('[Email] Resend API error:', err);
     return { success: false, error: 'Failed to send email' };
   }
 
@@ -55,7 +57,7 @@ export async function sendCompletionEmail(
 ): Promise<{ success: boolean; error?: string }> {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) {
-    console.error('[Email] RESEND_API_KEY not configured');
+    logger.error('[Email] RESEND_API_KEY not configured');
     return { success: false, error: 'Email service not configured' };
   }
 
@@ -79,7 +81,7 @@ export async function sendCompletionEmail(
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    console.error('[Email] Completion email error:', err);
+    logger.error('[Email] Completion email error:', err);
     return { success: false, error: 'Failed to send completion email' };
   }
 

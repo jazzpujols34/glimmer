@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { X, Play, Pause, SkipBack } from 'lucide-react';
 import type { Storyboard, StoryboardSlot } from '@/types';
 import { resolveVideoUrl } from '@/lib/video-url';
+import { logger } from '@/lib/logger';
 
 interface StoryboardPreviewModalProps {
   storyboard: Storyboard;
@@ -266,7 +267,7 @@ export function StoryboardPreviewModal({ storyboard, onClose }: StoryboardPrevie
     if (playing) {
       if (currentItem.type === 'clip') {
         videoRef.current?.play().catch(() => {
-          console.warn('Video autoplay blocked');
+          logger.warn('Video autoplay blocked');
         });
       } else {
         playCard(currentItem.duration);

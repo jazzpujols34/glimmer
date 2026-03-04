@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import { trackEditorOpen } from '@/lib/analytics';
+import { logger } from '@/lib/logger';
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -119,7 +120,7 @@ function EditorLoader({ jobId }: { jobId: string }) {
       setShowRestore(false);
       setLoading(false);
     } catch (err) {
-      console.error('Failed to load editor:', err);
+      logger.error('Failed to load editor:', err);
       setError(err instanceof Error ? err.message : '載入編輯器失敗');
       setLoading(false);
     }
@@ -151,7 +152,7 @@ function EditorLoader({ jobId }: { jobId: string }) {
             fetchUrl = `/api/proxy-r2?key=${encodeURIComponent(sourceUrl)}`;
           } else if (sourceUrl.startsWith('local://')) {
             // Local file - can't restore, return empty blobUrl
-            console.warn(`[Restore] Cannot restore local file: ${sourceUrl}`);
+            logger.warn(`[Restore] Cannot restore local file: ${sourceUrl}`);
             return { ...clip, blobUrl: '' } as TimelineClip;
           } else if (sourceUrl) {
             // R2 key - extract jobId and index from pattern: videos/{jobId}/{index}.mp4
@@ -174,7 +175,7 @@ function EditorLoader({ jobId }: { jobId: string }) {
             blobUrlsRef.current.push(blobUrl);
             return { ...clip, blobUrl } as TimelineClip;
           } catch (err) {
-            console.error(`[Restore] Failed to fetch clip: ${sourceUrl}`, err);
+            logger.error(`[Restore] Failed to fetch clip: ${sourceUrl}`, err);
             return { ...clip, blobUrl: '' } as TimelineClip;
           }
         })
@@ -223,7 +224,7 @@ function EditorLoader({ jobId }: { jobId: string }) {
       dispatch({ type: 'RESTORE', payload: restoredState });
       setLoading(false);
     } catch (err) {
-      console.error('Failed to restore session:', err);
+      logger.error('Failed to restore session:', err);
       // Fall back to fresh load
       await loadFresh();
     }

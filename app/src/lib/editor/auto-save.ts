@@ -5,6 +5,7 @@
  */
 
 import type { EditorState, TimelineClip, MusicClip, SfxItem, TransitionType, Transition } from '@/types/editor';
+import { logger } from '@/lib/logger';
 
 const DB_NAME = 'glimmer-editor';
 
@@ -95,7 +96,7 @@ export async function saveEditorState(state: EditorState): Promise<void> {
     });
     db.close();
   } catch (err) {
-    console.warn('[AutoSave] Failed to save:', err);
+    logger.warn('[AutoSave] Failed to save:', err);
   }
 }
 
@@ -126,7 +127,7 @@ export async function loadEditorState(jobId: string): Promise<SavedEditorState |
       };
     });
   } catch (err) {
-    console.warn('[AutoSave] Failed to load:', err);
+    logger.warn('[AutoSave] Failed to load:', err);
     return null;
   }
 }
@@ -143,6 +144,6 @@ export async function clearEditorState(jobId: string): Promise<void> {
     });
     db.close();
   } catch (err) {
-    console.warn('[AutoSave] Failed to clear:', err);
+    logger.warn('[AutoSave] Failed to clear:', err);
   }
 }

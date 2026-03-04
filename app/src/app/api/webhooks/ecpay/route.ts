@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { parseCallback } from '@/lib/ecpay';
 import { addCredits, getCreditRecord } from '@/lib/credits';
 import { captureError } from '@/lib/errors';
+import { logger } from '@/lib/logger';
 
 // Credit pack definitions (must match checkout route)
 const CREDIT_PACKS: Record<number, number> = {
@@ -18,7 +19,7 @@ export async function POST(request: NextRequest) {
     const formData = await request.formData();
     const callbackData = await parseCallback(formData);
 
-    console.log('ECPay webhook received:', {
+    logger.log('ECPay webhook received:', {
       orderId: callbackData.merchantTradeNo,
       rtnCode: callbackData.rtnCode,
       amount: callbackData.tradeAmt,
@@ -28,13 +29,13 @@ export async function POST(request: NextRequest) {
 
     // Verify CheckMacValue
     if (!callbackData.isValid) {
-      console.error('Invalid CheckMacValue');
+      logger.error('Invalid CheckMacValue');
       return new NextResponse('0|Invalid CheckMacValue', { status: 400 });
     }
 
     // Check if payment was successful
     if (callbackData.rtnCode !== '1') {
-      console.log('Payment not successful:', callbackData.rtnMsg);
+      logger.log('Payment not successful:', callbackData.rtnMsg);
       // ECPay expects "1|OK" even for failed payments (we just don't credit)
       return new NextResponse('1|OK');
     }
@@ -42,14 +43,14 @@ export async function POST(request: NextRequest) {
     // Get email from CustomField1
     const email = callbackData.email?.toLowerCase().trim();
     if (!email) {
-      console.error('No email in callback');
+      logger.error('No email in callback');
       return new NextResponse('0|No email', { status: 400 });
     }
 
     // Determine credits from amount
     const credits = CREDIT_PACKS[callbackData.tradeAmt];
     if (!credits) {
-      console.error('Unknown amount:', callbackData.tradeAmt);
+      logger.error('Unknown amount:', callbackData.tradeAmt);
       return new NextResponse('0|Unknown amount', { status: 400 });
     }
 
@@ -58,7 +59,7 @@ export async function POST(request: NextRequest) {
     const existingRecord = await getCreditRecord(email);
 
     if (existingRecord?.purchases?.some(p => p.id === orderId)) {
-      console.log('Duplicate webhook, already processed:', orderId);
+      logger.log('Duplicate webhook, already processed:', orderId);
       return new NextResponse('1|OK');
     }
 
@@ -72,13 +73,13 @@ export async function POST(request: NextRequest) {
       ecpayTradeNo: callbackData.tradeNo,
     });
 
-    console.log('Credits added:', { email, credits, orderId });
+    logger.log('Credits added:', { email, credits, orderId });
 
     // ECPay requires "1|OK" response
     return new NextResponse('1|OK');
   } catch (error) {
     captureError(error, { route: '/api/webhooks/ecpay' });
-    console.error('ECPay webhook error:', error);
+    logger.error('ECPay webhook error:', error);
     // Return error but still acknowledge receipt
     return new NextResponse('0|Error', { status: 500 });
   }

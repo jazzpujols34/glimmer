@@ -3,6 +3,7 @@ export const runtime = 'edge';
 import { NextRequest, NextResponse } from 'next/server';
 import { r2Put } from '@/lib/r2';
 import { captureError } from '@/lib/errors';
+import { logger } from '@/lib/logger';
 
 const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
 
@@ -53,7 +54,7 @@ export async function POST(request: NextRequest) {
 
     if (!success) {
       // R2 not available (local dev) - return a fake key for testing
-      console.log('[upload-music] R2 not available, returning fake key for local dev');
+      logger.debug('upload-music', 'R2 not available, returning fake key for local dev');
       return NextResponse.json({
         success: true,
         r2Key: `local://${file.name}`,
@@ -61,7 +62,7 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    console.log(`[upload-music] Uploaded ${file.name} to ${r2Key}`);
+    logger.debug('upload-music', `Uploaded ${file.name} to ${r2Key}`);
 
     return NextResponse.json({
       success: true,

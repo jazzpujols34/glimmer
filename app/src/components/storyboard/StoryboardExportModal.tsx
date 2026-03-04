@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Download, Loader2, CheckCircle, X, AlertTriangle } from 'lucide-react';
 import type { Storyboard } from '@/types';
+import { logger } from '@/lib/logger';
 
 interface StoryboardExportModalProps {
   storyboard: Storyboard;
@@ -88,7 +89,7 @@ export function StoryboardExportModal({ storyboard, onClose }: StoryboardExportM
       throw new Error('匯出逾時，請重試');
 
     } catch (err) {
-      console.error('Storyboard export failed:', err);
+      logger.error('Storyboard export failed:', err);
       setStatus('error');
       setError(err instanceof Error ? err.message : '匯出失敗');
     }

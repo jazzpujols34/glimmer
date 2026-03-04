@@ -12,6 +12,7 @@ import { StoryboardPreviewModal } from '@/components/storyboard/StoryboardPrevie
 import { TitleCardModal } from '@/components/storyboard/TitleCardModal';
 import { MusicModal } from '@/components/storyboard/MusicModal';
 import type { Storyboard, StoryboardSlot, StoryboardTransitionType, StoryboardTitleCard, StoryboardMusic, GenerationJob } from '@/types';
+import { logger } from '@/lib/logger';
 
 // --- Undo/Redo History ---
 const MAX_HISTORY_SIZE = 30;
@@ -137,7 +138,7 @@ function StoryboardEditorPageContent() {
         body: JSON.stringify({ action: 'fullUpdate', storyboard: s }),
       });
     } catch (err) {
-      console.error('Error syncing to server:', err);
+      logger.error('Error syncing to server:', err);
     } finally {
       setSaving(false);
     }
@@ -217,7 +218,7 @@ function StoryboardEditorPageContent() {
 
       // Prevent duplicate updates for the same slot
       if (updatingSlots.current.has(slotIndex)) {
-        console.warn(`Slot ${slotIndex} is already being updated, skipping`);
+        logger.warn(`Slot ${slotIndex} is already being updated, skipping`);
         return;
       }
 
@@ -250,7 +251,7 @@ function StoryboardEditorPageContent() {
         // Update directly without adding to history (server confirmed)
         setStoryboardDirect(data.storyboard);
       } catch (err) {
-        console.error('Error updating slot:', err);
+        logger.error('Error updating slot:', err);
         // Revert on error - refetch
         const res = await fetch(`/api/storyboards/${storyboardId}`);
         if (res.ok) {
@@ -302,7 +303,7 @@ function StoryboardEditorPageContent() {
         const data = await res.json();
         setStoryboardDirect(data.storyboard);
       } catch (err) {
-        console.error('Error updating transition:', err);
+        logger.error('Error updating transition:', err);
       } finally {
         updatingTransitions.current.delete(transitionIndex);
         setSaving(false);
@@ -317,7 +318,7 @@ function StoryboardEditorPageContent() {
 
       // Prevent concurrent reorder operations
       if (isReordering.current) {
-        console.warn('Reorder already in progress, skipping');
+        logger.warn('Reorder already in progress, skipping');
         return;
       }
 
@@ -352,7 +353,7 @@ function StoryboardEditorPageContent() {
         const data = await res.json();
         setStoryboardDirect(data.storyboard);
       } catch (err) {
-        console.error('Error reordering slots:', err);
+        logger.error('Error reordering slots:', err);
         // Revert on error - refetch
         const res = await fetch(`/api/storyboards/${storyboardId}`);
         if (res.ok) {
@@ -420,7 +421,7 @@ function StoryboardEditorPageContent() {
         setStoryboardDirect(data.storyboard);
       }
     } catch (err) {
-      console.error('Error saving title cards:', err);
+      logger.error('Error saving title cards:', err);
     } finally {
       setSaving(false);
     }
@@ -449,7 +450,7 @@ function StoryboardEditorPageContent() {
         setStoryboardDirect(data.storyboard);
       }
     } catch (err) {
-      console.error('Error saving music:', err);
+      logger.error('Error saving music:', err);
     } finally {
       setSaving(false);
     }
