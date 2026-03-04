@@ -8,6 +8,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { LanguageToggle } from '@/components/LanguageToggle';
 import { useTranslation } from '@/lib/i18n';
 import { useAccess } from '@/hooks/useAccess';
+import { OCCASION_LABELS } from '@/lib/constants';
 import { Play, Download, Calendar, Film, ArrowLeft, Trash2, Scissors, AlertCircle, X, Star, FolderOpen, ChevronDown, Clock, Lock, CheckSquare, Square, Wand2, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { trackGalleryView } from '@/lib/analytics';
@@ -33,13 +34,6 @@ interface GalleryJob {
   };
 }
 
-const occasionLabels: Record<string, string> = {
-  memorial: '追思紀念',
-  birthday: '生日慶祝',
-  wedding: '婚禮紀念',
-  pet: '寵物紀念',
-  other: '其他',
-};
 
 export default function GalleryPage() {
   const t = useTranslation();
@@ -694,7 +688,7 @@ export default function GalleryPage() {
                     <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
                       <span className="flex items-center gap-1">
                         <Film className="w-3 h-3" />
-                        {occasionLabels[job.occasion] || job.occasion}
+                        {OCCASION_LABELS[job.occasion] || job.occasion}
                       </span>
                       <span className="flex items-center gap-1">
                         <Calendar className="w-3 h-3" />
@@ -758,7 +752,7 @@ export default function GalleryPage() {
               <div>
                 <h2 className="font-semibold text-lg">{selectedJob.name}</h2>
                 <p className="text-sm text-muted-foreground">
-                  {occasionLabels[selectedJob.occasion]} · {formatDate(selectedJob.createdAt)}
+                  {OCCASION_LABELS[selectedJob.occasion]} · {formatDate(selectedJob.createdAt)}
                 </p>
               </div>
               <Button variant="ghost" size="icon" onClick={closeModal} aria-label="關閉">

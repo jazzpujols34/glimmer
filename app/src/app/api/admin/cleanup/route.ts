@@ -3,16 +3,8 @@ export const runtime = 'edge';
 import { NextRequest, NextResponse } from 'next/server';
 import { kvListKeys, kvGet, kvDelete } from '@/lib/kv';
 import { captureError } from '@/lib/errors';
+import { isAdmin } from '@/lib/credits';
 import type { GenerationJob } from '@/types';
-
-const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || 'glimmer.hello@gmail.com,aipujol34@gmail.com,cocoshell8988@gmail.com')
-  .split(',')
-  .map(e => e.toLowerCase().trim())
-  .filter(Boolean);
-
-function isAdmin(email: string): boolean {
-  return ADMIN_EMAILS.includes(email.toLowerCase().trim());
-}
 
 /**
  * Check if a video URL is expired (CDN URLs that are no longer accessible)

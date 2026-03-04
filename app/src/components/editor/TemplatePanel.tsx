@@ -15,14 +15,7 @@ import type { QuickTemplate } from '@/lib/templates';
 import type { OccasionType } from '@/types';
 import { Check, Wand2, Music, Type, ArrowRightLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
-
-const OCCASION_LABELS: Record<OccasionType, string> = {
-  memorial: '追思',
-  birthday: '生日',
-  wedding: '婚禮',
-  pet: '寵物',
-  other: '其他',
-};
+import { OCCASION_LABELS_SHORT as OCCASION_LABELS } from '@/lib/constants';
 
 interface TemplateCardProps {
   template: QuickTemplate;

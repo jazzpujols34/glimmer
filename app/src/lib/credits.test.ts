@@ -15,7 +15,8 @@ vi.mock('./kv', () => ({
   }),
 }));
 
-import { checkCredits, consumeCredit, addCredits, isValidEmail, isEmailVerified, setEmailVerified, FREE_GENERATIONS } from './credits';
+import { checkCredits, consumeCredit, addCredits, isEmailVerified, setEmailVerified, FREE_GENERATIONS } from './credits';
+import { isValidEmail } from './validation';
 
 beforeEach(() => {
   mockStore.clear();

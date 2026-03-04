@@ -24,35 +24,6 @@ function getSystemPrompt(occasion: OccasionType): string {
 }
 
 /**
- * Get occasion-specific prompt enhancement.
- * Keep it minimal - don't instruct facial expression changes.
- */
-export function getOccasionPrompt(occasion: OccasionType): string {
-  // Removed expression instructions - they cause AI to distort faces
-  const prompts: Record<OccasionType, string> = {
-    memorial: ``,
-    birthday: ``,
-    wedding: ``,
-    pet: ``,
-    other: ``,
-  };
-
-  return prompts[occasion];
-}
-
-/**
- * Get task-specific instructions
- */
-export function getTaskPrompt(taskType: TaskType): string {
-  const prompts: Record<TaskType, string> = {
-    'image-to-video': ``,
-    'first-last-frame': ``,
-  };
-
-  return prompts[taskType];
-}
-
-/**
  * Build the complete prompt for video generation.
  * The system prompt adapts based on the occasion category.
  */
@@ -62,12 +33,9 @@ export function buildPrompt(options: {
   taskType: TaskType;
   name?: string;
 }): string {
-  const { userPrompt, occasion, taskType } = options;
+  const { userPrompt, occasion } = options;
 
-  // Use category-aware system prompt
   let prompt = getSystemPrompt(occasion);
-  prompt += ' ' + getTaskPrompt(taskType);
-  prompt += ' ' + getOccasionPrompt(occasion);
 
   // Add user's custom prompt if provided (but keep it brief)
   if (userPrompt && userPrompt.trim()) {

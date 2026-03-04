@@ -6,6 +6,8 @@
  * Each window is 1 minute. We track request count per IP per window.
  */
 
+import { getKV } from './kv';
+
 interface RateLimitResult {
   allowed: boolean;
   remaining: number;
@@ -14,22 +16,6 @@ interface RateLimitResult {
 
 // In-memory fallback for local dev
 const memRateMap = new Map<string, { count: number; windowStart: number }>();
-
-interface KVNamespaceLike {
-  get(key: string): Promise<string | null>;
-  put(key: string, value: string, opts?: { expirationTtl?: number }): Promise<void>;
-}
-
-async function getKV(): Promise<KVNamespaceLike | null> {
-  try {
-    const { getRequestContext } = await import('@cloudflare/next-on-pages');
-    const ctx = getRequestContext();
-    const kv = (ctx.env as Record<string, unknown>).GLIMMER_KV as KVNamespaceLike | undefined;
-    return kv || null;
-  } catch {
-    return null;
-  }
-}
 
 /**
  * Check and increment rate limit for an identifier (typically IP).

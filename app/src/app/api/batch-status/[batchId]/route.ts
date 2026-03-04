@@ -9,17 +9,7 @@ import { sendCompletionEmail } from '@/lib/email';
 import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
 import { captureError } from '@/lib/errors';
 import { logger } from '@/lib/logger';
-
-/**
- * Transform video URL to proxy URL if it's an R2 key (not starting with http)
- */
-function getVideoUrl(jobId: string, url: string | undefined): string {
-  if (!url) return '';
-  if (!url.startsWith('http')) {
-    return `/api/proxy-video?jobId=${jobId}&index=0`;
-  }
-  return url;
-}
+import { getVideoUrl } from '@/lib/video-url';
 
 export async function GET(
   request: NextRequest,

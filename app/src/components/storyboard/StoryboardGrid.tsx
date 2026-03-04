@@ -7,6 +7,7 @@ import { AddToSlotModal } from './AddToSlotModal';
 import { Button } from '@/components/ui/button';
 import type { Storyboard, StoryboardSlot, StoryboardTransitionType, GenerationJob, StoryboardClip } from '@/types';
 import { logger } from '@/lib/logger';
+import { getVideoDuration as _getVideoDuration } from '@/lib/media-utils';
 
 interface StoryboardGridProps {
   storyboard: Storyboard;
@@ -62,21 +63,7 @@ export function StoryboardGrid({
     });
   };
 
-  const getVideoDuration = async (url: string): Promise<number> => {
-    return new Promise((resolve) => {
-      const video = document.createElement('video');
-      video.preload = 'metadata';
-      video.onloadedmetadata = () => {
-        resolve(video.duration);
-        video.src = '';
-      };
-      video.onerror = () => {
-        resolve(5); // Default to 5 seconds
-        video.src = '';
-      };
-      video.src = url;
-    });
-  };
+  const getVideoDuration = (url: string) => _getVideoDuration(url).catch(() => 5);
 
   const handleAddFromUpload = useCallback(
     async (files: File[]) => {

@@ -47,10 +47,6 @@ export async function getJob(id: string): Promise<GenerationJob | undefined> {
   return data ? JSON.parse(data) : undefined;
 }
 
-export async function getAllJobIds(): Promise<string[]> {
-  const keys = await kvListKeys(KEY_PREFIX);
-  return keys.map(k => k.replace(KEY_PREFIX, ''));
-}
 
 export async function getCompletedJobs(): Promise<GenerationJob[]> {
   const keys = await kvListKeys(KEY_PREFIX);
@@ -71,12 +67,10 @@ export async function updateJob(id: string, updates: Partial<GenerationJob>): Pr
   const job = await getJob(id);
   if (!job) return undefined;
   const updated = { ...job, ...updates };
-  await kvPut(`${KEY_PREFIX}${id}`, JSON.stringify(updated), { expirationTtl: JOB_TTL });
+  // Preserve 30-day TTL for completed paid jobs; use 24h for everything else
+  const ttl = job.status === 'complete' && job.archived ? PAID_JOB_TTL : JOB_TTL;
+  await kvPut(`${KEY_PREFIX}${id}`, JSON.stringify(updated), { expirationTtl: ttl });
   return updated;
-}
-
-export async function setJobStatus(id: string, status: GenerationStatus, progress?: number): Promise<GenerationJob | undefined> {
-  return updateJob(id, { status, progress });
 }
 
 export async function setJobComplete(

@@ -38,13 +38,7 @@ interface ClipData {
   name: string;
 }
 
-const OCCASION_LABELS: Record<OccasionType, string> = {
-  memorial: '追思',
-  birthday: '生日',
-  wedding: '婚禮',
-  pet: '寵物',
-  other: '其他',
-};
+import { OCCASION_LABELS_SHORT as OCCASION_LABELS } from '@/lib/constants';
 
 function ShowcaseContent() {
   const searchParams = useSearchParams();

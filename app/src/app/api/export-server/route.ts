@@ -75,6 +75,13 @@ export async function POST(request: NextRequest) {
     const body: ExportRequest = await request.json();
     const { jobId, clips, transitions, subtitles, musicClips, titleCard, outroCard, email } = body;
 
+    if (!jobId || !clips || clips.length === 0) {
+      return NextResponse.json(
+        { error: 'Missing jobId or clips' },
+        { status: 400 }
+      );
+    }
+
     logger.debug('export-server', `Starting export for job ${jobId}, ${clips.length} clips`);
 
     // Determine if watermark should be applied (free tier users only)
@@ -87,13 +94,6 @@ export async function POST(request: NextRequest) {
       }
     }
     logger.debug('export-server', `Watermark: ${applyWatermark} (email: ${email || 'none'})`);
-
-    if (!jobId || !clips || clips.length === 0) {
-      return NextResponse.json(
-        { error: 'Missing jobId or clips' },
-        { status: 400 }
-      );
-    }
 
     if (!CLOUD_RUN_URL) {
       return NextResponse.json(

@@ -12,6 +12,7 @@ import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import { trackEditorOpen } from '@/lib/analytics';
 import { logger } from '@/lib/logger';
+import { getVideoDuration } from '@/lib/media-utils';
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -336,21 +337,3 @@ function getTimeAgo(date: Date): string {
   return `${days} 天前`;
 }
 
-/** Get video duration using an off-screen video element */
-function getVideoDuration(blobUrl: string): Promise<number> {
-  return new Promise((resolve, reject) => {
-    const video = document.createElement('video');
-    video.preload = 'metadata';
-    video.src = blobUrl;
-
-    video.onloadedmetadata = () => {
-      resolve(video.duration);
-      video.src = '';
-    };
-
-    video.onerror = () => {
-      video.src = '';
-      reject(new Error('Failed to load video metadata'));
-    };
-  });
-}

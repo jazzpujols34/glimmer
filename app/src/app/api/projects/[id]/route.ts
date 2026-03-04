@@ -4,24 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getProject, updateProject, deleteProject, getProjectJobs, deleteJob } from '@/lib/storage';
 import { r2Delete } from '@/lib/r2';
 import { captureError } from '@/lib/errors';
-
-/**
- * Transform video URL to proxy URL if it's an R2 key (not starting with http)
- */
-function getVideoUrl(jobId: string, url: string | undefined, index: number = 0): string {
-  if (!url) return '';
-  // R2 keys don't start with http - need proxy
-  if (!url.startsWith('http')) {
-    return `/api/proxy-video?jobId=${jobId}&index=${index}`;
-  }
-  // CDN URLs work directly
-  return url;
-}
-
-function getVideoUrls(jobId: string, urls: string[] | undefined): string[] {
-  if (!urls || urls.length === 0) return [];
-  return urls.map((url, index) => getVideoUrl(jobId, url, index));
-}
+import { getVideoUrl, getVideoUrls } from '@/lib/video-url';
 
 // GET /api/projects/[id] - Get project with its jobs
 export async function GET(

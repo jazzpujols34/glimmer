@@ -97,16 +97,6 @@ export function trackVideoExport(source: 'editor' | 'storyboard' | 'server', dur
 
 // Additional funnel events for drop-off tracking
 
-/** Track when user uploads photos (before generation) */
-export function trackPhotoUpload(photoCount: number, occasion: string): void {
-  trackEvent({
-    action: 'photo_upload',
-    category: 'funnel',
-    label: occasion,
-    value: photoCount,
-  });
-}
-
 /** Track when user views gallery */
 export function trackGalleryView(videoCount: number): void {
   trackEvent({

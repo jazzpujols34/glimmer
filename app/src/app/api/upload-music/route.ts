@@ -53,13 +53,10 @@ export async function POST(request: NextRequest) {
     const success = await r2Put(r2Key, arrayBuffer, file.type);
 
     if (!success) {
-      // R2 not available (local dev) - return a fake key for testing
-      logger.debug('upload-music', 'R2 not available, returning fake key for local dev');
-      return NextResponse.json({
-        success: true,
-        r2Key: `local://${file.name}`,
-        name: file.name,
-      });
+      return NextResponse.json(
+        { error: 'Storage unavailable. Please try again later.' },
+        { status: 503 }
+      );
     }
 
     logger.debug('upload-music', `Uploaded ${file.name} to ${r2Key}`);

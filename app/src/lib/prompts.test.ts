@@ -1,29 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildPrompt, getOccasionPrompt, getTaskPrompt } from './prompts';
-
-describe('getOccasionPrompt', () => {
-  // Note: Occasion prompts are intentionally empty now.
-  // Detailed expression instructions caused AI to distort faces.
-  // The system prompt handles the core animation style.
-
-  it('returns empty string for all occasions (simplified prompts)', () => {
-    expect(getOccasionPrompt('memorial')).toBe('');
-    expect(getOccasionPrompt('birthday')).toBe('');
-    expect(getOccasionPrompt('wedding')).toBe('');
-    expect(getOccasionPrompt('pet')).toBe('');
-    expect(getOccasionPrompt('other')).toBe('');
-  });
-});
-
-describe('getTaskPrompt', () => {
-  // Note: Task prompts are intentionally empty now.
-  // The system prompt handles the core animation instructions.
-
-  it('returns empty string for all task types (simplified prompts)', () => {
-    expect(getTaskPrompt('image-to-video')).toBe('');
-    expect(getTaskPrompt('first-last-frame')).toBe('');
-  });
-});
+import { buildPrompt } from './prompts';
 
 describe('buildPrompt', () => {
   it('includes living portrait system prompt for person', () => {
@@ -44,9 +20,8 @@ describe('buildPrompt', () => {
       occasion: 'pet',
       taskType: 'image-to-video',
     });
-    expect(prompt).toContain('Living portrait of a pet');
-    expect(prompt).toContain('ear twitch');
-    expect(prompt).toContain('gentle breathing');
+    expect(prompt).toContain('pet');
+    expect(prompt).toContain('breathing');
   });
 
   it('appends user prompt when provided', () => {

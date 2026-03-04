@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { X, Music, Upload, Play, Pause, Trash2, Loader2, Check } from 'lucide-react';
 import type { StoryboardMusic } from '@/types';
+import { BUNDLED_TRACKS as _BUNDLED_TRACKS } from '@/lib/constants';
 
 interface MusicModalProps {
   storyboardId: string;
@@ -12,12 +13,9 @@ interface MusicModalProps {
   onClose: () => void;
 }
 
-const BUNDLED_TRACKS = [
-  { id: 'gentle-piano', filename: 'gentle-piano.mp3', name: '溫柔鋼琴', duration: 60 },
-  { id: 'memorial-01', filename: 'memorial-01.mp3', name: '追思旋律', duration: 60 },
-  { id: 'birthday-01', filename: 'birthday-01.mp3', name: '歡樂慶祝', duration: 60 },
-  { id: 'wedding-01', filename: 'wedding-01.mp3', name: '浪漫時刻', duration: 60 },
-];
+const BUNDLED_TRACKS = _BUNDLED_TRACKS.map(t => ({
+  id: t.id, filename: t.filename, name: t.name, duration: t.durationSeconds,
+}));
 
 type Tab = 'bundled' | 'upload';
 

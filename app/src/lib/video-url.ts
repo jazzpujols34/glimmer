@@ -75,6 +75,26 @@ export function resolveVideoUrl(
 }
 
 /**
+ * Transform a video URL to proxy URL if it's an R2 key (not starting with http).
+ * Used by API routes to return usable URLs in responses.
+ */
+export function getVideoUrl(jobId: string, url: string | undefined, index: number = 0): string {
+  if (!url) return '';
+  if (!url.startsWith('http')) {
+    return `/api/proxy-video?jobId=${jobId}&index=${index}`;
+  }
+  return url;
+}
+
+/**
+ * Transform an array of video URLs to proxy URLs where needed.
+ */
+export function getVideoUrls(jobId: string, urls: string[] | undefined): string[] {
+  if (!urls || urls.length === 0) return [];
+  return urls.map((url, index) => getVideoUrl(jobId, url, index));
+}
+
+/**
  * Validate that a video URL is accessible.
  * Use before export to fail fast instead of waiting for Cloud Run.
  */

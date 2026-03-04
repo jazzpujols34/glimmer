@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { generateId } from '@/lib/editor/timeline-utils';
 import type { SfxItem } from '@/types/editor';
 import { Upload, Plus, Trash2, Zap } from 'lucide-react';
+import { getAudioDuration } from '@/lib/media-utils';
 
 export function SfxPanel() {
   const state = useEditor();
@@ -23,7 +24,7 @@ export function SfxPanel() {
     }
 
     const blobUrl = URL.createObjectURL(file);
-    const duration = await getAudioDuration(blobUrl);
+    const duration = await getAudioDuration(blobUrl, 1);
 
     const sfxItem: SfxItem = {
       id: generateId(),
@@ -145,10 +146,3 @@ export function SfxPanel() {
   );
 }
 
-function getAudioDuration(blobUrl: string): Promise<number> {
-  return new Promise((resolve) => {
-    const audio = new Audio(blobUrl);
-    audio.onloadedmetadata = () => resolve(audio.duration);
-    audio.onerror = () => resolve(1); // fallback 1s
-  });
-}

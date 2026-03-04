@@ -9,13 +9,8 @@ import { generateId } from '@/lib/editor/timeline-utils';
 import type { MusicClip, BundledTrack } from '@/types/editor';
 import type { OccasionType } from '@/types/index';
 import { Upload, Play, Pause, Trash2, Music, ArrowLeft } from 'lucide-react';
-
-const BUNDLED_TRACKS: BundledTrack[] = [
-  { id: 'gentle-piano', name: '溫柔鋼琴', filename: 'gentle-piano.mp3', occasion: 'all', durationSeconds: 60 },
-  { id: 'memorial-01', name: '追思旋律', filename: 'memorial-01.mp3', occasion: 'memorial', durationSeconds: 60 },
-  { id: 'birthday-01', name: '歡樂慶祝', filename: 'birthday-01.mp3', occasion: 'birthday', durationSeconds: 60 },
-  { id: 'wedding-01', name: '浪漫時刻', filename: 'wedding-01.mp3', occasion: 'wedding', durationSeconds: 60 },
-];
+import { BUNDLED_TRACKS, OCCASION_LABELS_SHORT } from '@/lib/constants';
+import { getAudioDuration } from '@/lib/media-utils';
 
 export function MusicPanel() {
   const state = useEditor();
@@ -233,7 +228,7 @@ export function MusicPanel() {
               <div className="flex-1 min-w-0">
                 <p className="text-xs font-medium">{track.name}</p>
                 <p className="text-[10px] text-muted-foreground">
-                  {track.occasion === 'all' ? '通用' : occasionLabel(track.occasion)} · 新增至播放頭
+                  {track.occasion === 'all' ? '通用' : OCCASION_LABELS_SHORT[track.occasion]} · 新增至播放頭
                 </p>
               </div>
             </div>
@@ -247,23 +242,3 @@ export function MusicPanel() {
   );
 }
 
-function occasionLabel(occasion: OccasionType): string {
-  const map: Record<OccasionType, string> = {
-    memorial: '追思',
-    birthday: '生日',
-    wedding: '婚禮',
-    pet: '寵物',
-    other: '其他',
-  };
-  return map[occasion] || occasion;
-}
-
-function getAudioDuration(blobUrl: string): Promise<number> {
-  return new Promise((resolve) => {
-    const audio = new Audio(blobUrl);
-    audio.onloadedmetadata = () => {
-      resolve(audio.duration);
-    };
-    audio.onerror = () => resolve(60);
-  });
-}

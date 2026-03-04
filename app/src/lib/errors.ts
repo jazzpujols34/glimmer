@@ -124,16 +124,3 @@ export function captureError(
   }
 }
 
-/**
- * Capture a warning (non-fatal issue).
- */
-export function captureWarning(
-  message: string,
-  context: ErrorContext = {}
-): void {
-  logger.warn(`[Warning] ${context.route || "unknown"}:`, message, context);
-
-  if (process.env.NODE_ENV === "production" && process.env.SENTRY_DSN) {
-    sendToSentry('warning', message, null, context).catch(() => {});
-  }
-}

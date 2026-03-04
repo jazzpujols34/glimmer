@@ -9,14 +9,14 @@
 
 // --- KV access (Cloudflare Pages) ---
 
-interface KVNamespaceLike {
+export interface KVNamespaceLike {
   get(key: string): Promise<string | null>;
   put(key: string, value: string, opts?: { expirationTtl?: number }): Promise<void>;
   delete(key: string): Promise<void>;
   list(opts?: { prefix?: string }): Promise<{ keys: { name: string }[] }>;
 }
 
-async function getKV(): Promise<KVNamespaceLike | null> {
+export async function getKV(): Promise<KVNamespaceLike | null> {
   try {
     const { getRequestContext } = await import('@cloudflare/next-on-pages');
     const ctx = getRequestContext();

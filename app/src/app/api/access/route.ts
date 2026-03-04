@@ -1,7 +1,7 @@
 export const runtime = 'edge';
 
 import { NextRequest } from 'next/server';
-import { getCreditRecord } from '@/lib/credits';
+import { getCreditRecord, isAdmin } from '@/lib/credits';
 import { successResponse } from '@/lib/api-response';
 
 /**
@@ -17,20 +17,10 @@ export async function GET(request: NextRequest) {
 
   const normalizedEmail = email.toLowerCase().trim();
 
-  // Check if admin (default admin emails match credits.ts)
-  const adminEmails = (process.env.ADMIN_EMAILS || 'glimmer.hello@gmail.com,aipujol34@gmail.com,cocoshell8988@gmail.com')
-    .split(',')
-    .map((e) => e.trim().toLowerCase())
-    .filter(Boolean);
-
-  const isAdmin = adminEmails.includes(normalizedEmail);
-
-  // Admins always have access
-  if (isAdmin) {
+  if (isAdmin(normalizedEmail)) {
     return successResponse({ hasPaidAccess: true, isAdmin: true });
   }
 
-  // Check if user has ever paid (total > 0 means they purchased credits)
   const record = await getCreditRecord(normalizedEmail);
   const hasPaidAccess = (record?.total || 0) > 0;
 

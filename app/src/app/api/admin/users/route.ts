@@ -2,20 +2,10 @@ export const runtime = 'edge';
 
 import { NextRequest } from 'next/server';
 import { kvListKeys, kvGet, kvPut } from '@/lib/kv';
-import { getCreditRecord, checkCredits } from '@/lib/credits';
+import { getCreditRecord, checkCredits, isAdmin } from '@/lib/credits';
 import { captureError } from '@/lib/errors';
 import { successResponse, errorResponse, errors } from '@/lib/api-response';
 import type { GenerationJob, CreditRecord } from '@/types';
-
-// Admin emails - same as in credits.ts
-const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || 'glimmer.hello@gmail.com,aipujol34@gmail.com,cocoshell8988@gmail.com')
-  .split(',')
-  .map(e => e.toLowerCase().trim())
-  .filter(Boolean);
-
-function isAdmin(email: string): boolean {
-  return ADMIN_EMAILS.includes(email.toLowerCase().trim());
-}
 
 /**
  * GET /api/admin/users?email=xxx&adminEmail=yyy

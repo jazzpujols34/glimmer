@@ -16,12 +16,12 @@ const FREE_PREFIX = 'free:';
 const VERIFIED_PREFIX = 'verified:';
 
 // Admin emails get unlimited generations
-const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || 'glimmer.hello@gmail.com,aipujol34@gmail.com,cocoshell8988@gmail.com')
+export const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || 'glimmer.hello@gmail.com,aipujol34@gmail.com,cocoshell8988@gmail.com')
   .split(',')
   .map(e => e.toLowerCase().trim())
   .filter(Boolean);
 
-function isAdmin(email: string): boolean {
+export function isAdmin(email: string): boolean {
   return ADMIN_EMAILS.includes(email.toLowerCase().trim());
 }
 
@@ -29,10 +29,6 @@ function isAdmin(email: string): boolean {
 
 function normalize(email: string): string {
   return email.toLowerCase().trim();
-}
-
-export function isValidEmail(email: string): boolean {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
 // --- Email Verification ---

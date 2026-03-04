@@ -4,17 +4,8 @@ import { NextRequest } from 'next/server';
 import { kvListKeys, kvGet } from '@/lib/kv';
 import { captureError } from '@/lib/errors';
 import { successResponse, errorResponse, errors } from '@/lib/api-response';
+import { isAdmin } from '@/lib/credits';
 import type { GenerationJob, CreditRecord } from '@/types';
-
-// Admin emails - same as in credits.ts
-const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || 'glimmer.hello@gmail.com,aipujol34@gmail.com,cocoshell8988@gmail.com')
-  .split(',')
-  .map(e => e.toLowerCase().trim())
-  .filter(Boolean);
-
-function isAdmin(email: string): boolean {
-  return ADMIN_EMAILS.includes(email.toLowerCase().trim());
-}
 
 export async function GET(request: NextRequest) {
   // Check admin auth via query param

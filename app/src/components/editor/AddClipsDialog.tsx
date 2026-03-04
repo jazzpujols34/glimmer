@@ -18,12 +18,8 @@ interface GalleryJob {
   createdAt: string;
 }
 
-const occasionLabels: Record<string, string> = {
-  memorial: '追思紀念',
-  birthday: '生日慶祝',
-  wedding: '婚禮紀念',
-  other: '其他',
-};
+import { OCCASION_LABELS } from '@/lib/constants';
+import { getVideoDuration } from '@/lib/media-utils';
 
 type TabKey = 'gallery' | 'upload';
 
@@ -248,7 +244,7 @@ export function AddClipsDialog({ open, onClose }: AddClipsDialogProps) {
                         <div className="flex items-center gap-2">
                           <h3 className="text-sm font-medium">{job.name}</h3>
                           <span className="text-xs text-muted-foreground">
-                            {occasionLabels[job.occasion] || job.occasion}
+                            {OCCASION_LABELS[job.occasion] || job.occasion}
                           </span>
                           <span className="text-xs text-muted-foreground">
                             {urls.length} 支影片
@@ -399,12 +395,3 @@ export function AddClipsDialog({ open, onClose }: AddClipsDialogProps) {
   );
 }
 
-function getVideoDuration(blobUrl: string): Promise<number> {
-  return new Promise((resolve, reject) => {
-    const video = document.createElement('video');
-    video.preload = 'metadata';
-    video.src = blobUrl;
-    video.onloadedmetadata = () => { resolve(video.duration); video.src = ''; };
-    video.onerror = () => { video.src = ''; reject(new Error('Failed to load video metadata')); };
-  });
-}
