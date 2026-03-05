@@ -74,8 +74,10 @@ function CreatePageInner() {
   useEffect(() => {
     if (!email || !isValidEmail) {
       setCreditBalance(null);
+      setVerificationSent(false);
       return;
     }
+    setVerificationSent(false);
     const timer = setTimeout(async () => {
       setCreditLoading(true);
       try {
@@ -216,27 +218,7 @@ function CreatePageInner() {
 
       if (!res.ok) {
         if (data.code === 'EMAIL_NOT_VERIFIED') {
-          // Auto-send verification email
-          setSendingVerification(true);
-          try {
-            const verifyRes = await fetch('/api/verify/send', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ email }),
-            });
-            const verifyData = await verifyRes.json();
-            if (verifyData.data?.alreadyVerified) {
-              setCreditBalance(prev => prev ? { ...prev, verified: true } : null);
-              setError('Email 已驗證，請再次點擊生成');
-            } else {
-              setVerificationSent(true);
-              setError('已發送驗證信至 ' + email + '，請查收信箱並點擊驗證連結後再試');
-            }
-          } catch {
-            setError('發送驗證信失敗，請稍後再試');
-          } finally {
-            setSendingVerification(false);
-          }
+          setCreditBalance(prev => prev ? { ...prev, verified: false } : null);
           setIsSubmitting(false);
           return;
         }
@@ -383,6 +365,49 @@ function CreatePageInner() {
                               <p className="text-purple-600 dark:text-purple-400 font-medium">
                                 👑 {t('credits.admin')}
                               </p>
+                            ) : !creditBalance.verified ? (
+                              // Email not verified
+                              <div className="space-y-2">
+                                <p className="text-amber-600 dark:text-amber-400 font-medium">
+                                  請先驗證 Email 以開始使用
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                  驗證後可獲得 {creditBalance.freeTotal} 次免費生成額度
+                                </p>
+                                {verificationSent ? (
+                                  <p className="text-xs text-green-600 dark:text-green-400">
+                                    驗證信已發送，請查收信箱
+                                  </p>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    disabled={sendingVerification}
+                                    className="text-xs text-primary hover:underline disabled:opacity-50"
+                                    onClick={async () => {
+                                      setSendingVerification(true);
+                                      try {
+                                        const res = await fetch('/api/verify/send', {
+                                          method: 'POST',
+                                          headers: { 'Content-Type': 'application/json' },
+                                          body: JSON.stringify({ email }),
+                                        });
+                                        const data = await res.json();
+                                        if (data.data?.alreadyVerified) {
+                                          setCreditBalance(prev => prev ? { ...prev, verified: true } : null);
+                                        } else {
+                                          setVerificationSent(true);
+                                        }
+                                      } catch {
+                                        setError('發送驗證信失敗，請稍後再試');
+                                      } finally {
+                                        setSendingVerification(false);
+                                      }
+                                    }}
+                                  >
+                                    {sendingVerification ? '發送中...' : '發送驗證信'}
+                                  </button>
+                                )}
+                              </div>
                             ) : (
                               // Show remaining generations
                               <div className="space-y-1">
@@ -600,34 +625,88 @@ function CreatePageInner() {
                     </div>
                   )}
 
-                  {/* Submit */}
-                  <Button
-                    type="submit"
-                    size="lg"
-                    className="w-full"
-                    disabled={
-                      isSubmitting ||
-                      !isValidEmail ||
-                      (creditBalance?.remaining ?? 1) < (batchMode && canEnableBatch ? batchSegments : 1) ||
-                      (isFrameMode ? !firstFrame : photos.length < 1)
-                    }
-                  >
-                    {isSubmitting ? (
-                      <>
-                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                        </svg>
-                        {t('create.processing')}
-                      </>
-                    ) : (
-                      t('create.submit')
-                    )}
-                  </Button>
-
-                  <p className="text-xs text-muted-foreground text-center">
-                    {t('create.terms')}
-                  </p>
+                  {/* Submit or Verify CTA */}
+                  {creditBalance && !creditBalance.verified && !creditBalance.isAdmin ? (
+                    <div className="space-y-3">
+                      <Button
+                        type="button"
+                        size="lg"
+                        className="w-full"
+                        disabled={sendingVerification || verificationSent}
+                        onClick={async () => {
+                          setSendingVerification(true);
+                          setError('');
+                          try {
+                            const res = await fetch('/api/verify/send', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ email }),
+                            });
+                            const data = await res.json();
+                            if (data.data?.alreadyVerified) {
+                              setCreditBalance(prev => prev ? { ...prev, verified: true } : null);
+                            } else if (res.ok) {
+                              setVerificationSent(true);
+                            } else {
+                              setError(data.error || '發送驗證信失敗');
+                            }
+                          } catch {
+                            setError('發送驗證信失敗，請稍後再試');
+                          } finally {
+                            setSendingVerification(false);
+                          }
+                        }}
+                      >
+                        {sendingVerification ? (
+                          <>
+                            <svg className="animate-spin -ml-1 mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                            </svg>
+                            發送中...
+                          </>
+                        ) : verificationSent ? (
+                          '驗證信已發送，請查收信箱'
+                        ) : (
+                          '驗證 Email 以解鎖免費額度'
+                        )}
+                      </Button>
+                      {verificationSent && (
+                        <p className="text-xs text-muted-foreground text-center">
+                          已發送至 {email}，點擊信中連結後回到此頁即可開始生成
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <>
+                      <Button
+                        type="submit"
+                        size="lg"
+                        className="w-full"
+                        disabled={
+                          isSubmitting ||
+                          !isValidEmail ||
+                          (creditBalance?.remaining ?? 1) < (batchMode && canEnableBatch ? batchSegments : 1) ||
+                          (isFrameMode ? !firstFrame : photos.length < 1)
+                        }
+                      >
+                        {isSubmitting ? (
+                          <>
+                            <svg className="animate-spin -ml-1 mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                            </svg>
+                            {t('create.processing')}
+                          </>
+                        ) : (
+                          t('create.submit')
+                        )}
+                      </Button>
+                      <p className="text-xs text-muted-foreground text-center">
+                        {t('create.terms')}
+                      </p>
+                    </>
+                  )}
                 </form>
               </CardContent>
             </Card>
