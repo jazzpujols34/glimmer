@@ -3,7 +3,7 @@ export const runtime = 'edge';
 import { NextRequest } from 'next/server';
 import { createJob, updateJob, createProject, addJobToProject, createBatch, addSegmentToBatch, updateBatch } from '@/lib/storage';
 import { createVideoTask } from '@/lib/veo';
-import { checkCredits, consumeCredit } from '@/lib/credits';
+import { checkCredits, consumeCredit, isAdmin } from '@/lib/credits';
 import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
 import { captureError } from '@/lib/errors';
 import { isValidEmail, isValidOccasion, validateSettings, validateName, validatePhoto } from '@/lib/validation';
@@ -99,8 +99,11 @@ export async function POST(request: NextRequest) {
     // N photos = N-1 segments
     const totalSegments = photos.length - 1;
 
-    // --- Credit check (need N-1 credits) ---
+    // --- Email verification + credit check ---
     const balance = await checkCredits(email);
+    if (!balance.verified && !isAdmin(email)) {
+      return errors.emailNotVerified();
+    }
     if (balance.remaining < totalSegments) {
       return errors.insufficientCredits();
     }

@@ -10,6 +10,7 @@ export type ErrorCode =
   | 'INVALID_INPUT'
   | 'MISSING_FIELD'
   | 'INVALID_EMAIL'
+  | 'EMAIL_NOT_VERIFIED'
   | 'INSUFFICIENT_CREDITS'
   | 'NOT_FOUND'
   | 'RATE_LIMITED'
@@ -63,6 +64,9 @@ export const errors = {
 
   invalidEmail: () =>
     errorResponse('請提供有效的 Email 地址', 400, 'INVALID_EMAIL'),
+
+  emailNotVerified: () =>
+    errorResponse('請先驗證您的 Email 地址', 403, 'EMAIL_NOT_VERIFIED'),
 
   insufficientCredits: () =>
     errorResponse('點數不足，請購買點數後再試', 402, 'INSUFFICIENT_CREDITS'),

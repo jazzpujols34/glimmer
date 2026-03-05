@@ -54,6 +54,7 @@ function QuickPageInner() {
   // UI state
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [verificationSent, setVerificationSent] = useState(false);
   const [creditBalance, setCreditBalance] = useState<CreditBalance | null>(null);
   const [creditLoading, setCreditLoading] = useState(false);
 
@@ -129,6 +130,27 @@ function QuickPageInner() {
       const data = await res.json();
 
       if (!res.ok) {
+        if (data.code === 'EMAIL_NOT_VERIFIED') {
+          try {
+            const verifyRes = await fetch('/api/verify/send', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ email }),
+            });
+            const verifyData = await verifyRes.json();
+            if (verifyData.data?.alreadyVerified) {
+              setCreditBalance(prev => prev ? { ...prev, verified: true } : null);
+              setError('Email 已驗證，請再次點擊生成');
+            } else {
+              setVerificationSent(true);
+              setError('已發送驗證信至 ' + email + '，請查收信箱並點擊驗證連結後再試');
+            }
+          } catch {
+            setError('發送驗證信失敗，請稍後再試');
+          }
+          setIsSubmitting(false);
+          return;
+        }
         throw new Error(data.error || '生成失敗');
       }
 

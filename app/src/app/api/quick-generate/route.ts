@@ -11,7 +11,7 @@ import {
   createQuickJob,
 } from '@/lib/storage';
 import { createVideoTask } from '@/lib/veo';
-import { checkCredits, consumeCredit } from '@/lib/credits';
+import { checkCredits, consumeCredit, isAdmin } from '@/lib/credits';
 import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
 import { captureError } from '@/lib/errors';
 import { getTemplateById } from '@/lib/templates';
@@ -85,8 +85,11 @@ export async function POST(request: NextRequest) {
 
     const totalSegments = photos.length - 1;
 
-    // Check credits
+    // Email verification + credit check
     const credits = await checkCredits(email);
+    if (!credits.verified && !isAdmin(email)) {
+      return errors.emailNotVerified();
+    }
     if (credits.remaining < totalSegments) {
       return errors.insufficientCredits();
     }

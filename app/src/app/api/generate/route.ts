@@ -4,7 +4,7 @@ import { NextRequest } from 'next/server';
 import imageSize from 'image-size';
 import { createJob, updateJob, addJobToProject, getProject } from '@/lib/storage';
 import { createVideoTask } from '@/lib/veo';
-import { checkCredits, consumeCredit } from '@/lib/credits';
+import { checkCredits, consumeCredit, isAdmin } from '@/lib/credits';
 import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
 import { captureError } from '@/lib/errors';
 import { logger } from '@/lib/logger';
@@ -103,8 +103,13 @@ export async function POST(request: NextRequest) {
       logger.warn('[API] Could not detect image dimensions, using default aspect ratio');
     }
 
-    // --- Credit check (fail fast before creating job) ---
+    // --- Email verification check (skip for admins) ---
     const balance = await checkCredits(email);
+    if (!balance.verified && !isAdmin(email)) {
+      return errors.emailNotVerified();
+    }
+
+    // --- Credit check (fail fast before creating job) ---
     if (balance.remaining <= 0) {
       return errors.insufficientCredits();
     }

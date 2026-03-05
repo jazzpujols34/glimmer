@@ -58,6 +58,8 @@ function CreatePageInner() {
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [projectDropdownOpen, setProjectDropdownOpen] = useState(false);
   const [batchMode, setBatchMode] = useState(false);
+  const [verificationSent, setVerificationSent] = useState(false);
+  const [sendingVerification, setSendingVerification] = useState(false);
   const errorRef = useRef<HTMLDivElement>(null);
   const searchParams = useSearchParams();
 
@@ -213,6 +215,31 @@ function CreatePageInner() {
       const data = await res.json();
 
       if (!res.ok) {
+        if (data.code === 'EMAIL_NOT_VERIFIED') {
+          // Auto-send verification email
+          setSendingVerification(true);
+          try {
+            const verifyRes = await fetch('/api/verify/send', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ email }),
+            });
+            const verifyData = await verifyRes.json();
+            if (verifyData.data?.alreadyVerified) {
+              setCreditBalance(prev => prev ? { ...prev, verified: true } : null);
+              setError('Email 已驗證，請再次點擊生成');
+            } else {
+              setVerificationSent(true);
+              setError('已發送驗證信至 ' + email + '，請查收信箱並點擊驗證連結後再試');
+            }
+          } catch {
+            setError('發送驗證信失敗，請稍後再試');
+          } finally {
+            setSendingVerification(false);
+          }
+          setIsSubmitting(false);
+          return;
+        }
         if (res.status === 402) {
           setCreditBalance(prev => prev ? { ...prev, remaining: 0 } : null);
         }
