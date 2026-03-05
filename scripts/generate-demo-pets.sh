@@ -10,7 +10,7 @@ set -euo pipefail
 
 PHOTO_DIR="${1:?Usage: $0 <photo-directory>}"
 API_URL="${2:-http://localhost:3200}"
-EMAIL="glimmer.hello@gmail.com"  # Admin email = unlimited credits
+EMAIL="${GLIMMER_ADMIN_EMAIL:-admin@example.com}"  # Set your admin email
 
 if [ ! -d "$PHOTO_DIR" ]; then
   echo "Error: Directory '$PHOTO_DIR' not found"

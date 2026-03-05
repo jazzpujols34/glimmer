@@ -785,7 +785,7 @@ export default function LandingPage() {
             <div className="text-sm text-muted-foreground text-center md:text-left">
               <p>&copy; 2026 拾光 Glimmer. All rights reserved.</p>
               <p className="mt-1 text-xs">
-                站長聯絡信箱：aipujols34@gmail.com ｜ 電話：0973-313-882
+                聯絡信箱：<a href="mailto:glimmer.hello@gmail.com">glimmer.hello@gmail.com</a>
               </p>
             </div>
             <div className="flex items-center gap-6 text-sm text-muted-foreground">

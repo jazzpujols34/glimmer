@@ -15,8 +15,9 @@ service-account.json
 *.json.key
 *.pem
 
-# Confidential docs
-docs/
+# Confidential docs (but allow screenshots for README)
+docs/*
+!docs/screenshots/
 
 # Debug
 npm-debug.log*
