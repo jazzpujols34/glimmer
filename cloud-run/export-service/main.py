@@ -97,6 +97,7 @@ class TitleCardData(BaseModel):
     backgroundColor: str = "#000000"
     textColor: str = "#FFFFFF"
     templateId: Optional[str] = None  # Layout template
+    backgroundImage: Optional[str] = None  # URL to background image
 
 
 class TransitionData(BaseModel):
@@ -112,6 +113,7 @@ class InterstitialCardData(BaseModel):
     backgroundColor: str = "#000000"
     textColor: str = "#FFFFFF"
     templateId: Optional[str] = None  # Layout template
+    backgroundImage: Optional[str] = None  # URL to background image
 
 
 class ExportRequest(BaseModel):
@@ -297,6 +299,62 @@ def build_card_drawtext(
                 f"drawtext=text='{esc_sub}':fontfile={font_file}:fontsize=28:fontcolor={text_color}:x=(w-text_w)/2:y=(h+text_h)/2+20"
             )
         return ",".join(parts)
+
+
+async def render_card_clip(
+    output_path: Path,
+    text: str,
+    subtitle: Optional[str],
+    duration: float,
+    bg_color: str,
+    text_color: str,
+    width: str,
+    height: str,
+    font_file: str,
+    template_id: Optional[str] = None,
+    background_image_url: Optional[str] = None,
+    work_dir: Optional[Path] = None,
+    label: str = "Card",
+) -> bool:
+    """
+    Render a card clip (title/outro/interstitial) with optional background image.
+    If background_image_url is provided, downloads the image and uses it as background.
+    Otherwise uses a solid color.
+    """
+    drawtext = build_card_drawtext(text, subtitle, text_color, font_file, template_id)
+
+    if background_image_url and work_dir:
+        # Download background image
+        bg_path = work_dir / f"bg_{output_path.stem}.jpg"
+        if await download_file(background_image_url, str(bg_path)):
+            # Use image as background: loop single image for duration, scale to resolution, overlay text
+            # Add text shadow for readability on images
+            shadow_drawtext = f"drawbox=x=0:y=0:w=iw:h=ih:color=black@0.2:t=fill,{drawtext}"
+            success = run_ffmpeg([
+                "-loop", "1", "-i", str(bg_path),
+                "-f", "lavfi", "-i", "anullsrc=r=44100:cl=stereo",
+                "-vf", f"scale={width}:{height}:force_original_aspect_ratio=decrease,pad={width}:{height}:-1:-1:color=black,{shadow_drawtext}",
+                *COMMON_VIDEO_ARGS,
+                *COMMON_AUDIO_ARGS,
+                "-t", str(duration),
+                str(output_path),
+            ], f"{label} (bg image)")
+
+            bg_path.unlink(missing_ok=True)
+            if success:
+                return True
+            print(f"[Export] {label}: bg image render failed, falling back to solid color")
+
+    # Solid color background (default / fallback)
+    return run_ffmpeg([
+        "-f", "lavfi", "-i", f"color=c={bg_color}:s={width}x{height}:d={duration}",
+        "-f", "lavfi", "-i", "anullsrc=r=44100:cl=stereo",
+        "-vf", drawtext,
+        *COMMON_VIDEO_ARGS,
+        *COMMON_AUDIO_ARGS,
+        "-t", str(duration),
+        str(output_path),
+    ], label)
 
 
 def generate_ass_subtitles(subtitles: list[SubtitleData]) -> str:
@@ -602,17 +660,12 @@ async def process_export(request: ExportRequest, work_dir: Path) -> tuple[bool, 
         bg_color = ic.backgroundColor.replace("#", "0x")
         text_color = ic.textColor.replace("#", "0x")
 
-        drawtext = build_card_drawtext(ic.text, ic.subtitle, text_color, FONT_FILE, ic.templateId)
-
-        success = run_ffmpeg([
-            "-f", "lavfi", "-i", f"color=c={bg_color}:s={width}x{height}:d={ic.durationSeconds}",
-            "-f", "lavfi", "-i", "anullsrc=r=44100:cl=stereo",
-            "-vf", drawtext,
-            *COMMON_VIDEO_ARGS,
-            *COMMON_AUDIO_ARGS,
-            "-t", str(ic.durationSeconds),
-            str(ic_path),
-        ], f"Interstitial card {ic_idx + 1}")
+        success = await render_card_clip(
+            ic_path, ic.text, ic.subtitle, ic.durationSeconds,
+            bg_color, text_color, width, height, FONT_FILE,
+            ic.templateId, ic.backgroundImage, work_dir,
+            f"Interstitial card {ic_idx + 1}",
+        )
 
         if success:
             interstitial_clips[ic.position] = ic_path
@@ -634,17 +687,11 @@ async def process_export(request: ExportRequest, work_dir: Path) -> tuple[bool, 
         bg_color = tc.backgroundColor.replace("#", "0x")
         text_color = tc.textColor.replace("#", "0x")
 
-        drawtext = build_card_drawtext(tc.text, tc.subtitle, text_color, FONT_FILE, tc.templateId)
-
-        success = run_ffmpeg([
-            "-f", "lavfi", "-i", f"color=c={bg_color}:s={width}x{height}:d={tc.durationSeconds}",
-            "-f", "lavfi", "-i", "anullsrc=r=44100:cl=stereo",
-            "-vf", drawtext,
-            *COMMON_VIDEO_ARGS,
-            *COMMON_AUDIO_ARGS,
-            "-t", str(tc.durationSeconds),
-            str(title_path),
-        ], "Title card")
+        success = await render_card_clip(
+            title_path, tc.text, tc.subtitle, tc.durationSeconds,
+            bg_color, text_color, width, height, FONT_FILE,
+            tc.templateId, tc.backgroundImage, work_dir, "Title card",
+        )
 
         if success:
             processed_clips.insert(0, title_path)
@@ -656,17 +703,11 @@ async def process_export(request: ExportRequest, work_dir: Path) -> tuple[bool, 
         bg_color = oc.backgroundColor.replace("#", "0x")
         text_color = oc.textColor.replace("#", "0x")
 
-        drawtext = build_card_drawtext(oc.text, oc.subtitle, text_color, FONT_FILE, oc.templateId)
-
-        success = run_ffmpeg([
-            "-f", "lavfi", "-i", f"color=c={bg_color}:s={width}x{height}:d={oc.durationSeconds}",
-            "-f", "lavfi", "-i", "anullsrc=r=44100:cl=stereo",
-            "-vf", drawtext,
-            *COMMON_VIDEO_ARGS,
-            *COMMON_AUDIO_ARGS,
-            "-t", str(oc.durationSeconds),
-            str(outro_path),
-        ], "Outro card")
+        success = await render_card_clip(
+            outro_path, oc.text, oc.subtitle, oc.durationSeconds,
+            bg_color, text_color, width, height, FONT_FILE,
+            oc.templateId, oc.backgroundImage, work_dir, "Outro card",
+        )
 
         if success:
             processed_clips.append(outro_path)

@@ -180,6 +180,7 @@ export interface StoryboardTitleCard {
   backgroundColor: string;           // hex, default #000000
   textColor: string;                 // hex, default #FFFFFF
   templateId?: string;               // layout template, default 'classic-center'
+  backgroundImage?: string;          // filename in /backgrounds/, e.g. 'flowers-01.jpg'
 }
 
 export interface StoryboardMusic {

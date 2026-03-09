@@ -13,10 +13,10 @@ interface StoryboardPreviewModalProps {
 }
 
 type PlaylistItem =
-  | { type: 'titleCard'; duration: number; text: string; subtitle?: string; bgColor: string; textColor: string; templateId?: string }
+  | { type: 'titleCard'; duration: number; text: string; subtitle?: string; bgColor: string; textColor: string; templateId?: string; backgroundImage?: string }
   | { type: 'clip'; slot: StoryboardSlot; videoUrl: string; duration: number }
-  | { type: 'textCard'; duration: number; text: string; subtitle?: string; bgColor: string; textColor: string; templateId?: string }
-  | { type: 'outroCard'; duration: number; text: string; subtitle?: string; bgColor: string; textColor: string; templateId?: string };
+  | { type: 'textCard'; duration: number; text: string; subtitle?: string; bgColor: string; textColor: string; templateId?: string; backgroundImage?: string }
+  | { type: 'outroCard'; duration: number; text: string; subtitle?: string; bgColor: string; textColor: string; templateId?: string; backgroundImage?: string };
 
 // Get transition duration in ms from storyboard transition type
 function getTransitionDurationMs(transitionType?: string): number {
@@ -73,6 +73,7 @@ export function StoryboardPreviewModal({ storyboard, onClose }: StoryboardPrevie
         bgColor: storyboard.titleCard.backgroundColor,
         textColor: storyboard.titleCard.textColor,
         templateId: storyboard.titleCard.templateId,
+        backgroundImage: storyboard.titleCard.backgroundImage,
       });
     }
 
@@ -91,6 +92,7 @@ export function StoryboardPreviewModal({ storyboard, onClose }: StoryboardPrevie
           bgColor: slot.textCard.backgroundColor,
           textColor: slot.textCard.textColor,
           templateId: slot.textCard.templateId,
+          backgroundImage: slot.textCard.backgroundImage,
         });
       } else if (slot.status === 'filled' && slot.clip) {
         items.push({
@@ -112,6 +114,7 @@ export function StoryboardPreviewModal({ storyboard, onClose }: StoryboardPrevie
         bgColor: storyboard.outroCard.backgroundColor,
         textColor: storyboard.outroCard.textColor,
         templateId: storyboard.outroCard.templateId,
+        backgroundImage: storyboard.outroCard.backgroundImage,
       });
     }
 
@@ -486,18 +489,30 @@ export function StoryboardPreviewModal({ storyboard, onClose }: StoryboardPrevie
       return null;
     };
 
+    const bgImageUrl = item.backgroundImage ? `/backgrounds/${item.backgroundImage}` : null;
+    const textShadow = bgImageUrl ? '0 1px 4px rgba(0,0,0,0.5)' : undefined;
+
     return (
       <div
         className="absolute inset-0"
-        style={{ backgroundColor: item.bgColor, opacity }}
+        style={{
+          backgroundColor: item.bgColor,
+          opacity,
+          ...(bgImageUrl ? {
+            backgroundImage: `url(${bgImageUrl})`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+          } : {}),
+        }}
       >
-        <div className={`absolute inset-0 ${template.preview.container}`}>
-          <h1 className={template.preview.title} style={{ color: item.textColor }}>
+        {bgImageUrl && <div className="absolute inset-0 bg-black/20" />}
+        <div className={`absolute inset-0 ${template.preview.container}`} style={{ zIndex: 1 }}>
+          <h1 className={template.preview.title} style={{ color: item.textColor, textShadow }}>
             {item.text}
           </h1>
           {renderDivider()}
           {item.subtitle && (
-            <p className={template.preview.subtitle} style={{ color: item.textColor }}>
+            <p className={template.preview.subtitle} style={{ color: item.textColor, textShadow }}>
               {item.subtitle}
             </p>
           )}

@@ -79,6 +79,7 @@ export async function POST(
       backgroundColor: string;
       textColor: string;
       templateId?: string;
+      backgroundImage?: string;
     }> = [];
 
     let clipIndex = 0;
@@ -92,6 +93,9 @@ export async function POST(
           backgroundColor: slot.textCard.backgroundColor,
           textColor: slot.textCard.textColor,
           templateId: slot.textCard.templateId,
+          backgroundImage: slot.textCard.backgroundImage
+            ? `${BASE_URL}/backgrounds/${slot.textCard.backgroundImage}`
+            : undefined,
         });
         logger.debug('storyboard-export', `Slot ${slot.index}: text card "${slot.textCard.text}" at position ${clipIndex}`);
         continue;
@@ -230,6 +234,17 @@ export async function POST(
     }
     logger.debug('storyboard-export', `Watermark: ${applyWatermark} (email: ${storyboard.email || 'none'})`);
 
+    // Resolve backgroundImage filenames to full URLs for Cloud Run
+    const resolveBgImage = (card: typeof storyboard.titleCard) => {
+      if (!card) return card;
+      return {
+        ...card,
+        backgroundImage: card.backgroundImage
+          ? `${BASE_URL}/backgrounds/${card.backgroundImage}`
+          : undefined,
+      };
+    };
+
     // Build Cloud Run request
     const cloudRunRequest = {
       jobId: storyboardId,
@@ -237,8 +252,8 @@ export async function POST(
       subtitles,
       musicClips,
       interstitialCards: interstitialCards.length > 0 ? interstitialCards : undefined,
-      titleCard: storyboard.titleCard,
-      outroCard: storyboard.outroCard,
+      titleCard: resolveBgImage(storyboard.titleCard),
+      outroCard: resolveBgImage(storyboard.outroCard),
       resolution,
       watermark: applyWatermark,
     };

@@ -88,3 +88,19 @@ export const COLOR_PRESETS = [
   { bg: '#aa7733', text: '#f5edd7', label: '金銅色' },
   { bg: '#73754c', text: '#edeae5', label: '橄欖綠' },
 ];
+
+// --- Card Background Images ---
+// Add images to app/public/backgrounds/ and register here.
+// Each entry: filename, display label, suggested text color.
+export interface CardBackground {
+  filename: string;
+  label: string;
+  textColor: string; // suggested text color for readability
+}
+
+export const CARD_BACKGROUNDS: CardBackground[] = [
+  // Drop images into app/public/backgrounds/ and add entries here.
+  // Example:
+  // { filename: 'flowers-01.jpg', label: '花卉', textColor: '#FFFFFF' },
+  // { filename: 'watercolor-blue.jpg', label: '水彩藍', textColor: '#1a1a1a' },
+];

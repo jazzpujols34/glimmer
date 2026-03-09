@@ -1,7 +1,7 @@
 'use client';
 
 import type { StoryboardTitleCard } from '@/types';
-import { COLOR_PRESETS } from '@/lib/constants';
+import { COLOR_PRESETS, CARD_BACKGROUNDS } from '@/lib/constants';
 import { CARD_TEMPLATES, getCardTemplate } from '@/lib/card-templates';
 
 export interface CardEditorProps {
@@ -14,7 +14,7 @@ export interface CardEditorProps {
   onToggle?: (enabled: boolean) => void;
 }
 
-/** Render a card preview using its template layout */
+/** Render a card preview using its template layout + optional background image */
 export function CardPreview({
   card,
   className = '',
@@ -23,6 +23,7 @@ export function CardPreview({
   className?: string;
 }) {
   const template = getCardTemplate(card.templateId);
+  const bgImageUrl = card.backgroundImage ? `/backgrounds/${card.backgroundImage}` : null;
 
   const renderDivider = () => {
     if (!template.preview.divider || !card.subtitle) return null;
@@ -46,12 +47,26 @@ export function CardPreview({
   return (
     <div
       className={`relative overflow-hidden ${className}`}
-      style={{ backgroundColor: card.backgroundColor }}
+      style={{
+        backgroundColor: card.backgroundColor,
+        ...(bgImageUrl ? {
+          backgroundImage: `url(${bgImageUrl})`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+        } : {}),
+      }}
     >
-      <div className={`absolute inset-0 ${template.preview.container}`}>
+      {/* Semi-transparent overlay for text readability when using bg image */}
+      {bgImageUrl && (
+        <div className="absolute inset-0 bg-black/20" />
+      )}
+      <div className={`absolute inset-0 ${template.preview.container}`} style={{ zIndex: 1 }}>
         <span
           className={template.preview.title}
-          style={{ color: card.textColor }}
+          style={{
+            color: card.textColor,
+            ...(bgImageUrl ? { textShadow: '0 1px 4px rgba(0,0,0,0.5)' } : {}),
+          }}
         >
           {card.text || '(無標題)'}
         </span>
@@ -59,7 +74,10 @@ export function CardPreview({
         {card.subtitle && (
           <span
             className={template.preview.subtitle}
-            style={{ color: card.textColor }}
+            style={{
+              color: card.textColor,
+              ...(bgImageUrl ? { textShadow: '0 1px 3px rgba(0,0,0,0.5)' } : {}),
+            }}
           >
             {card.subtitle}
           </span>
@@ -70,6 +88,8 @@ export function CardPreview({
 }
 
 export function CardEditor({ label, card, onChange, showToggle, enabled = true, onToggle }: CardEditorProps) {
+  const hasBackgrounds = CARD_BACKGROUNDS.length > 0;
+
   return (
     <div className="space-y-4">
       {(label || showToggle) && (
@@ -95,36 +115,6 @@ export function CardEditor({ label, card, onChange, showToggle, enabled = true, 
         <div className={`space-y-4 ${showToggle ? 'pl-2 border-l-2 border-primary/30' : ''}`}>
           {/* Live preview */}
           <CardPreview card={card} className="h-32 rounded-lg" />
-
-          {/* Template picker */}
-          <div className="space-y-2">
-            <label className="text-sm text-muted-foreground">版型</label>
-            <div className="grid grid-cols-3 gap-2">
-              {CARD_TEMPLATES.map((template) => {
-                const isSelected = (card.templateId || 'classic-center') === template.id;
-                return (
-                  <button
-                    key={template.id}
-                    type="button"
-                    onClick={() => onChange({ ...card, templateId: template.id })}
-                    className={`relative rounded-lg border-2 overflow-hidden transition-all ${
-                      isSelected
-                        ? 'border-primary ring-2 ring-primary/30'
-                        : 'border-border/50 hover:border-muted-foreground/50'
-                    }`}
-                  >
-                    <CardPreview
-                      card={{ ...card, text: card.text || '標題', subtitle: card.subtitle || '副標題', templateId: template.id }}
-                      className="h-16"
-                    />
-                    <div className="px-1.5 py-1 text-[10px] text-center truncate bg-background/90">
-                      {template.name}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
 
           {/* Text inputs */}
           <div className="space-y-2">
@@ -166,9 +156,11 @@ export function CardEditor({ label, card, onChange, showToggle, enabled = true, 
             />
           </div>
 
-          {/* Color presets */}
+          {/* Background: color presets + images */}
           <div className="space-y-2">
-            <label className="text-sm text-muted-foreground">配色</label>
+            <label className="text-sm text-muted-foreground">背景</label>
+
+            {/* Solid colors */}
             <div className="flex flex-wrap gap-2">
               {COLOR_PRESETS.map((preset) => (
                 <button
@@ -179,10 +171,11 @@ export function CardEditor({ label, card, onChange, showToggle, enabled = true, 
                       ...card,
                       backgroundColor: preset.bg,
                       textColor: preset.text,
+                      backgroundImage: undefined, // clear bg image when selecting solid color
                     })
                   }
                   className={`w-8 h-8 rounded-full border-2 transition-all ${
-                    card.backgroundColor === preset.bg
+                    !card.backgroundImage && card.backgroundColor === preset.bg
                       ? 'border-primary ring-2 ring-primary/30'
                       : 'border-transparent hover:border-muted-foreground/50'
                   }`}
@@ -190,6 +183,74 @@ export function CardEditor({ label, card, onChange, showToggle, enabled = true, 
                   title={preset.label}
                 />
               ))}
+            </div>
+
+            {/* Background images */}
+            {hasBackgrounds && (
+              <div className="grid grid-cols-4 gap-2 mt-2">
+                {CARD_BACKGROUNDS.map((bg) => (
+                  <button
+                    key={bg.filename}
+                    type="button"
+                    onClick={() =>
+                      onChange({
+                        ...card,
+                        backgroundImage: bg.filename,
+                        textColor: bg.textColor,
+                      })
+                    }
+                    className={`aspect-video rounded-lg overflow-hidden border-2 transition-all ${
+                      card.backgroundImage === bg.filename
+                        ? 'border-primary ring-2 ring-primary/30'
+                        : 'border-transparent hover:border-muted-foreground/50'
+                    }`}
+                  >
+                    <img
+                      src={`/backgrounds/${bg.filename}`}
+                      alt={bg.label}
+                      className="w-full h-full object-cover"
+                    />
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Layout template picker */}
+          <div className="space-y-2">
+            <label className="text-sm text-muted-foreground">文字排版</label>
+            <div className="grid grid-cols-3 gap-2">
+              {CARD_TEMPLATES.map((template) => {
+                const isSelected = (card.templateId || 'classic-center') === template.id;
+                return (
+                  <button
+                    key={template.id}
+                    type="button"
+                    onClick={() => onChange({ ...card, templateId: template.id })}
+                    className={`group relative rounded-lg border-2 overflow-hidden transition-all ${
+                      isSelected
+                        ? 'border-primary ring-1 ring-primary/30'
+                        : 'border-border/50 hover:border-muted-foreground/50'
+                    }`}
+                  >
+                    {/* Mini preview with simplified text */}
+                    <CardPreview
+                      card={{
+                        ...card,
+                        text: '標題',
+                        subtitle: '副標題',
+                        templateId: template.id,
+                      }}
+                      className="h-14"
+                    />
+                    <div className={`px-1.5 py-0.5 text-[10px] text-center truncate transition-colors ${
+                      isSelected ? 'bg-primary/10 text-primary font-medium' : 'bg-muted/50 text-muted-foreground'
+                    }`}>
+                      {template.name}
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           </div>
         </div>
