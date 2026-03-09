@@ -36,7 +36,8 @@ export function StoryboardPreviewModal({ storyboard, onClose }: StoryboardPrevie
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const nextVideoRef = useRef<HTMLVideoElement>(null);
-  const audioRef = useRef<HTMLAudioElement>(null);
+  const audioRef = useRef<HTMLAudioElement>(null); // legacy single ref, kept for first track
+  const audioRefsMap = useRef<Map<string, HTMLAudioElement>>(new Map());
   const cardTimerRef = useRef<NodeJS.Timeout | null>(null);
   const transitionTimerRef = useRef<NodeJS.Timeout | null>(null);
   const playStartTimeRef = useRef<number>(0);
@@ -142,14 +143,35 @@ export function StoryboardPreviewModal({ storyboard, onClose }: StoryboardPrevie
     return 500;
   }, [currentIndex, currentItem, playlist, storyboard.transitions]);
 
-  // Get music URL
-  const getMusicUrl = (): string | null => {
-    if (!storyboard.music) return null;
-    if (storyboard.music.type === 'bundled') {
-      return `/audio/bundled/${storyboard.music.src}`;
-    }
-    return `/api/proxy-r2?key=${encodeURIComponent(storyboard.music.src)}`;
-  };
+  // Build music track URLs (multi-track or legacy)
+  const musicTracksResolved = useMemo(() => {
+    const tracks = storyboard.musicTracks || (
+      storyboard.music ? [{
+        id: 'legacy_0',
+        type: storyboard.music.type,
+        src: storyboard.music.src,
+        name: storyboard.music.name,
+        volume: storyboard.music.volume,
+        timelinePosition: 0,
+        trimStart: 0,
+        trimEnd: totalDuration || 60,
+      }] : []
+    );
+    return tracks.map(t => ({
+      ...t,
+      url: t.type === 'bundled'
+        ? `/audio/bundled/${t.src}`
+        : `/api/proxy-r2?key=${encodeURIComponent(t.src)}`,
+    }));
+  }, [storyboard.music, storyboard.musicTracks, totalDuration]);
+
+  // Get active subtitles for the current elapsed time
+  const activeSubtitles = useMemo(() => {
+    if (!storyboard.subtitles) return [];
+    return storyboard.subtitles.filter(
+      sub => elapsedTime >= sub.startTime && elapsedTime < sub.endTime
+    );
+  }, [storyboard.subtitles, elapsedTime]);
 
   const stopAllTimers = useCallback(() => {
     if (cardTimerRef.current) {
@@ -272,6 +294,31 @@ export function StoryboardPreviewModal({ storyboard, onClose }: StoryboardPrevie
     };
   }, [playing]); // Only depend on playing, not elapsedTime
 
+  // Music helpers: play/pause/seek all tracks
+  const playAllMusic = useCallback(() => {
+    audioRefsMap.current.forEach((audio) => {
+      audio.play().catch(() => {});
+    });
+  }, []);
+
+  const pauseAllMusic = useCallback(() => {
+    audioRefsMap.current.forEach((audio) => audio.pause());
+  }, []);
+
+  const seekAllMusic = useCallback((time: number) => {
+    for (const track of musicTracksResolved) {
+      const audio = audioRefsMap.current.get(track.id);
+      if (!audio) continue;
+      const offsetInTrack = time - track.timelinePosition;
+      if (offsetInTrack < 0 || offsetInTrack > track.trimEnd - track.trimStart) {
+        audio.pause();
+        audio.currentTime = track.trimStart;
+      } else {
+        audio.currentTime = track.trimStart + offsetInTrack;
+      }
+    }
+  }, [musicTracksResolved]);
+
   // Handle playing state change
   useEffect(() => {
     if (!currentItem) return;
@@ -285,18 +332,15 @@ export function StoryboardPreviewModal({ storyboard, onClose }: StoryboardPrevie
         playCard(currentItem.duration);
       }
       // Start music
-      if (audioRef.current && !musicError) {
-        audioRef.current.play().catch(() => {});
-      }
+      if (!musicError) playAllMusic();
     } else {
       if (currentItem.type === 'clip') {
         videoRef.current?.pause();
       }
       stopAllTimers();
-      // Pause music
-      audioRef.current?.pause();
+      pauseAllMusic();
     }
-  }, [playing, currentItem, playCard, musicError, stopAllTimers]);
+  }, [playing, currentItem, playCard, musicError, stopAllTimers, playAllMusic, pauseAllMusic]);
 
   // Handle index change
   useEffect(() => {
@@ -336,7 +380,7 @@ export function StoryboardPreviewModal({ storyboard, onClose }: StoryboardPrevie
     setTransitioning(false);
     setTransitionProgress(0);
     if (videoRef.current) videoRef.current.currentTime = 0;
-    if (audioRef.current) audioRef.current.currentTime = 0;
+    seekAllMusic(0);
   };
 
   const seekTo = useCallback((targetTime: number) => {
@@ -380,10 +424,9 @@ export function StoryboardPreviewModal({ storyboard, onClose }: StoryboardPrevie
     }
 
     // Sync music
-    if (audioRef.current) {
-      audioRef.current.currentTime = clamped;
-    }
-  }, [totalDuration, playlist, cumulativeTimes, currentIndex, playing, stopAllTimers, startTransition]);
+    seekAllMusic(clamped);
+    if (playing) playAllMusic();
+  }, [totalDuration, playlist, cumulativeTimes, currentIndex, playing, stopAllTimers, startTransition, seekAllMusic, playAllMusic]);
 
   const handleProgressBarClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -392,7 +435,6 @@ export function StoryboardPreviewModal({ storyboard, onClose }: StoryboardPrevie
     seekTo(targetTime);
   }, [totalDuration, seekTo]);
 
-  const musicUrl = getMusicUrl();
   const progress = totalDuration > 0 ? (elapsedTime / totalDuration) * 100 : 0;
 
   // Render a card (title or outro)
@@ -505,18 +547,44 @@ export function StoryboardPreviewModal({ storyboard, onClose }: StoryboardPrevie
             muted
           />
         )}
+
+        {/* Subtitle overlay */}
+        {activeSubtitles.length > 0 && (
+          <div className="absolute inset-0 pointer-events-none flex flex-col z-20">
+            {activeSubtitles.map((sub) => (
+              <div
+                key={sub.id}
+                className={`absolute left-0 right-0 flex justify-center px-8 ${
+                  sub.position === 'top' ? 'top-8' : sub.position === 'center' ? 'top-1/2 -translate-y-1/2' : 'bottom-16'
+                }`}
+              >
+                <span className="bg-black/70 text-white px-4 py-2 rounded-lg text-lg md:text-2xl text-center max-w-[80%]">
+                  {sub.text}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
-      {/* Music audio element */}
-      {musicUrl && (
+      {/* Music audio elements (multi-track) */}
+      {musicTracksResolved.map((track) => (
         <audio
-          ref={audioRef}
-          src={musicUrl}
+          key={track.id}
+          ref={(el) => {
+            if (el) {
+              audioRefsMap.current.set(track.id, el);
+              el.volume = track.volume;
+            } else {
+              audioRefsMap.current.delete(track.id);
+            }
+          }}
+          src={track.url}
           loop
           style={{ display: 'none' }}
           onError={() => setMusicError(true)}
         />
-      )}
+      ))}
 
       {/* Music error indicator */}
       {musicError && (
