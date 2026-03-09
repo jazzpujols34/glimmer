@@ -267,6 +267,39 @@ export function StoryboardPreviewModal({ storyboard, onClose }: StoryboardPrevie
     startTransition();
   }, [startTransition]);
 
+  // Music helpers: sync tracks to current timeline position
+  // Each track plays only when elapsed time is within [timelinePosition, timelinePosition + (trimEnd - trimStart)]
+  const syncMusicToTime = useCallback((time: number, shouldPlay: boolean) => {
+    for (const track of musicTracksResolved) {
+      const audio = audioRefsMap.current.get(track.id);
+      if (!audio) continue;
+
+      const trackDuration = track.trimEnd - track.trimStart;
+      const trackEnd = track.timelinePosition + trackDuration;
+      const offsetInTrack = time - track.timelinePosition;
+
+      if (shouldPlay && offsetInTrack >= 0 && time < trackEnd) {
+        // Track should be active — sync position and play
+        const expectedTime = track.trimStart + offsetInTrack;
+        // Only seek if drift is > 0.3s to avoid constant seeking
+        if (Math.abs(audio.currentTime - expectedTime) > 0.3) {
+          audio.currentTime = expectedTime;
+        }
+        if (audio.paused) audio.play().catch(() => {});
+      } else {
+        // Track should not be playing
+        if (!audio.paused) audio.pause();
+        if (offsetInTrack < 0) {
+          audio.currentTime = track.trimStart;
+        }
+      }
+    }
+  }, [musicTracksResolved]);
+
+  const pauseAllMusic = useCallback(() => {
+    audioRefsMap.current.forEach((audio) => audio.pause());
+  }, []);
+
   // Update elapsed time using requestAnimationFrame for smooth progress
   useEffect(() => {
     if (!playing) return;
@@ -280,7 +313,9 @@ export function StoryboardPreviewModal({ storyboard, onClose }: StoryboardPrevie
       const playingTime = (now - startTime) / 1000;
       const newElapsed = startElapsed + playingTime;
       setElapsedTime(newElapsed);
-      elapsedBeforePlayRef.current = newElapsed; // Keep ref in sync for pause
+      elapsedBeforePlayRef.current = newElapsed;
+      // Sync music tracks to current time (start/stop based on timeline position)
+      syncMusicToTime(newElapsed, true);
       animationFrameRef.current = requestAnimationFrame(updateElapsed);
     };
 
@@ -292,32 +327,7 @@ export function StoryboardPreviewModal({ storyboard, onClose }: StoryboardPrevie
         animationFrameRef.current = null;
       }
     };
-  }, [playing]); // Only depend on playing, not elapsedTime
-
-  // Music helpers: play/pause/seek all tracks
-  const playAllMusic = useCallback(() => {
-    audioRefsMap.current.forEach((audio) => {
-      audio.play().catch(() => {});
-    });
-  }, []);
-
-  const pauseAllMusic = useCallback(() => {
-    audioRefsMap.current.forEach((audio) => audio.pause());
-  }, []);
-
-  const seekAllMusic = useCallback((time: number) => {
-    for (const track of musicTracksResolved) {
-      const audio = audioRefsMap.current.get(track.id);
-      if (!audio) continue;
-      const offsetInTrack = time - track.timelinePosition;
-      if (offsetInTrack < 0 || offsetInTrack > track.trimEnd - track.trimStart) {
-        audio.pause();
-        audio.currentTime = track.trimStart;
-      } else {
-        audio.currentTime = track.trimStart + offsetInTrack;
-      }
-    }
-  }, [musicTracksResolved]);
+  }, [playing, syncMusicToTime]);
 
   // Handle playing state change
   useEffect(() => {
@@ -331,8 +341,8 @@ export function StoryboardPreviewModal({ storyboard, onClose }: StoryboardPrevie
       } else {
         playCard(currentItem.duration);
       }
-      // Start music
-      if (!musicError) playAllMusic();
+      // Sync music (will start only tracks whose timeline position is active)
+      if (!musicError) syncMusicToTime(elapsedBeforePlayRef.current, true);
     } else {
       if (currentItem.type === 'clip') {
         videoRef.current?.pause();
@@ -340,7 +350,7 @@ export function StoryboardPreviewModal({ storyboard, onClose }: StoryboardPrevie
       stopAllTimers();
       pauseAllMusic();
     }
-  }, [playing, currentItem, playCard, musicError, stopAllTimers, playAllMusic, pauseAllMusic]);
+  }, [playing, currentItem, playCard, musicError, stopAllTimers, syncMusicToTime, pauseAllMusic]);
 
   // Handle index change
   useEffect(() => {
@@ -380,7 +390,7 @@ export function StoryboardPreviewModal({ storyboard, onClose }: StoryboardPrevie
     setTransitioning(false);
     setTransitionProgress(0);
     if (videoRef.current) videoRef.current.currentTime = 0;
-    seekAllMusic(0);
+    syncMusicToTime(0, false);
   };
 
   const seekTo = useCallback((targetTime: number) => {
@@ -423,10 +433,9 @@ export function StoryboardPreviewModal({ storyboard, onClose }: StoryboardPrevie
       }
     }
 
-    // Sync music
-    seekAllMusic(clamped);
-    if (playing) playAllMusic();
-  }, [totalDuration, playlist, cumulativeTimes, currentIndex, playing, stopAllTimers, startTransition, seekAllMusic, playAllMusic]);
+    // Sync music to new position
+    syncMusicToTime(clamped, playing);
+  }, [totalDuration, playlist, cumulativeTimes, currentIndex, playing, stopAllTimers, startTransition, syncMusicToTime]);
 
   const handleProgressBarClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
