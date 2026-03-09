@@ -11,7 +11,8 @@ import { StoryboardExportModal } from '@/components/storyboard/StoryboardExportM
 import { StoryboardPreviewModal } from '@/components/storyboard/StoryboardPreviewModal';
 import { TitleCardModal } from '@/components/storyboard/TitleCardModal';
 import { MusicModal } from '@/components/storyboard/MusicModal';
-import type { Storyboard, StoryboardSlot, StoryboardTransitionType, StoryboardTitleCard, StoryboardMusic, GenerationJob } from '@/types';
+import { SubtitleModal } from '@/components/storyboard/SubtitleModal';
+import type { Storyboard, StoryboardSlot, StoryboardTransitionType, StoryboardTitleCard, StoryboardMusicTrack, StoryboardSubtitle, GenerationJob } from '@/types';
 import { logger } from '@/lib/logger';
 
 // --- Undo/Redo History ---
@@ -122,6 +123,7 @@ function StoryboardEditorPageContent() {
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [showTitleCardModal, setShowTitleCardModal] = useState(false);
   const [showMusicModal, setShowMusicModal] = useState(false);
+  const [showSubtitleModal, setShowSubtitleModal] = useState(false);
 
   // Track in-flight updates to prevent race conditions
   const updatingSlots = useRef<Set<number>>(new Set());
@@ -427,13 +429,13 @@ function StoryboardEditorPageContent() {
     }
   };
 
-  const handleSaveMusic = async (music: StoryboardMusic | null) => {
+  const handleSaveMusicTracks = async (tracks: StoryboardMusicTrack[]) => {
     if (!storyboard) return;
 
-    // Push to history before saving
     const newStoryboard = {
       ...storyboard,
-      music: music || undefined,
+      musicTracks: tracks.length > 0 ? tracks : undefined,
+      music: undefined, // Clear legacy field
     };
     setStoryboard(newStoryboard);
 
@@ -442,7 +444,7 @@ function StoryboardEditorPageContent() {
       const res = await fetch(`/api/storyboards/${storyboardId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'updateMusic', music }),
+        body: JSON.stringify({ action: 'updateMusicTracks', musicTracks: tracks }),
       });
 
       if (res.ok) {
@@ -450,7 +452,35 @@ function StoryboardEditorPageContent() {
         setStoryboardDirect(data.storyboard);
       }
     } catch (err) {
-      logger.error('Error saving music:', err);
+      logger.error('Error saving music tracks:', err);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSaveSubtitles = async (subtitles: StoryboardSubtitle[]) => {
+    if (!storyboard) return;
+
+    const newStoryboard = {
+      ...storyboard,
+      subtitles: subtitles.length > 0 ? subtitles : undefined,
+    };
+    setStoryboard(newStoryboard);
+
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/storyboards/${storyboardId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'updateSubtitles', subtitles }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setStoryboardDirect(data.storyboard);
+      }
+    } catch (err) {
+      logger.error('Error saving subtitles:', err);
     } finally {
       setSaving(false);
     }
@@ -485,6 +515,27 @@ function StoryboardEditorPageContent() {
 
   const filledCount = storyboard.slots.filter((s) => s.status === 'filled' || s.status === 'text-card').length;
   const canExport = filledCount > 0;
+
+  // Compute total video duration for music/subtitle timeline context
+  const totalDuration = storyboard.slots.reduce((acc, s) => {
+    if (s.clip) return acc + ((s.clip.trimEnd ?? s.clip.duration) - (s.clip.trimStart ?? 0));
+    if (s.textCard) return acc + s.textCard.durationSeconds;
+    return acc;
+  }, 0) + (storyboard.titleCard?.durationSeconds || 0) + (storyboard.outroCard?.durationSeconds || 0);
+
+  // Migrate legacy single music to musicTracks for display
+  const musicTracks: StoryboardMusicTrack[] = storyboard.musicTracks || (
+    storyboard.music ? [{
+      id: 'legacy_0',
+      type: storyboard.music.type,
+      src: storyboard.music.src,
+      name: storyboard.music.name,
+      volume: storyboard.music.volume,
+      timelinePosition: 0,
+      trimStart: 0,
+      trimEnd: totalDuration || 60,
+    }] : []
+  );
 
   return (
     <div className="min-h-screen bg-background">
@@ -552,12 +603,24 @@ function StoryboardEditorPageContent() {
               variant="outline"
               size="sm"
               onClick={() => setShowMusicModal(true)}
-              className={storyboard.music ? 'border-primary/50' : ''}
+              className={musicTracks.length > 0 ? 'border-primary/50' : ''}
             >
               <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
               </svg>
-              背景音樂
+              音樂{musicTracks.length > 0 ? ` (${musicTracks.length})` : ''}
+            </Button>
+            {/* Subtitle Button */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowSubtitleModal(true)}
+              className={storyboard.subtitles?.length ? 'border-primary/50' : ''}
+            >
+              <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+              </svg>
+              字幕{storyboard.subtitles?.length ? ` (${storyboard.subtitles.length})` : ''}
             </Button>
             {/* Preview Button */}
             <Button
@@ -664,9 +727,20 @@ function StoryboardEditorPageContent() {
       {showMusicModal && storyboard && (
         <MusicModal
           storyboardId={storyboard.id}
-          music={storyboard.music}
-          onSave={handleSaveMusic}
+          musicTracks={musicTracks}
+          totalDuration={totalDuration}
+          onSave={handleSaveMusicTracks}
           onClose={() => setShowMusicModal(false)}
+        />
+      )}
+
+      {/* Subtitle Modal */}
+      {showSubtitleModal && storyboard && (
+        <SubtitleModal
+          subtitles={storyboard.subtitles || []}
+          totalDuration={totalDuration}
+          onSave={handleSaveSubtitles}
+          onClose={() => setShowSubtitleModal(false)}
         />
       )}
     </div>

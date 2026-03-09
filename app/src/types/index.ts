@@ -157,7 +157,9 @@ export interface StoryboardClip {
   jobId?: string;                    // if from gallery
   videoUrl: string;                  // CDN URL or R2 key
   r2Key?: string;                    // R2 storage key for uploaded videos
-  duration: number;                  // clip duration in seconds
+  duration: number;                  // full clip duration in seconds
+  trimStart?: number;                // trim in-point (seconds, default 0)
+  trimEnd?: number;                  // trim out-point (seconds, default duration)
   originalAspectRatio?: AspectRatio;
   fitMode: SlotFitMode;              // how to handle aspect ratio mismatch
 }
@@ -186,6 +188,27 @@ export interface StoryboardMusic {
   volume: number;                    // 0-1, default 0.3
 }
 
+export interface StoryboardMusicTrack {
+  id: string;                        // unique track id
+  type: 'bundled' | 'uploaded';
+  src: string;                       // filename for bundled, R2 key for uploaded
+  name: string;                      // display name
+  volume: number;                    // 0-1, default 0.3
+  timelinePosition: number;          // seconds — where on timeline this track starts
+  trimStart: number;                 // seconds — trim in-point within audio
+  trimEnd: number;                   // seconds — trim out-point within audio
+}
+
+export type SubtitlePosition = 'top' | 'center' | 'bottom';
+
+export interface StoryboardSubtitle {
+  id: string;
+  text: string;
+  startTime: number;                 // seconds, relative to final video timeline
+  endTime: number;
+  position: SubtitlePosition;
+}
+
 export interface Storyboard {
   id: string;                        // storyboard_xxx
   name: string;
@@ -198,7 +221,9 @@ export interface Storyboard {
   email?: string;                    // Owner's email
   titleCard?: StoryboardTitleCard;   // Intro card at start
   outroCard?: StoryboardTitleCard;   // Outro card at end
-  music?: StoryboardMusic;           // Background music track
+  music?: StoryboardMusic;           // Legacy: single background music track
+  musicTracks?: StoryboardMusicTrack[];  // Multi-track background music
+  subtitles?: StoryboardSubtitle[];  // Text overlays on final video
 }
 
 // === Batch Generation Types ===

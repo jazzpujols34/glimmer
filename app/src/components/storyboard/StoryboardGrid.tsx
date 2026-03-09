@@ -5,6 +5,7 @@ import { SlotCard } from './SlotCard';
 import { TransitionPicker } from './TransitionPicker';
 import { AddToSlotModal } from './AddToSlotModal';
 import { TextCardEditModal } from './TextCardEditModal';
+import { TrimModal } from './TrimModal';
 import { Button } from '@/components/ui/button';
 import type { Storyboard, StoryboardSlot, StoryboardTransitionType, GenerationJob, StoryboardClip, StoryboardTitleCard } from '@/types';
 import { logger } from '@/lib/logger';
@@ -44,6 +45,7 @@ export function StoryboardGrid({
   const filledCount = storyboard.slots.filter((s) => s.status === 'filled' || s.status === 'text-card').length;
   const emptyCount = storyboard.slotCount - filledCount;
   const [editingTextCardIndex, setEditingTextCardIndex] = useState<number | null>(null);
+  const [trimmingSlotIndex, setTrimmingSlotIndex] = useState<number | null>(null);
 
   const handleAddClick = (slotIndex: number) => {
     setActiveSlotIndex(slotIndex);
@@ -204,6 +206,17 @@ export function StoryboardGrid({
     [onUpdateSlot]
   );
 
+  const handleTrimSave = useCallback(
+    async (slotIndex: number, trimStart: number, trimEnd: number) => {
+      const slot = storyboard.slots[slotIndex];
+      if (!slot?.clip) return;
+      await onUpdateSlot(slotIndex, {
+        clip: { ...slot.clip, trimStart, trimEnd },
+      });
+    },
+    [storyboard.slots, onUpdateSlot]
+  );
+
   // Drag and drop handlers
   const handleDragStart = (index: number) => {
     setDraggedIndex(index);
@@ -240,7 +253,11 @@ export function StoryboardGrid({
             {filledCount} / {storyboard.slotCount} 格已填入
           </span>
           <span className="text-muted-foreground">
-            約 {Math.round((storyboard.slots.reduce((acc, s) => acc + (s.clip?.duration || s.textCard?.durationSeconds || 0), 0)) * 10) / 10}s
+            約 {Math.round((storyboard.slots.reduce((acc, s) => {
+              if (s.clip) return acc + ((s.clip.trimEnd ?? s.clip.duration) - (s.clip.trimStart ?? 0));
+              if (s.textCard) return acc + s.textCard.durationSeconds;
+              return acc;
+            }, 0)) * 10) / 10}s
           </span>
         </div>
         <div className="flex items-center gap-2">
@@ -268,6 +285,7 @@ export function StoryboardGrid({
                 onAddClick={() => handleAddClick(index)}
                 onRemoveClick={() => handleRemoveClick(index)}
                 onEditTextCard={slot.status === 'text-card' ? () => setEditingTextCardIndex(index) : undefined}
+                onTrimClick={slot.status === 'filled' && slot.clip ? () => setTrimmingSlotIndex(index) : undefined}
                 isDragging={draggedIndex === index}
               />
             </div>
@@ -328,6 +346,19 @@ export function StoryboardGrid({
             setEditingTextCardIndex(null);
           }}
           onClose={() => setEditingTextCardIndex(null)}
+        />
+      )}
+      {trimmingSlotIndex !== null && storyboard.slots[trimmingSlotIndex]?.clip && (
+        <TrimModal
+          videoUrl={storyboard.slots[trimmingSlotIndex].clip!.videoUrl}
+          duration={storyboard.slots[trimmingSlotIndex].clip!.duration}
+          trimStart={storyboard.slots[trimmingSlotIndex].clip!.trimStart ?? 0}
+          trimEnd={storyboard.slots[trimmingSlotIndex].clip!.trimEnd ?? storyboard.slots[trimmingSlotIndex].clip!.duration}
+          onSave={(trimStart, trimEnd) => {
+            handleTrimSave(trimmingSlotIndex, trimStart, trimEnd);
+            setTrimmingSlotIndex(null);
+          }}
+          onClose={() => setTrimmingSlotIndex(null)}
         />
       )}
     </div>

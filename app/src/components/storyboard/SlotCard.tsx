@@ -9,6 +9,7 @@ interface SlotCardProps {
   onAddClick: () => void;
   onRemoveClick: () => void;
   onEditTextCard?: () => void;
+  onTrimClick?: () => void;
   isDragging?: boolean;
   dragHandleProps?: React.HTMLAttributes<HTMLDivElement>;
 }
@@ -19,6 +20,7 @@ export function SlotCard({
   onAddClick,
   onRemoveClick,
   onEditTextCard,
+  onTrimClick,
   isDragging,
   dragHandleProps,
 }: SlotCardProps) {
@@ -67,6 +69,8 @@ export function SlotCard({
 
   const aspectClass = targetAspectRatio === '16:9' ? 'aspect-video' : 'aspect-[9/16]';
   const hasMismatch = slot.clip?.originalAspectRatio && slot.clip.originalAspectRatio !== targetAspectRatio;
+  const isTrimmed = slot.clip && (slot.clip.trimStart !== undefined && slot.clip.trimStart > 0 || slot.clip.trimEnd !== undefined && slot.clip.trimEnd < slot.clip.duration);
+  const effectiveDuration = slot.clip ? (slot.clip.trimEnd ?? slot.clip.duration) - (slot.clip.trimStart ?? 0) : 0;
   const isFilledOrCard = slot.status === 'filled' || slot.status === 'text-card';
 
   return (
@@ -217,8 +221,9 @@ export function SlotCard({
             )}
 
             {/* Duration Badge */}
-            <div className="absolute bottom-2 left-2 px-1.5 py-0.5 bg-black/70 rounded text-xs text-white">
-              {slot.clip.duration.toFixed(1)}s
+            <div className={`absolute bottom-2 left-2 px-1.5 py-0.5 rounded text-xs text-white ${isTrimmed ? 'bg-primary/80' : 'bg-black/70'}`}>
+              {effectiveDuration.toFixed(1)}s
+              {isTrimmed && ' ✂'}
             </div>
 
             {/* Aspect Ratio Mismatch Warning */}
@@ -231,12 +236,24 @@ export function SlotCard({
               </div>
             )}
 
-            {/* Hover Overlay with Remove Button */}
+            {/* Hover Overlay with Trim + Remove Buttons */}
             {isHovered && (
-              <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+              <div className="absolute inset-0 bg-black/40 flex items-center justify-center gap-2">
+                {onTrimClick && (
+                  <button
+                    onClick={onTrimClick}
+                    className="p-2 bg-primary rounded-full hover:bg-primary/80 transition-colors"
+                    title="裁剪"
+                  >
+                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.121 14.121L19 19m-7-7l7-7m-7 7l-2.879 2.879M12 12L9.121 9.121m0 5.758a3 3 0 10-4.243 4.243 3 3 0 004.243-4.243zm0-5.758a3 3 0 10-4.243-4.243 3 3 0 004.243 4.243z" />
+                    </svg>
+                  </button>
+                )}
                 <button
                   onClick={onRemoveClick}
                   className="p-2 bg-destructive rounded-full hover:bg-destructive/80 transition-colors"
+                  title="移除"
                 >
                   <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />

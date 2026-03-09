@@ -679,8 +679,19 @@ async def process_export(request: ExportRequest, work_dir: Path) -> tuple[bool, 
                 print(f"[Export] Warning: Failed to download music {i + 1}, skipping")
                 continue
 
+            # Check if music needs looping (audio shorter than requested trim range)
+            music_duration = get_video_duration(str(music_path))
+            requested_duration = mc.trimEnd - mc.trimStart
+            needs_loop = requested_duration > music_duration + 0.5
+
             music_files.append(music_path)
-            music_inputs.extend(["-i", str(music_path)])
+            if needs_loop:
+                # Use -stream_loop to repeat audio until trim range is covered
+                music_inputs.extend(["-stream_loop", "-1", "-i", str(music_path)])
+                print(f"[Export] Music {i + 1}: looping ({music_duration:.1f}s audio for {requested_duration:.1f}s requested)")
+            else:
+                music_inputs.extend(["-i", str(music_path)])
+
             delay_ms = int(mc.timelinePosition * 1000)
             idx = len(music_files)  # 1-indexed since 0 is video
             filter_parts.append(

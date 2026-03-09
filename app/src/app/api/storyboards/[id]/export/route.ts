@@ -113,8 +113,8 @@ export async function POST(
 
         clips.push({
           url: videoUrl,
-          trimStart: 0,
-          trimEnd: clip.duration,
+          trimStart: clip.trimStart ?? 0,
+          trimEnd: clip.trimEnd ?? clip.duration,
           speed: 1.0,
           volume: 1.0,
           filter: null,
@@ -162,13 +162,13 @@ export async function POST(
     // Determine resolution based on aspect ratio
     const resolution = storyboard.aspectRatio === '16:9' ? '1280x720' : '720x1280';
 
-    // Calculate total duration for music (clips + title + outro + interstitial cards)
-    const totalDuration = clips.reduce((sum, clip) => sum + clip.trimEnd, 0)
+    // Calculate total duration (clips use trimEnd-trimStart, not full duration)
+    const totalDuration = clips.reduce((sum, clip) => sum + (clip.trimEnd - clip.trimStart), 0)
       + interstitialCards.reduce((sum, card) => sum + card.durationSeconds, 0)
       + (storyboard.titleCard?.durationSeconds || 0)
       + (storyboard.outroCard?.durationSeconds || 0);
 
-    // Build music clips array
+    // Build music clips array — multi-track (musicTracks) or legacy (music)
     const musicClips: Array<{
       url: string;
       timelinePosition: number;
@@ -177,25 +177,45 @@ export async function POST(
       volume: number;
     }> = [];
 
-    if (storyboard.music) {
+    const sourceTracks = storyboard.musicTracks || (
+      storyboard.music ? [{
+        id: 'legacy',
+        type: storyboard.music.type,
+        src: storyboard.music.src,
+        name: storyboard.music.name,
+        volume: storyboard.music.volume,
+        timelinePosition: 0,
+        trimStart: 0,
+        trimEnd: totalDuration,
+      }] : []
+    );
+
+    for (const track of sourceTracks) {
       let musicUrl: string;
-      if (storyboard.music.type === 'bundled') {
-        musicUrl = `${BASE_URL}/audio/bundled/${storyboard.music.src}`;
+      if (track.type === 'bundled') {
+        musicUrl = `${BASE_URL}/audio/bundled/${track.src}`;
       } else {
-        // Uploaded music - use R2 proxy
-        musicUrl = `${BASE_URL}/api/proxy-r2?key=${encodeURIComponent(storyboard.music.src)}`;
+        musicUrl = `${BASE_URL}/api/proxy-r2?key=${encodeURIComponent(track.src)}`;
       }
 
       musicClips.push({
         url: musicUrl,
-        timelinePosition: 0,
-        trimStart: 0,
-        trimEnd: totalDuration,
-        volume: storyboard.music.volume,
+        timelinePosition: track.timelinePosition,
+        trimStart: track.trimStart,
+        trimEnd: track.trimEnd,
+        volume: track.volume,
       });
 
-      logger.debug('storyboard-export', `Including music: ${storyboard.music.name}, volume ${storyboard.music.volume}`);
+      logger.debug('storyboard-export', `Music track: ${track.name}, pos ${track.timelinePosition}s, vol ${track.volume}`);
     }
+
+    // Build subtitles array
+    const subtitles = (storyboard.subtitles || []).map(sub => ({
+      text: sub.text,
+      startTime: sub.startTime,
+      endTime: sub.endTime,
+      position: sub.position,
+    }));
 
     // Determine if watermark should be applied (free tier users only)
     let applyWatermark = true;  // Default: apply watermark
@@ -212,7 +232,7 @@ export async function POST(
     const cloudRunRequest = {
       jobId: storyboardId,
       clips,
-      subtitles: [],
+      subtitles,
       musicClips,
       interstitialCards: interstitialCards.length > 0 ? interstitialCards : undefined,
       titleCard: storyboard.titleCard,

@@ -8,7 +8,7 @@ import {
   reorderStoryboardSlots,
 } from '@/lib/storage';
 import { captureError } from '@/lib/errors';
-import type { StoryboardSlot, StoryboardTransitionType, StoryboardTitleCard, StoryboardMusic } from '@/types';
+import type { StoryboardSlot, StoryboardTransitionType, StoryboardTitleCard, StoryboardMusic, StoryboardMusicTrack, StoryboardSubtitle } from '@/types';
 
 export const runtime = 'edge';
 
@@ -118,6 +118,23 @@ export async function PATCH(request: Request, { params }: RouteParams) {
         return NextResponse.json({ storyboard: updated });
       }
 
+      case 'updateMusicTracks': {
+        const { musicTracks } = data as { musicTracks: StoryboardMusicTrack[] };
+        const updated = await updateStoryboard(id, {
+          musicTracks: musicTracks.length > 0 ? musicTracks : undefined,
+          music: undefined, // Clear legacy field
+        });
+        return NextResponse.json({ storyboard: updated });
+      }
+
+      case 'updateSubtitles': {
+        const { subtitles } = data as { subtitles: StoryboardSubtitle[] };
+        const updated = await updateStoryboard(id, {
+          subtitles: subtitles.length > 0 ? subtitles : undefined,
+        });
+        return NextResponse.json({ storyboard: updated });
+      }
+
       case 'fullUpdate': {
         // Full storyboard update for undo/redo sync
         const { storyboard: fullStoryboard } = data as { storyboard: typeof storyboard };
@@ -130,6 +147,8 @@ export async function PATCH(request: Request, { params }: RouteParams) {
           titleCard: fullStoryboard.titleCard,
           outroCard: fullStoryboard.outroCard,
           music: fullStoryboard.music,
+          musicTracks: fullStoryboard.musicTracks,
+          subtitles: fullStoryboard.subtitles,
           name: fullStoryboard.name,
         });
         return NextResponse.json({ storyboard: updated });
