@@ -339,6 +339,59 @@ export function StoryboardPreviewModal({ storyboard, onClose }: StoryboardPrevie
     if (audioRef.current) audioRef.current.currentTime = 0;
   };
 
+  const seekTo = useCallback((targetTime: number) => {
+    const clamped = Math.max(0, Math.min(targetTime, totalDuration));
+
+    // Find which playlist item this time falls into
+    let targetIndex = 0;
+    for (let i = 0; i < playlist.length; i++) {
+      if (i === playlist.length - 1 || clamped < cumulativeTimes[i + 1]) {
+        targetIndex = i;
+        break;
+      }
+    }
+
+    const offsetInItem = clamped - cumulativeTimes[targetIndex];
+
+    stopAllTimers();
+    setTransitioning(false);
+    setTransitionProgress(0);
+    setElapsedTime(clamped);
+    elapsedBeforePlayRef.current = clamped;
+
+    // If seeking to a different item, change index (triggers useEffect)
+    if (targetIndex !== currentIndex) {
+      setCurrentIndex(targetIndex);
+    }
+
+    // Seek within clip if it's a video
+    const item = playlist[targetIndex];
+    if (item?.type === 'clip' && videoRef.current) {
+      videoRef.current.currentTime = offsetInItem;
+      if (playing) videoRef.current.play().catch(() => {});
+    } else if (item && item.type !== 'clip' && playing) {
+      // Card: set timer for remaining duration
+      const remaining = item.duration - offsetInItem;
+      if (remaining > 0) {
+        cardTimerRef.current = setTimeout(() => startTransition(), remaining * 1000);
+      } else {
+        startTransition();
+      }
+    }
+
+    // Sync music
+    if (audioRef.current) {
+      audioRef.current.currentTime = clamped;
+    }
+  }, [totalDuration, playlist, cumulativeTimes, currentIndex, playing, stopAllTimers, startTransition]);
+
+  const handleProgressBarClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / rect.width;
+    const targetTime = x * totalDuration;
+    seekTo(targetTime);
+  }, [totalDuration, seekTo]);
+
   const musicUrl = getMusicUrl();
   const progress = totalDuration > 0 ? (elapsedTime / totalDuration) * 100 : 0;
 
@@ -478,8 +531,11 @@ export function StoryboardPreviewModal({ storyboard, onClose }: StoryboardPrevie
 
       {/* Controls */}
       <div className="absolute bottom-0 left-0 right-0 z-10 p-4 bg-gradient-to-t from-black/80 to-transparent">
-        {/* Progress bar - no transition for smooth updates */}
-        <div className="w-full h-1 bg-white/20 rounded-full mb-4 overflow-hidden">
+        {/* Progress bar — clickable to seek */}
+        <div
+          className="w-full h-2 bg-white/20 rounded-full mb-4 overflow-hidden cursor-pointer group hover:h-3 transition-all"
+          onClick={handleProgressBarClick}
+        >
           <div
             className="h-full bg-primary rounded-full"
             style={{ width: `${Math.min(progress, 100)}%` }}
