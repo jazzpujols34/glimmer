@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080">
+  <defs>
+    <radialGradient id="warm" cx="50%" cy="55%" r="60%">
+      <stop offset="0%" stop-color="#3d2a1a"/>
+      <stop offset="60%" stop-color="#1a1210"/>
+      <stop offset="100%" stop-color="#0d0a08"/>
+    </radialGradient>
+    <radialGradient id="glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#f5c67a" stop-opacity="0.15"/>
+      <stop offset="100%" stop-color="#f5c67a" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1920" height="1080" fill="url(#warm)"/>
+  <!-- Warm center glow -->
+  <ellipse cx="960" cy="540" rx="600" ry="400" fill="url(#glow)"/>
+  <!-- Subtle floating particles -->
+  <g opacity="0.4">
+    <circle cx="400" cy="300" r="1.5" fill="#f5c67a" opacity="0.3"/>
+    <circle cx="700" cy="200" r="1" fill="#f5c67a" opacity="0.25"/>
+    <circle cx="1200" cy="350" r="1.5" fill="#f5c67a" opacity="0.35"/>
+    <circle cx="1500" cy="250" r="1" fill="#f5c67a" opacity="0.2"/>
+    <circle cx="550" cy="600" r="1" fill="#f5c67a" opacity="0.2"/>
+    <circle cx="1350" cy="650" r="1.5" fill="#f5c67a" opacity="0.25"/>
+    <circle cx="300" cy="800" r="1" fill="#f5c67a" opacity="0.15"/>
+    <circle cx="1600" cy="780" r="1" fill="#f5c67a" opacity="0.15"/>
+  </g>
+</svg>

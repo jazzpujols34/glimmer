@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f5f0eb"/>
+      <stop offset="100%" stop-color="#ede4da"/>
+    </linearGradient>
+  </defs>
+  <rect width="1920" height="1080" fill="url(#bg)"/>
+  <!-- Paw print symbol (reusable pattern) -->
+  <g id="paw" fill="#c4a882" opacity="0.12">
+    <!-- Main pad -->
+    <ellipse rx="12" ry="14"/>
+    <!-- Toe pads -->
+    <ellipse cx="-10" cy="-16" rx="6" ry="7"/>
+    <ellipse cx="10" cy="-16" rx="6" ry="7"/>
+    <ellipse cx="-17" cy="-6" rx="5.5" ry="6.5"/>
+    <ellipse cx="17" cy="-6" rx="5.5" ry="6.5"/>
+  </g>
+  <!-- Scattered paw prints at various angles -->
+  <use href="#paw" x="180" y="150" transform="translate(180,150) rotate(-20)"/>
+  <use href="#paw" x="0" y="0" transform="translate(500,280) rotate(15) scale(0.8)"/>
+  <use href="#paw" x="0" y="0" transform="translate(820,120) rotate(-35) scale(0.9)"/>
+  <use href="#paw" x="0" y="0" transform="translate(1200,200) rotate(10)"/>
+  <use href="#paw" x="0" y="0" transform="translate(1550,150) rotate(-25) scale(0.85)"/>
+  <use href="#paw" x="0" y="0" transform="translate(1750,300) rotate(30) scale(0.75)"/>
+  <use href="#paw" x="0" y="0" transform="translate(100,750) rotate(25) scale(0.9)"/>
+  <use href="#paw" x="0" y="0" transform="translate(400,880) rotate(-15) scale(0.8)"/>
+  <use href="#paw" x="0" y="0" transform="translate(750,950) rotate(40)"/>
+  <use href="#paw" x="0" y="0" transform="translate(1100,850) rotate(-30) scale(0.85)"/>
+  <use href="#paw" x="0" y="0" transform="translate(1450,920) rotate(20) scale(0.9)"/>
+  <use href="#paw" x="0" y="0" transform="translate(1780,800) rotate(-10) scale(0.75)"/>
+  <!-- A couple faint mid-area prints -->
+  <use href="#paw" x="0" y="0" transform="translate(300,500) rotate(5) scale(0.6)" opacity="0.06"/>
+  <use href="#paw" x="0" y="0" transform="translate(1600,550) rotate(-15) scale(0.6)" opacity="0.06"/>
+</svg>

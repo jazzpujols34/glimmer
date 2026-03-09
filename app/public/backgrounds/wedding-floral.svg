@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0.5" y2="1">
+      <stop offset="0%" stop-color="#fdf8f4"/>
+      <stop offset="100%" stop-color="#f8f0ea"/>
+    </linearGradient>
+  </defs>
+  <rect width="1920" height="1080" fill="url(#bg)"/>
+  <!-- Top-left floral cluster -->
+  <g transform="translate(120,100)" fill="none" stroke-linecap="round">
+    <!-- Stems -->
+    <g stroke="#9caa8b" stroke-opacity="0.25" stroke-width="1.5">
+      <path d="M0 0 Q30 60 20 140"/>
+      <path d="M20 140 Q40 180 80 200"/>
+      <path d="M20 140 Q-10 180 -30 210"/>
+      <path d="M-20 40 Q-50 80 -40 130"/>
+    </g>
+    <!-- Leaves -->
+    <g fill="#9caa8b" fill-opacity="0.12">
+      <ellipse cx="-35" cy="90" rx="18" ry="8" transform="rotate(-30 -35 90)"/>
+      <ellipse cx="45" cy="170" rx="16" ry="7" transform="rotate(20 45 170)"/>
+      <ellipse cx="-25" cy="180" rx="14" ry="6" transform="rotate(-40 -25 180)"/>
+    </g>
+    <!-- Flower circles -->
+    <g fill="#d4a0a0" fill-opacity="0.15">
+      <circle cx="0" cy="0" r="18"/>
+      <circle cx="-40" cy="130" r="14"/>
+      <circle cx="80" cy="200" r="16"/>
+    </g>
+    <g fill="#c48e8e" fill-opacity="0.08">
+      <circle cx="0" cy="0" r="8"/>
+      <circle cx="-40" cy="130" r="6"/>
+      <circle cx="80" cy="200" r="7"/>
+    </g>
+  </g>
+  <!-- Bottom-right floral cluster -->
+  <g transform="translate(1800,980) scale(-1,-1)" fill="none" stroke-linecap="round">
+    <g stroke="#9caa8b" stroke-opacity="0.25" stroke-width="1.5">
+      <path d="M0 0 Q30 60 20 140"/>
+      <path d="M20 140 Q40 180 80 200"/>
+      <path d="M20 140 Q-10 180 -30 210"/>
+    </g>
+    <g fill="#9caa8b" fill-opacity="0.12">
+      <ellipse cx="-35" cy="90" rx="18" ry="8" transform="rotate(-30 -35 90)"/>
+      <ellipse cx="45" cy="170" rx="16" ry="7" transform="rotate(20 45 170)"/>
+    </g>
+    <g fill="#d4a0a0" fill-opacity="0.15">
+      <circle cx="0" cy="0" r="18"/>
+      <circle cx="-40" cy="130" r="14"/>
+      <circle cx="80" cy="200" r="16"/>
+    </g>
+    <g fill="#c48e8e" fill-opacity="0.08">
+      <circle cx="0" cy="0" r="8"/>
+      <circle cx="-40" cy="130" r="6"/>
+      <circle cx="80" cy="200" r="7"/>
+    </g>
+  </g>
+</svg>

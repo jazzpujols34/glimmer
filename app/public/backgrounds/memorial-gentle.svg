@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080">
+  <defs>
+    <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#2c2c3a"/>
+      <stop offset="50%" stop-color="#1e1e2a"/>
+      <stop offset="100%" stop-color="#141420"/>
+    </linearGradient>
+  </defs>
+  <rect width="1920" height="1080" fill="url(#g1)"/>
+  <!-- Soft botanical silhouettes along edges -->
+  <g opacity="0.08" fill="none" stroke="#ffffff" stroke-width="1.5">
+    <!-- Left branch -->
+    <path d="M0 600 Q80 550 120 480 Q140 440 130 400"/>
+    <path d="M80 550 Q110 530 100 490"/>
+    <path d="M100 520 Q130 510 120 470"/>
+    <ellipse cx="130" cy="390" rx="20" ry="30" transform="rotate(-15 130 390)"/>
+    <ellipse cx="105" cy="480" rx="15" ry="22" transform="rotate(10 105 480)"/>
+    <ellipse cx="125" cy="460" rx="12" ry="20" transform="rotate(-20 125 460)"/>
+    <!-- Right branch -->
+    <path d="M1920 500 Q1830 460 1790 380 Q1770 340 1780 300"/>
+    <path d="M1840 450 Q1810 430 1815 390"/>
+    <ellipse cx="1780" cy="290" rx="20" ry="28" transform="rotate(15 1780 290)"/>
+    <ellipse cx="1810" cy="380" rx="14" ry="22" transform="rotate(-10 1810 380)"/>
+  </g>
+  <!-- Subtle horizontal line accent -->
+  <line x1="760" y1="700" x2="1160" y2="700" stroke="#ffffff" stroke-opacity="0.06" stroke-width="1"/>
+</svg>

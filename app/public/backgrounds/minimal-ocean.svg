@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#1a2a3a"/>
+      <stop offset="50%" stop-color="#1e3448"/>
+      <stop offset="100%" stop-color="#152535"/>
+    </linearGradient>
+  </defs>
+  <rect width="1920" height="1080" fill="url(#bg)"/>
+  <!-- Subtle wave lines -->
+  <g fill="none" stroke="#ffffff" stroke-opacity="0.04" stroke-width="1.5">
+    <path d="M0 700 Q240 680 480 700 Q720 720 960 700 Q1200 680 1440 700 Q1680 720 1920 700"/>
+    <path d="M0 740 Q240 720 480 740 Q720 760 960 740 Q1200 720 1440 740 Q1680 760 1920 740"/>
+    <path d="M0 780 Q240 760 480 780 Q720 800 960 780 Q1200 760 1440 780 Q1680 800 1920 780"/>
+    <path d="M0 820 Q240 800 480 820 Q720 840 960 820 Q1200 800 1440 820 Q1680 840 1920 820"/>
+    <path d="M0 860 Q240 840 480 860 Q720 880 960 860 Q1200 840 1440 860 Q1680 880 1920 860"/>
+  </g>
+  <!-- Faint moon glow -->
+  <circle cx="1500" cy="250" r="60" fill="#ffffff" opacity="0.03"/>
+  <circle cx="1500" cy="250" r="30" fill="#ffffff" opacity="0.04"/>
+</svg>

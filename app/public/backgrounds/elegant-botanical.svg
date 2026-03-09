@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f7f5f0"/>
+      <stop offset="100%" stop-color="#eee9e0"/>
+    </linearGradient>
+  </defs>
+  <rect width="1920" height="1080" fill="url(#bg)"/>
+  <!-- Botanical line art frame -->
+  <g fill="none" stroke="#7a8a6a" stroke-opacity="0.15" stroke-width="1.2" stroke-linecap="round">
+    <!-- Top-left branch -->
+    <path d="M60 0 Q60 60 100 100 Q130 130 160 120"/>
+    <path d="M100 100 Q90 140 100 170"/>
+    <ellipse cx="75" cy="50" rx="15" ry="25" transform="rotate(30 75 50)"/>
+    <ellipse cx="130" cy="120" rx="20" ry="10" transform="rotate(-15 130 120)"/>
+    <ellipse cx="95" cy="155" rx="12" ry="20" transform="rotate(10 95 155)"/>
+    <!-- Top-right branch -->
+    <path d="M1860 0 Q1860 60 1820 100 Q1790 130 1760 120"/>
+    <path d="M1820 100 Q1830 140 1820 170"/>
+    <ellipse cx="1845" cy="50" rx="15" ry="25" transform="rotate(-30 1845 50)"/>
+    <ellipse cx="1790" cy="120" rx="20" ry="10" transform="rotate(15 1790 120)"/>
+    <ellipse cx="1825" cy="155" rx="12" ry="20" transform="rotate(-10 1825 155)"/>
+    <!-- Bottom-left -->
+    <path d="M60 1080 Q60 1020 100 980 Q130 950 160 960"/>
+    <ellipse cx="75" cy="1030" rx="15" ry="25" transform="rotate(-30 75 1030)"/>
+    <ellipse cx="130" cy="960" rx="20" ry="10" transform="rotate(15 130 960)"/>
+    <!-- Bottom-right -->
+    <path d="M1860 1080 Q1860 1020 1820 980 Q1790 950 1760 960"/>
+    <ellipse cx="1845" cy="1030" rx="15" ry="25" transform="rotate(30 1845 1030)"/>
+    <ellipse cx="1790" cy="960" rx="20" ry="10" transform="rotate(-15 1790 960)"/>
+  </g>
+</svg>

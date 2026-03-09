@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="50%" r="70%">
+      <stop offset="0%" stop-color="#fdf5f0"/>
+      <stop offset="100%" stop-color="#f5e6dc"/>
+    </radialGradient>
+  </defs>
+  <rect width="1920" height="1080" fill="url(#bg)"/>
+  <!-- Soft watercolor blush circles -->
+  <g opacity="0.08">
+    <circle cx="300" cy="200" r="200" fill="#d4a0a0"/>
+    <circle cx="1650" cy="250" r="180" fill="#c48e8e"/>
+    <circle cx="250" cy="850" r="170" fill="#c9a0b0"/>
+    <circle cx="1700" cy="800" r="200" fill="#d4a0a0"/>
+    <circle cx="960" cy="540" r="250" fill="#dbb5a5"/>
+  </g>
+  <!-- Delicate border frame -->
+  <rect x="80" y="60" width="1760" height="960" rx="8" fill="none" stroke="#c4a090" stroke-opacity="0.12" stroke-width="1"/>
+  <rect x="100" y="80" width="1720" height="920" rx="6" fill="none" stroke="#c4a090" stroke-opacity="0.06" stroke-width="1"/>
+</svg>

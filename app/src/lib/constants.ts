@@ -99,8 +99,21 @@ export interface CardBackground {
 }
 
 export const CARD_BACKGROUNDS: CardBackground[] = [
-  // Drop images into app/public/backgrounds/ and add entries here.
-  // Example:
-  // { filename: 'flowers-01.jpg', label: '花卉', textColor: '#FFFFFF' },
-  // { filename: 'watercolor-blue.jpg', label: '水彩藍', textColor: '#1a1a1a' },
+  // Memorial — dark, reverent
+  { filename: 'memorial-starlight.svg', label: '星夜', textColor: '#FFFFFF' },
+  { filename: 'memorial-gentle.svg', label: '靜謐', textColor: '#FFFFFF' },
+  { filename: 'memorial-candlelight.svg', label: '燭光', textColor: '#F5DEB3' },
+  // Birthday — warm, celebratory
+  { filename: 'birthday-confetti.svg', label: '繽紛', textColor: '#264653' },
+  { filename: 'birthday-golden.svg', label: '金色慶典', textColor: '#8B6914' },
+  // Pet — warm, playful
+  { filename: 'pet-pawprints.svg', label: '腳印', textColor: '#5C4A32' },
+  { filename: 'pet-meadow.svg', label: '草地', textColor: '#3A4A2A' },
+  // Wedding — elegant, romantic
+  { filename: 'wedding-floral.svg', label: '花語', textColor: '#5A4A40' },
+  { filename: 'wedding-blush.svg', label: '粉嫣', textColor: '#6A4A4A' },
+  // General — versatile
+  { filename: 'elegant-botanical.svg', label: '植物線稿', textColor: '#4A5A3A' },
+  { filename: 'minimal-ocean.svg', label: '深海', textColor: '#FFFFFF' },
+  { filename: 'minimal-sunset.svg', label: '暮色', textColor: '#F0D0B0' },
 ];

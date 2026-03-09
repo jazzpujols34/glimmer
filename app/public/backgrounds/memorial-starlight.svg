@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080">
+  <defs>
+    <radialGradient id="g1" cx="50%" cy="40%" r="70%">
+      <stop offset="0%" stop-color="#1a1a3e"/>
+      <stop offset="100%" stop-color="#0a0a1a"/>
+    </radialGradient>
+    <radialGradient id="star" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.8"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1920" height="1080" fill="url(#g1)"/>
+  <!-- Soft bokeh stars -->
+  <circle cx="200" cy="180" r="3" fill="url(#star)" opacity="0.7"/>
+  <circle cx="480" cy="120" r="2" fill="url(#star)" opacity="0.5"/>
+  <circle cx="720" cy="280" r="4" fill="url(#star)" opacity="0.6"/>
+  <circle cx="1100" cy="150" r="3" fill="url(#star)" opacity="0.8"/>
+  <circle cx="1400" cy="220" r="2.5" fill="url(#star)" opacity="0.5"/>
+  <circle cx="1650" cy="180" r="3.5" fill="url(#star)" opacity="0.7"/>
+  <circle cx="300" cy="400" r="2" fill="url(#star)" opacity="0.4"/>
+  <circle cx="850" cy="500" r="2.5" fill="url(#star)" opacity="0.3"/>
+  <circle cx="1500" cy="450" r="2" fill="url(#star)" opacity="0.4"/>
+  <circle cx="1750" cy="600" r="3" fill="url(#star)" opacity="0.35"/>
+  <circle cx="150" cy="700" r="2" fill="url(#star)" opacity="0.3"/>
+  <circle cx="600" cy="800" r="2.5" fill="url(#star)" opacity="0.25"/>
+  <circle cx="1200" cy="750" r="2" fill="url(#star)" opacity="0.3"/>
+  <circle cx="1600" cy="850" r="3" fill="url(#star)" opacity="0.2"/>
+  <!-- Subtle warm glow at center -->
+  <ellipse cx="960" cy="500" rx="500" ry="300" fill="#2a1a3e" opacity="0.3"/>
+</svg>

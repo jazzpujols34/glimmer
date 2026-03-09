@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0.3" y2="1">
+      <stop offset="0%" stop-color="#fdfaf3"/>
+      <stop offset="100%" stop-color="#f7eed5"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#d4a855" stop-opacity="0.15"/>
+      <stop offset="100%" stop-color="#c49638" stop-opacity="0.08"/>
+    </linearGradient>
+  </defs>
+  <rect width="1920" height="1080" fill="url(#bg)"/>
+  <!-- Gold corner ornaments -->
+  <g stroke="#c49638" stroke-opacity="0.2" fill="none" stroke-width="1.5">
+    <!-- Top-left corner -->
+    <path d="M0 80 Q40 80 80 40 Q80 20 80 0"/>
+    <path d="M0 120 Q60 120 120 60 Q120 30 120 0"/>
+    <path d="M0 160 Q80 160 160 80 Q160 40 160 0"/>
+    <!-- Top-right corner -->
+    <path d="M1920 80 Q1880 80 1840 40 Q1840 20 1840 0"/>
+    <path d="M1920 120 Q1860 120 1800 60 Q1800 30 1800 0"/>
+    <path d="M1920 160 Q1840 160 1760 80 Q1760 40 1760 0"/>
+    <!-- Bottom-left corner -->
+    <path d="M0 1000 Q40 1000 80 1040 Q80 1060 80 1080"/>
+    <path d="M0 960 Q60 960 120 1020 Q120 1050 120 1080"/>
+    <path d="M0 920 Q80 920 160 1000 Q160 1040 160 1080"/>
+    <!-- Bottom-right corner -->
+    <path d="M1920 1000 Q1880 1000 1840 1040 Q1840 1060 1840 1080"/>
+    <path d="M1920 960 Q1860 960 1800 1020 Q1800 1050 1800 1080"/>
+    <path d="M1920 920 Q1840 920 1760 1000 Q1760 1040 1760 1080"/>
+  </g>
+  <!-- Subtle center diamond -->
+  <rect x="920" y="500" width="80" height="80" rx="4" fill="none" stroke="#c49638" stroke-opacity="0.08" stroke-width="1" transform="rotate(45 960 540)"/>
+</svg>

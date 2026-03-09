@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#dce8d4"/>
+      <stop offset="60%" stop-color="#e8edd8"/>
+      <stop offset="100%" stop-color="#f0efe4"/>
+    </linearGradient>
+  </defs>
+  <rect width="1920" height="1080" fill="url(#sky)"/>
+  <!-- Soft grass/meadow shapes at bottom -->
+  <g fill="#b8c9a0" opacity="0.2">
+    <ellipse cx="200" cy="1080" rx="300" ry="120"/>
+    <ellipse cx="600" cy="1080" rx="250" ry="100"/>
+    <ellipse cx="1000" cy="1080" rx="350" ry="130"/>
+    <ellipse cx="1450" cy="1080" rx="280" ry="110"/>
+    <ellipse cx="1800" cy="1080" rx="250" ry="100"/>
+  </g>
+  <!-- Simple blade shapes -->
+  <g stroke="#8fa872" stroke-opacity="0.12" fill="none" stroke-width="1.5" stroke-linecap="round">
+    <path d="M150 1080 Q155 1000 140 960"/>
+    <path d="M170 1080 Q180 1010 200 970"/>
+    <path d="M450 1080 Q440 1020 430 980"/>
+    <path d="M470 1080 Q480 1010 500 975"/>
+    <path d="M900 1080 Q895 1010 880 970"/>
+    <path d="M920 1080 Q930 1000 950 965"/>
+    <path d="M1300 1080 Q1290 1020 1280 985"/>
+    <path d="M1320 1080 Q1330 1010 1350 975"/>
+    <path d="M1700 1080 Q1695 1015 1685 980"/>
+    <path d="M1720 1080 Q1730 1010 1745 978"/>
+  </g>
+  <!-- Tiny butterfly silhouettes -->
+  <g fill="#8fa872" opacity="0.1">
+    <path d="M400 300 Q410 285 400 270 Q390 285 400 300 M400 300 Q415 295 420 280 Q405 290 400 300" transform="rotate(15 400 285)"/>
+    <path d="M1500 400 Q1510 385 1500 370 Q1490 385 1500 400 M1500 400 Q1515 395 1520 380 Q1505 390 1500 400" transform="rotate(-10 1500 385) scale(1.2)"/>
+  </g>
+</svg>
