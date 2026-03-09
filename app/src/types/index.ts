@@ -173,6 +173,16 @@ export interface StoryboardSlot {
   textCard?: StoryboardTitleCard;    // text card content (when status='text-card')
 }
 
+export interface CardTextBox {
+  id: string;
+  text: string;
+  x: number;                         // 0-100 percentage from left
+  y: number;                         // 0-100 percentage from top
+  fontSize: number;                  // percentage of canvas height, 3-20
+  color: string;                     // hex color
+  bold: boolean;
+}
+
 export interface StoryboardTitleCard {
   text: string;
   subtitle?: string;
@@ -181,6 +191,7 @@ export interface StoryboardTitleCard {
   textColor: string;                 // hex, default #FFFFFF
   templateId?: string;               // layout template, default 'classic-center'
   backgroundImage?: string;          // filename in /backgrounds/, e.g. 'flowers-01.jpg'
+  textBoxes?: CardTextBox[];         // free-positioned text boxes (overrides template layout)
 }
 
 export interface StoryboardMusic {
