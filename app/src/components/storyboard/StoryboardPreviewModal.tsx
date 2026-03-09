@@ -43,6 +43,7 @@ export function StoryboardPreviewModal({ storyboard, onClose }: StoryboardPrevie
   const playStartTimeRef = useRef<number>(0);
   const elapsedBeforePlayRef = useRef<number>(0);
   const animationFrameRef = useRef<number | null>(null);
+  const userSeekingRef = useRef(false); // true during explicit seek/restart — allows backward music seek
 
   // Handle Escape key to close modal
   useEffect(() => {
@@ -173,7 +174,8 @@ export function StoryboardPreviewModal({ storyboard, onClose }: StoryboardPrevie
     );
   }, [storyboard.subtitles, elapsedTime]);
 
-  const stopAllTimers = useCallback(() => {
+  // Stop only card/transition timers (preserves the elapsed-time animation loop)
+  const stopPlaybackTimers = useCallback(() => {
     if (cardTimerRef.current) {
       clearTimeout(cardTimerRef.current);
       cardTimerRef.current = null;
@@ -182,11 +184,16 @@ export function StoryboardPreviewModal({ storyboard, onClose }: StoryboardPrevie
       clearTimeout(transitionTimerRef.current);
       transitionTimerRef.current = null;
     }
+  }, []);
+
+  // Full stop: also kills the elapsed-time animation frame (used for pause/seek/restart)
+  const stopAllTimers = useCallback(() => {
+    stopPlaybackTimers();
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current);
       animationFrameRef.current = null;
     }
-  }, []);
+  }, [stopPlaybackTimers]);
 
   // Skip to next item (for error cases / immediate cuts)
   const skipToNext = useCallback(() => {
@@ -281,8 +288,12 @@ export function StoryboardPreviewModal({ storyboard, onClose }: StoryboardPrevie
       if (shouldPlay && offsetInTrack >= 0 && time < trackEnd) {
         // Track should be active — sync position and play
         const expectedTime = track.trimStart + offsetInTrack;
-        // Only seek if drift is > 0.3s to avoid constant seeking
-        if (Math.abs(audio.currentTime - expectedTime) > 0.3) {
+        const drift = expectedTime - audio.currentTime; // positive = audio behind, negative = audio ahead
+
+        // During normal playback: only seek forward (audio behind by >0.3s)
+        // During explicit seek/restart: seek in either direction
+        // Safety: always correct if audio drifts >2s ahead (something went wrong)
+        if (drift > 0.3 || (userSeekingRef.current && Math.abs(drift) > 0.1) || drift < -2.0) {
           audio.currentTime = expectedTime;
         }
         if (audio.paused) audio.play().catch(() => {});
@@ -352,18 +363,15 @@ export function StoryboardPreviewModal({ storyboard, onClose }: StoryboardPrevie
     }
   }, [playing, currentItem, playCard, musicError, stopAllTimers, syncMusicToTime, pauseAllMusic]);
 
-  // Handle index change
+  // Handle index change — only start new item, don't reset elapsed time
+  // (elapsed time flows continuously via the animation frame loop)
   useEffect(() => {
     setVideoError(false);
 
-    // Update elapsed time to match current position
-    elapsedBeforePlayRef.current = cumulativeTimes[currentIndex] || 0;
-    setElapsedTime(elapsedBeforePlayRef.current);
-    playStartTimeRef.current = performance.now();
-
     if (!currentItem || !playing) return;
 
-    stopAllTimers();
+    // Only stop card/transition timers, NOT the animation frame loop
+    stopPlaybackTimers();
 
     if (currentItem.type === 'clip') {
       if (videoRef.current) {
@@ -373,7 +381,7 @@ export function StoryboardPreviewModal({ storyboard, onClose }: StoryboardPrevie
     } else {
       playCard(currentItem.duration);
     }
-  }, [currentIndex, currentItem, playing, playCard, stopAllTimers, cumulativeTimes]);
+  }, [currentIndex, currentItem, playing, playCard, stopPlaybackTimers]);
 
   // Cleanup
   useEffect(() => {
@@ -390,7 +398,9 @@ export function StoryboardPreviewModal({ storyboard, onClose }: StoryboardPrevie
     setTransitioning(false);
     setTransitionProgress(0);
     if (videoRef.current) videoRef.current.currentTime = 0;
+    userSeekingRef.current = true;
     syncMusicToTime(0, false);
+    userSeekingRef.current = false;
   };
 
   const seekTo = useCallback((targetTime: number) => {
@@ -433,8 +443,10 @@ export function StoryboardPreviewModal({ storyboard, onClose }: StoryboardPrevie
       }
     }
 
-    // Sync music to new position
+    // Sync music to new position (allow backward seek since user explicitly seeked)
+    userSeekingRef.current = true;
     syncMusicToTime(clamped, playing);
+    userSeekingRef.current = false;
   }, [totalDuration, playlist, cumulativeTimes, currentIndex, playing, stopAllTimers, startTransition, syncMusicToTime]);
 
   const handleProgressBarClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
@@ -589,7 +601,6 @@ export function StoryboardPreviewModal({ storyboard, onClose }: StoryboardPrevie
             }
           }}
           src={track.url}
-          loop
           style={{ display: 'none' }}
           onError={() => setMusicError(true)}
         />
