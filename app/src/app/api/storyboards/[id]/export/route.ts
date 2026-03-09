@@ -38,14 +38,16 @@ export async function POST(
       );
     }
 
-    // Get filled slots in order
-    const filledSlots = storyboard.slots
-      .filter(slot => slot.status === 'filled' && slot.clip)
+    // Get content slots in order (video clips + text cards)
+    const contentSlots = storyboard.slots
+      .filter(slot => (slot.status === 'filled' && slot.clip) || (slot.status === 'text-card' && slot.textCard))
       .sort((a, b) => a.index - b.index);
 
-    if (filledSlots.length === 0) {
+    const filledSlots = contentSlots.filter(slot => slot.status === 'filled' && slot.clip);
+
+    if (contentSlots.length === 0) {
       return NextResponse.json(
-        { error: '故事板沒有影片' },
+        { error: '故事板沒有內容' },
         { status: 400 }
       );
     }
@@ -57,7 +59,8 @@ export async function POST(
       );
     }
 
-    // Build clips for Cloud Run
+    // Build clips and interstitial cards for Cloud Run
+    // We process contentSlots in order, building a mixed sequence
     const clips: Array<{
       url: string;
       trimStart: number;
@@ -67,34 +70,57 @@ export async function POST(
       filter: string | null;
     }> = [];
 
-    for (let i = 0; i < filledSlots.length; i++) {
-      const slot = filledSlots[i];
-      const clip = slot.clip!;
+    // Interstitial cards: { position, card } — position = index in clips array where card is inserted BEFORE
+    const interstitialCards: Array<{
+      position: number;
+      text: string;
+      subtitle?: string;
+      durationSeconds: number;
+      backgroundColor: string;
+      textColor: string;
+    }> = [];
 
-      const sourceUrl = clip.videoUrl || '';
-      logger.debug('storyboard-export', `Slot ${slot.index}: sourceUrl=${sourceUrl.substring(0, 80)}...`);
-
-      if (!sourceUrl) {
-        logger.warn(`[storyboard-export] Slot ${slot.index} has no videoUrl`);
+    let clipIndex = 0;
+    for (const slot of contentSlots) {
+      if (slot.status === 'text-card' && slot.textCard) {
+        interstitialCards.push({
+          position: clipIndex,
+          text: slot.textCard.text,
+          subtitle: slot.textCard.subtitle,
+          durationSeconds: slot.textCard.durationSeconds,
+          backgroundColor: slot.textCard.backgroundColor,
+          textColor: slot.textCard.textColor,
+        });
+        logger.debug('storyboard-export', `Slot ${slot.index}: text card "${slot.textCard.text}" at position ${clipIndex}`);
         continue;
       }
 
-      // Use resolveVideoUrl for consistent URL resolution
-      const videoUrl = resolveVideoUrl(sourceUrl, 'export', BASE_URL);
+      if (slot.status === 'filled' && slot.clip) {
+        const clip = slot.clip;
+        const sourceUrl = clip.videoUrl || '';
+        logger.debug('storyboard-export', `Slot ${slot.index}: sourceUrl=${sourceUrl.substring(0, 80)}...`);
 
-      if (!videoUrl) {
-        logger.warn(`[storyboard-export] Slot ${slot.index} has invalid videoUrl`);
-        continue;
+        if (!sourceUrl) {
+          logger.warn(`[storyboard-export] Slot ${slot.index} has no videoUrl`);
+          continue;
+        }
+
+        const videoUrl = resolveVideoUrl(sourceUrl, 'export', BASE_URL);
+        if (!videoUrl) {
+          logger.warn(`[storyboard-export] Slot ${slot.index} has invalid videoUrl`);
+          continue;
+        }
+
+        clips.push({
+          url: videoUrl,
+          trimStart: 0,
+          trimEnd: clip.duration,
+          speed: 1.0,
+          volume: 1.0,
+          filter: null,
+        });
+        clipIndex++;
       }
-
-      clips.push({
-        url: videoUrl,
-        trimStart: 0,
-        trimEnd: clip.duration,
-        speed: 1.0,
-        volume: 1.0,
-        filter: null,
-      });
     }
 
     // Pre-validate all clip URLs before sending to Cloud Run
@@ -136,8 +162,9 @@ export async function POST(
     // Determine resolution based on aspect ratio
     const resolution = storyboard.aspectRatio === '16:9' ? '1280x720' : '720x1280';
 
-    // Calculate total duration for music
+    // Calculate total duration for music (clips + title + outro + interstitial cards)
     const totalDuration = clips.reduce((sum, clip) => sum + clip.trimEnd, 0)
+      + interstitialCards.reduce((sum, card) => sum + card.durationSeconds, 0)
       + (storyboard.titleCard?.durationSeconds || 0)
       + (storyboard.outroCard?.durationSeconds || 0);
 
@@ -187,6 +214,7 @@ export async function POST(
       clips,
       subtitles: [],
       musicClips,
+      interstitialCards: interstitialCards.length > 0 ? interstitialCards : undefined,
       titleCard: storyboard.titleCard,
       outroCard: storyboard.outroCard,
       resolution,

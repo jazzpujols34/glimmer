@@ -2,14 +2,16 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import type { GenerationJob } from '@/types';
+import type { GenerationJob, StoryboardTitleCard } from '@/types';
 import { logger } from '@/lib/logger';
+import { CardEditor, defaultTextCard } from './CardEditor';
 
 interface AddToSlotModalProps {
   isOpen: boolean;
   onClose: () => void;
   onAddFromUpload: (files: File[]) => void;
   onAddFromGallery: (jobs: GenerationJob[], videoIndices: number[]) => Promise<void>;
+  onAddTextCard: (card: StoryboardTitleCard) => void;
   galleryJobs: GenerationJob[];
   slotIndex: number;
   remainingSlots: number;
@@ -20,11 +22,13 @@ export function AddToSlotModal({
   onClose,
   onAddFromUpload,
   onAddFromGallery,
+  onAddTextCard,
   galleryJobs,
   slotIndex,
   remainingSlots,
 }: AddToSlotModalProps) {
-  const [activeTab, setActiveTab] = useState<'upload' | 'gallery'>('upload');
+  const [activeTab, setActiveTab] = useState<'upload' | 'gallery' | 'textcard'>('upload');
+  const [textCard, setTextCard] = useState<StoryboardTitleCard>(defaultTextCard());
   const [selectedVideos, setSelectedVideos] = useState<{ jobId: string; videoIndex: number }[]>([]);
   const [dragOver, setDragOver] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
@@ -164,6 +168,16 @@ export function AddToSlotModal({
           >
             從影片庫選擇
           </button>
+          <button
+            onClick={() => setActiveTab('textcard')}
+            className={`flex-1 py-3 text-sm font-medium transition-colors ${
+              activeTab === 'textcard'
+                ? 'text-primary border-b-2 border-primary'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            文字卡
+          </button>
         </div>
 
         {/* Content */}
@@ -200,6 +214,15 @@ export function AddToSlotModal({
               <Button onClick={() => fileInputRef.current?.click()}>
                 選擇檔案
               </Button>
+            </div>
+          )}
+
+          {activeTab === 'textcard' && (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                新增文字卡作為場景間的過場
+              </p>
+              <CardEditor card={textCard} onChange={setTextCard} />
             </div>
           )}
 
@@ -259,7 +282,24 @@ export function AddToSlotModal({
           )}
         </div>
 
-        {/* Footer */}
+        {/* Text Card Footer */}
+        {activeTab === 'textcard' && (
+          <div className="p-4 border-t border-border">
+            <Button
+              onClick={() => {
+                onAddTextCard(textCard);
+                setTextCard(defaultTextCard());
+                onClose();
+              }}
+              className="w-full"
+              disabled={!textCard.text.trim()}
+            >
+              新增文字卡
+            </Button>
+          </div>
+        )}
+
+        {/* Gallery Footer */}
         {activeTab === 'gallery' && selectedVideos.length > 0 && (
           <div className="p-4 border-t border-border space-y-2">
             {error && (

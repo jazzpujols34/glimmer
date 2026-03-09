@@ -483,7 +483,7 @@ function StoryboardEditorPageContent() {
     );
   }
 
-  const filledCount = storyboard.slots.filter((s) => s.status === 'filled').length;
+  const filledCount = storyboard.slots.filter((s) => s.status === 'filled' || s.status === 'text-card').length;
   const canExport = filledCount > 0;
 
   return (

@@ -150,7 +150,7 @@ export interface Project {
 
 export type StoryboardTransitionType = 'cut' | 'crossfade-500' | 'crossfade-1000';
 export type SlotFitMode = 'letterbox' | 'crop';
-export type SlotStatus = 'empty' | 'uploading' | 'filled';
+export type SlotStatus = 'empty' | 'uploading' | 'filled' | 'text-card';
 
 export interface StoryboardClip {
   sourceType: 'gallery' | 'upload';
@@ -167,7 +167,8 @@ export interface StoryboardSlot {
   index: number;                     // 0-based position in sequence
   status: SlotStatus;
   uploadProgress?: number;           // 0-100 during upload
-  clip?: StoryboardClip;
+  clip?: StoryboardClip;             // video content (when status='filled')
+  textCard?: StoryboardTitleCard;    // text card content (when status='text-card')
 }
 
 export interface StoryboardTitleCard {

@@ -8,6 +8,7 @@ interface SlotCardProps {
   targetAspectRatio: AspectRatio;
   onAddClick: () => void;
   onRemoveClick: () => void;
+  onEditTextCard?: () => void;
   isDragging?: boolean;
   dragHandleProps?: React.HTMLAttributes<HTMLDivElement>;
 }
@@ -17,6 +18,7 @@ export function SlotCard({
   targetAspectRatio,
   onAddClick,
   onRemoveClick,
+  onEditTextCard,
   isDragging,
   dragHandleProps,
 }: SlotCardProps) {
@@ -37,7 +39,7 @@ export function SlotCard({
     video.preload = 'metadata';
 
     video.onloadeddata = () => {
-      video.currentTime = 0.5; // Seek to 0.5s for thumbnail
+      video.currentTime = 0.5;
     };
 
     video.onseeked = () => {
@@ -51,7 +53,7 @@ export function SlotCard({
           setThumbnailUrl(canvas.toDataURL('image/jpeg', 0.7));
         }
       } catch {
-        // CORS or other error - fallback to no thumbnail
+        // CORS or other error
       }
     };
 
@@ -65,6 +67,7 @@ export function SlotCard({
 
   const aspectClass = targetAspectRatio === '16:9' ? 'aspect-video' : 'aspect-[9/16]';
   const hasMismatch = slot.clip?.originalAspectRatio && slot.clip.originalAspectRatio !== targetAspectRatio;
+  const isFilledOrCard = slot.status === 'filled' || slot.status === 'text-card';
 
   return (
     <div
@@ -80,7 +83,7 @@ export function SlotCard({
       </div>
 
       {/* Drag Handle */}
-      {slot.status === 'filled' && dragHandleProps && (
+      {isFilledOrCard && dragHandleProps && (
         <div
           {...dragHandleProps}
           className="absolute top-2 right-2 z-10 w-6 h-6 rounded bg-black/60 flex items-center justify-center cursor-grab active:cursor-grabbing"
@@ -103,7 +106,7 @@ export function SlotCard({
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
               </svg>
             </div>
-            <span className="text-xs text-muted-foreground">新增影片</span>
+            <span className="text-xs text-muted-foreground">新增內容</span>
           </button>
         )}
 
@@ -125,9 +128,67 @@ export function SlotCard({
           </div>
         )}
 
+        {slot.status === 'text-card' && slot.textCard && (
+          <div className="relative w-full h-full">
+            {/* Text Card Preview */}
+            <div
+              className="w-full h-full rounded-lg flex flex-col items-center justify-center gap-1 p-3"
+              style={{ backgroundColor: slot.textCard.backgroundColor }}
+            >
+              <span
+                className="text-sm font-bold text-center leading-tight"
+                style={{ color: slot.textCard.textColor }}
+              >
+                {slot.textCard.text || '(無標題)'}
+              </span>
+              {slot.textCard.subtitle && (
+                <span
+                  className="text-xs text-center"
+                  style={{ color: slot.textCard.textColor, opacity: 0.8 }}
+                >
+                  {slot.textCard.subtitle}
+                </span>
+              )}
+            </div>
+
+            {/* Duration Badge */}
+            <div className="absolute bottom-2 left-2 px-1.5 py-0.5 bg-black/70 rounded text-xs text-white">
+              {slot.textCard.durationSeconds}s
+            </div>
+
+            {/* Type Badge */}
+            <div className="absolute bottom-2 right-2 px-1.5 py-0.5 bg-primary/80 rounded text-xs text-white">
+              文字卡
+            </div>
+
+            {/* Hover Overlay with Edit + Remove */}
+            {isHovered && (
+              <div className="absolute inset-0 bg-black/40 flex items-center justify-center gap-2">
+                {onEditTextCard && (
+                  <button
+                    onClick={onEditTextCard}
+                    className="p-2 bg-primary rounded-full hover:bg-primary/80 transition-colors"
+                  >
+                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                  </button>
+                )}
+                <button
+                  onClick={onRemoveClick}
+                  className="p-2 bg-destructive rounded-full hover:bg-destructive/80 transition-colors"
+                >
+                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
         {slot.status === 'filled' && slot.clip && (
           <div className="relative w-full h-full">
-            {/* Thumbnail or Video Preview */}
             {thumbnailUrl ? (
               <img
                 src={thumbnailUrl}

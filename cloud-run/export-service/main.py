@@ -103,12 +103,22 @@ class TransitionData(BaseModel):
     durationMs: int = 500  # 300-1500ms
 
 
+class InterstitialCardData(BaseModel):
+    position: int  # Insert BEFORE this clip index
+    text: str
+    subtitle: Optional[str] = None
+    durationSeconds: float = 3
+    backgroundColor: str = "#000000"
+    textColor: str = "#FFFFFF"
+
+
 class ExportRequest(BaseModel):
     jobId: str
     clips: list[ClipData]
     transitions: list[TransitionData] = []  # transitions[i] = between clips[i] and clips[i+1]
     subtitles: list[SubtitleData] = []
     musicClips: list[MusicClipData] = []
+    interstitialCards: list[InterstitialCardData] = []  # Text cards inserted between clips
     titleCard: Optional[TitleCardData] = None
     outroCard: Optional[TitleCardData] = None
     resolution: str = "1280x720"
@@ -488,9 +498,43 @@ async def process_export(request: ExportRequest, work_dir: Path) -> tuple[bool, 
         # Delete input to save disk space
         input_path.unlink(missing_ok=True)
 
-    # --- Title card ---
+    # --- Interstitial text cards ---
     # Use Noto CJK font for Chinese text support
     FONT_FILE = "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc"
+
+    interstitial_clips: dict[int, Path] = {}  # position -> rendered clip path
+    for ic_idx, ic in enumerate(request.interstitialCards):
+        ic_path = work_dir / f"interstitial_{ic_idx}.mp4"
+        bg_color = ic.backgroundColor.replace("#", "0x")
+        text_color = ic.textColor.replace("#", "0x")
+
+        drawtext = f"drawtext=text='{escape_ffmpeg_text(ic.text)}':fontfile={FONT_FILE}:fontsize=48:fontcolor={text_color}:x=(w-text_w)/2:y=(h-text_h)/2"
+        if ic.subtitle:
+            drawtext += f",drawtext=text='{escape_ffmpeg_text(ic.subtitle)}':fontfile={FONT_FILE}:fontsize=28:fontcolor={text_color}:x=(w-text_w)/2:y=(h+text_h)/2+20"
+
+        success = run_ffmpeg([
+            "-f", "lavfi", "-i", f"color=c={bg_color}:s={width}x{height}:d={ic.durationSeconds}",
+            "-f", "lavfi", "-i", "anullsrc=r=44100:cl=stereo",
+            "-vf", drawtext,
+            *COMMON_VIDEO_ARGS,
+            *COMMON_AUDIO_ARGS,
+            "-t", str(ic.durationSeconds),
+            str(ic_path),
+        ], f"Interstitial card {ic_idx + 1}")
+
+        if success:
+            interstitial_clips[ic.position] = ic_path
+            print(f"[Export] Interstitial card {ic_idx + 1}: \"{ic.text}\" at position {ic.position}")
+
+    # Insert interstitial cards into processed_clips at correct positions
+    # Process in reverse order so insertion indices remain valid
+    for position in sorted(interstitial_clips.keys(), reverse=True):
+        clip_path = interstitial_clips[position]
+        # Clamp position to valid range
+        insert_at = min(position, len(processed_clips))
+        processed_clips.insert(insert_at, clip_path)
+
+    # --- Title card ---
 
     if request.titleCard:
         tc = request.titleCard

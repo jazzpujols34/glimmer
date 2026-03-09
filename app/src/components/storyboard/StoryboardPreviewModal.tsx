@@ -14,6 +14,7 @@ interface StoryboardPreviewModalProps {
 type PlaylistItem =
   | { type: 'titleCard'; duration: number; text: string; subtitle?: string; bgColor: string; textColor: string }
   | { type: 'clip'; slot: StoryboardSlot; videoUrl: string; duration: number }
+  | { type: 'textCard'; duration: number; text: string; subtitle?: string; bgColor: string; textColor: string }
   | { type: 'outroCard'; duration: number; text: string; subtitle?: string; bgColor: string; textColor: string };
 
 // Get transition duration in ms from storyboard transition type
@@ -71,18 +72,29 @@ export function StoryboardPreviewModal({ storyboard, onClose }: StoryboardPrevie
       });
     }
 
-    // Add filled slots
-    const filledSlots = storyboard.slots
-      .filter(s => s.status === 'filled' && s.clip)
+    // Add content slots (clips + text cards) in order
+    const contentSlots = storyboard.slots
+      .filter(s => (s.status === 'filled' && s.clip) || (s.status === 'text-card' && s.textCard))
       .sort((a, b) => a.index - b.index);
 
-    for (const slot of filledSlots) {
-      items.push({
-        type: 'clip',
-        slot,
-        videoUrl: slot.clip!.videoUrl,
-        duration: slot.clip?.duration || 5,
-      });
+    for (const slot of contentSlots) {
+      if (slot.status === 'text-card' && slot.textCard) {
+        items.push({
+          type: 'textCard',
+          duration: slot.textCard.durationSeconds,
+          text: slot.textCard.text,
+          subtitle: slot.textCard.subtitle,
+          bgColor: slot.textCard.backgroundColor,
+          textColor: slot.textCard.textColor,
+        });
+      } else if (slot.status === 'filled' && slot.clip) {
+        items.push({
+          type: 'clip',
+          slot,
+          videoUrl: slot.clip.videoUrl,
+          duration: slot.clip.duration || 5,
+        });
+      }
     }
 
     // Add outro card

@@ -4,8 +4,9 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { SlotCard } from './SlotCard';
 import { TransitionPicker } from './TransitionPicker';
 import { AddToSlotModal } from './AddToSlotModal';
+import { TextCardEditModal } from './TextCardEditModal';
 import { Button } from '@/components/ui/button';
-import type { Storyboard, StoryboardSlot, StoryboardTransitionType, GenerationJob, StoryboardClip } from '@/types';
+import type { Storyboard, StoryboardSlot, StoryboardTransitionType, GenerationJob, StoryboardClip, StoryboardTitleCard } from '@/types';
 import { logger } from '@/lib/logger';
 import { getVideoDuration as _getVideoDuration } from '@/lib/media-utils';
 
@@ -39,9 +40,10 @@ export function StoryboardGrid({
     };
   }, []);
 
-  // Calculate remaining empty slots
-  const filledCount = storyboard.slots.filter((s) => s.status === 'filled').length;
+  // Calculate remaining empty slots (text cards count as filled)
+  const filledCount = storyboard.slots.filter((s) => s.status === 'filled' || s.status === 'text-card').length;
   const emptyCount = storyboard.slotCount - filledCount;
+  const [editingTextCardIndex, setEditingTextCardIndex] = useState<number | null>(null);
 
   const handleAddClick = (slotIndex: number) => {
     setActiveSlotIndex(slotIndex);
@@ -59,6 +61,7 @@ export function StoryboardGrid({
     await onUpdateSlot(slotIndex, {
       status: 'empty',
       clip: undefined,
+      textCard: undefined,
       uploadProgress: undefined,
     });
   };
@@ -182,6 +185,25 @@ export function StoryboardGrid({
     [activeSlotIndex, storyboard.slots, storyboard.slotCount, onUpdateSlot]
   );
 
+  const handleAddTextCard = useCallback(
+    async (card: StoryboardTitleCard) => {
+      if (activeSlotIndex === null) return;
+      await onUpdateSlot(activeSlotIndex, {
+        status: 'text-card',
+        textCard: card,
+        clip: undefined,
+      });
+    },
+    [activeSlotIndex, onUpdateSlot]
+  );
+
+  const handleEditTextCard = useCallback(
+    async (slotIndex: number, card: StoryboardTitleCard) => {
+      await onUpdateSlot(slotIndex, { textCard: card });
+    },
+    [onUpdateSlot]
+  );
+
   // Drag and drop handlers
   const handleDragStart = (index: number) => {
     setDraggedIndex(index);
@@ -218,7 +240,7 @@ export function StoryboardGrid({
             {filledCount} / {storyboard.slotCount} 格已填入
           </span>
           <span className="text-muted-foreground">
-            約 {Math.round((storyboard.slots.reduce((acc, s) => acc + (s.clip?.duration || 0), 0)) * 10) / 10}s
+            約 {Math.round((storyboard.slots.reduce((acc, s) => acc + (s.clip?.duration || s.textCard?.durationSeconds || 0), 0)) * 10) / 10}s
           </span>
         </div>
         <div className="flex items-center gap-2">
@@ -234,7 +256,7 @@ export function StoryboardGrid({
           <div key={slot.id} className="relative">
             {/* Slot Card */}
             <div
-              draggable={slot.status === 'filled'}
+              draggable={slot.status === 'filled' || slot.status === 'text-card'}
               onDragStart={() => handleDragStart(index)}
               onDragOver={(e) => handleDragOver(e, index)}
               onDrop={() => handleDrop(index)}
@@ -245,6 +267,7 @@ export function StoryboardGrid({
                 targetAspectRatio={storyboard.aspectRatio}
                 onAddClick={() => handleAddClick(index)}
                 onRemoveClick={() => handleRemoveClick(index)}
+                onEditTextCard={slot.status === 'text-card' ? () => setEditingTextCardIndex(index) : undefined}
                 isDragging={draggedIndex === index}
               />
             </div>
@@ -291,10 +314,22 @@ export function StoryboardGrid({
         }}
         onAddFromUpload={handleAddFromUpload}
         onAddFromGallery={handleAddFromGallery}
+        onAddTextCard={handleAddTextCard}
         galleryJobs={galleryJobs}
         slotIndex={activeSlotIndex ?? 0}
         remainingSlots={emptyCount}
       />
+      {/* Text Card Edit Modal */}
+      {editingTextCardIndex !== null && storyboard.slots[editingTextCardIndex]?.textCard && (
+        <TextCardEditModal
+          card={storyboard.slots[editingTextCardIndex].textCard!}
+          onSave={(card) => {
+            handleEditTextCard(editingTextCardIndex, card);
+            setEditingTextCardIndex(null);
+          }}
+          onClose={() => setEditingTextCardIndex(null)}
+        />
+      )}
     </div>
   );
 }
