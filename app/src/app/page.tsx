@@ -248,6 +248,43 @@ export default function LandingPage() {
             </blockquote>
           </div>
 
+          {/* User testimonials */}
+          <div className="grid md:grid-cols-2 gap-6 max-w-3xl mx-auto mb-16">
+            <blockquote className="relative p-6 rounded-2xl bg-card/80 border border-border/50">
+              <svg className="absolute top-3 left-3 w-6 h-6 text-primary/20" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M14.017 21v-7.391c0-5.704 3.731-9.57 8.983-10.609l.995 2.151c-2.432.917-3.995 3.638-3.995 5.849h4v10H14.017zM0 21v-7.391c0-5.704 3.731-9.57 8.983-10.609l.995 2.151C7.546 6.068 5.983 8.789 5.983 11H10v10H0z" />
+              </svg>
+              <p className="text-base leading-relaxed pl-6">
+                「已經好多年看不見活跳跳的他們了，那些瞬間自己很喜歡，但沒有錄到影。收到影片的當下真的很感動。」
+              </p>
+              <div className="flex items-center gap-3 mt-4 pl-6">
+                <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
+                  <svg className="w-4 h-4 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                  </svg>
+                </div>
+                <p className="text-xs text-muted-foreground">寵物紀念影片使用者</p>
+              </div>
+            </blockquote>
+
+            <blockquote className="relative p-6 rounded-2xl bg-card/80 border border-border/50">
+              <svg className="absolute top-3 left-3 w-6 h-6 text-primary/20" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M14.017 21v-7.391c0-5.704 3.731-9.57 8.983-10.609l.995 2.151c-2.432.917-3.995 3.638-3.995 5.849h4v10H14.017zM0 21v-7.391c0-5.704 3.731-9.57 8.983-10.609l.995 2.151C7.546 6.068 5.983 8.789 5.983 11H10v10H0z" />
+              </svg>
+              <p className="text-base leading-relaxed pl-6">
+                「他們彷彿又活過來了 — 這種心情，能救贖走不出去的思念。」
+              </p>
+              <div className="flex items-center gap-3 mt-4 pl-6">
+                <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
+                  <svg className="w-4 h-4 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                  </svg>
+                </div>
+                <p className="text-xs text-muted-foreground">同一位使用者</p>
+              </div>
+            </blockquote>
+          </div>
+
           {/* Stats */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 max-w-4xl mx-auto text-center">
             <div className="space-y-2">
