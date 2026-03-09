@@ -2,6 +2,7 @@
 
 import type { StoryboardTitleCard } from '@/types';
 import { COLOR_PRESETS } from '@/lib/constants';
+import { CARD_TEMPLATES, getCardTemplate } from '@/lib/card-templates';
 
 export interface CardEditorProps {
   label?: string;
@@ -11,6 +12,61 @@ export interface CardEditorProps {
   showToggle?: boolean;
   enabled?: boolean;
   onToggle?: (enabled: boolean) => void;
+}
+
+/** Render a card preview using its template layout */
+export function CardPreview({
+  card,
+  className = '',
+}: {
+  card: StoryboardTitleCard;
+  className?: string;
+}) {
+  const template = getCardTemplate(card.templateId);
+
+  const renderDivider = () => {
+    if (!template.preview.divider || !card.subtitle) return null;
+    const color = card.textColor;
+    if (template.preview.divider === 'line') {
+      return <div className="w-12 my-3 border-t-2" style={{ borderColor: `${color}40` }} />;
+    }
+    if (template.preview.divider === 'dot') {
+      return (
+        <div className="flex gap-1.5 my-4" style={{ color: `${color}60` }}>
+          <span>·</span><span>·</span><span>·</span>
+        </div>
+      );
+    }
+    if (template.preview.divider === 'dash') {
+      return <div className="w-8 my-4 border-t" style={{ borderColor: `${color}50` }} />;
+    }
+    return null;
+  };
+
+  return (
+    <div
+      className={`relative overflow-hidden ${className}`}
+      style={{ backgroundColor: card.backgroundColor }}
+    >
+      <div className={`absolute inset-0 ${template.preview.container}`}>
+        <span
+          className={template.preview.title}
+          style={{ color: card.textColor }}
+        >
+          {card.text || '(無標題)'}
+        </span>
+        {renderDivider()}
+        {card.subtitle && (
+          <span
+            className={template.preview.subtitle}
+            style={{ color: card.textColor }}
+          >
+            {card.subtitle}
+          </span>
+        )}
+      </div>
+    </div>
+  );
 }
 
 export function CardEditor({ label, card, onChange, showToggle, enabled = true, onToggle }: CardEditorProps) {
@@ -37,25 +93,37 @@ export function CardEditor({ label, card, onChange, showToggle, enabled = true, 
 
       {enabled && (
         <div className={`space-y-4 ${showToggle ? 'pl-2 border-l-2 border-primary/30' : ''}`}>
-          {/* Preview */}
-          <div
-            className="h-20 rounded-lg flex flex-col items-center justify-center"
-            style={{ backgroundColor: card.backgroundColor }}
-          >
-            <span
-              className="text-lg font-bold"
-              style={{ color: card.textColor }}
-            >
-              {card.text || '(無標題)'}
-            </span>
-            {card.subtitle && (
-              <span
-                className="text-sm"
-                style={{ color: card.textColor }}
-              >
-                {card.subtitle}
-              </span>
-            )}
+          {/* Live preview */}
+          <CardPreview card={card} className="h-32 rounded-lg" />
+
+          {/* Template picker */}
+          <div className="space-y-2">
+            <label className="text-sm text-muted-foreground">版型</label>
+            <div className="grid grid-cols-3 gap-2">
+              {CARD_TEMPLATES.map((template) => {
+                const isSelected = (card.templateId || 'classic-center') === template.id;
+                return (
+                  <button
+                    key={template.id}
+                    type="button"
+                    onClick={() => onChange({ ...card, templateId: template.id })}
+                    className={`relative rounded-lg border-2 overflow-hidden transition-all ${
+                      isSelected
+                        ? 'border-primary ring-2 ring-primary/30'
+                        : 'border-border/50 hover:border-muted-foreground/50'
+                    }`}
+                  >
+                    <CardPreview
+                      card={{ ...card, text: card.text || '標題', subtitle: card.subtitle || '副標題', templateId: template.id }}
+                      className="h-16"
+                    />
+                    <div className="px-1.5 py-1 text-[10px] text-center truncate bg-background/90">
+                      {template.name}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           {/* Text inputs */}

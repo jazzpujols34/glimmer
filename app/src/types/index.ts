@@ -179,6 +179,7 @@ export interface StoryboardTitleCard {
   durationSeconds: number;           // default 3
   backgroundColor: string;           // hex, default #000000
   textColor: string;                 // hex, default #FFFFFF
+  templateId?: string;               // layout template, default 'classic-center'
 }
 
 export interface StoryboardMusic {

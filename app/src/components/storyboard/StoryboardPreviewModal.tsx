@@ -5,6 +5,7 @@ import { X, Play, Pause, SkipBack } from 'lucide-react';
 import type { Storyboard, StoryboardSlot } from '@/types';
 import { resolveVideoUrl } from '@/lib/video-url';
 import { logger } from '@/lib/logger';
+import { getCardTemplate } from '@/lib/card-templates';
 
 interface StoryboardPreviewModalProps {
   storyboard: Storyboard;
@@ -12,10 +13,10 @@ interface StoryboardPreviewModalProps {
 }
 
 type PlaylistItem =
-  | { type: 'titleCard'; duration: number; text: string; subtitle?: string; bgColor: string; textColor: string }
+  | { type: 'titleCard'; duration: number; text: string; subtitle?: string; bgColor: string; textColor: string; templateId?: string }
   | { type: 'clip'; slot: StoryboardSlot; videoUrl: string; duration: number }
-  | { type: 'textCard'; duration: number; text: string; subtitle?: string; bgColor: string; textColor: string }
-  | { type: 'outroCard'; duration: number; text: string; subtitle?: string; bgColor: string; textColor: string };
+  | { type: 'textCard'; duration: number; text: string; subtitle?: string; bgColor: string; textColor: string; templateId?: string }
+  | { type: 'outroCard'; duration: number; text: string; subtitle?: string; bgColor: string; textColor: string; templateId?: string };
 
 // Get transition duration in ms from storyboard transition type
 function getTransitionDurationMs(transitionType?: string): number {
@@ -71,6 +72,7 @@ export function StoryboardPreviewModal({ storyboard, onClose }: StoryboardPrevie
         subtitle: storyboard.titleCard.subtitle,
         bgColor: storyboard.titleCard.backgroundColor,
         textColor: storyboard.titleCard.textColor,
+        templateId: storyboard.titleCard.templateId,
       });
     }
 
@@ -88,6 +90,7 @@ export function StoryboardPreviewModal({ storyboard, onClose }: StoryboardPrevie
           subtitle: slot.textCard.subtitle,
           bgColor: slot.textCard.backgroundColor,
           textColor: slot.textCard.textColor,
+          templateId: slot.textCard.templateId,
         });
       } else if (slot.status === 'filled' && slot.clip) {
         items.push({
@@ -108,6 +111,7 @@ export function StoryboardPreviewModal({ storyboard, onClose }: StoryboardPrevie
         subtitle: storyboard.outroCard.subtitle,
         bgColor: storyboard.outroCard.backgroundColor,
         textColor: storyboard.outroCard.textColor,
+        templateId: storyboard.outroCard.templateId,
       });
     }
 
@@ -458,28 +462,46 @@ export function StoryboardPreviewModal({ storyboard, onClose }: StoryboardPrevie
 
   const progress = totalDuration > 0 ? (elapsedTime / totalDuration) * 100 : 0;
 
-  // Render a card (title or outro)
+  // Render a card (title, outro, or text card) using its template layout
   const renderCard = (item: PlaylistItem, opacity: number = 1) => {
     if (item.type === 'clip') return null;
+    const template = getCardTemplate(item.templateId);
+
+    const renderDivider = () => {
+      if (!template.preview.divider || !item.subtitle) return null;
+      const color = item.textColor;
+      if (template.preview.divider === 'line') {
+        return <div className="w-12 my-3 border-t-2" style={{ borderColor: `${color}40` }} />;
+      }
+      if (template.preview.divider === 'dot') {
+        return (
+          <div className="flex gap-1.5 my-4" style={{ color: `${color}60` }}>
+            <span>·</span><span>·</span><span>·</span>
+          </div>
+        );
+      }
+      if (template.preview.divider === 'dash') {
+        return <div className="w-8 my-4 border-t" style={{ borderColor: `${color}50` }} />;
+      }
+      return null;
+    };
+
     return (
       <div
-        className="absolute inset-0 flex flex-col items-center justify-center"
+        className="absolute inset-0"
         style={{ backgroundColor: item.bgColor, opacity }}
       >
-        <h1
-          className="text-4xl md:text-6xl font-bold text-center px-8"
-          style={{ color: item.textColor }}
-        >
-          {item.text}
-        </h1>
-        {item.subtitle && (
-          <p
-            className="text-xl md:text-2xl mt-4 text-center px-8"
-            style={{ color: item.textColor }}
-          >
-            {item.subtitle}
-          </p>
-        )}
+        <div className={`absolute inset-0 ${template.preview.container}`}>
+          <h1 className={template.preview.title} style={{ color: item.textColor }}>
+            {item.text}
+          </h1>
+          {renderDivider()}
+          {item.subtitle && (
+            <p className={template.preview.subtitle} style={{ color: item.textColor }}>
+              {item.subtitle}
+            </p>
+          )}
+        </div>
       </div>
     );
   };

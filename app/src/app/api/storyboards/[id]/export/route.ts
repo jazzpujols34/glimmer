@@ -78,6 +78,7 @@ export async function POST(
       durationSeconds: number;
       backgroundColor: string;
       textColor: string;
+      templateId?: string;
     }> = [];
 
     let clipIndex = 0;
@@ -90,6 +91,7 @@ export async function POST(
           durationSeconds: slot.textCard.durationSeconds,
           backgroundColor: slot.textCard.backgroundColor,
           textColor: slot.textCard.textColor,
+          templateId: slot.textCard.templateId,
         });
         logger.debug('storyboard-export', `Slot ${slot.index}: text card "${slot.textCard.text}" at position ${clipIndex}`);
         continue;

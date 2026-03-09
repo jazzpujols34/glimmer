@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import type { StoryboardSlot, AspectRatio } from '@/types';
+import { CardPreview } from './CardEditor';
 
 interface SlotCardProps {
   slot: StoryboardSlot;
@@ -134,26 +135,8 @@ export function SlotCard({
 
         {slot.status === 'text-card' && slot.textCard && (
           <div className="relative w-full h-full">
-            {/* Text Card Preview */}
-            <div
-              className="w-full h-full rounded-lg flex flex-col items-center justify-center gap-1 p-3"
-              style={{ backgroundColor: slot.textCard.backgroundColor }}
-            >
-              <span
-                className="text-sm font-bold text-center leading-tight"
-                style={{ color: slot.textCard.textColor }}
-              >
-                {slot.textCard.text || '(無標題)'}
-              </span>
-              {slot.textCard.subtitle && (
-                <span
-                  className="text-xs text-center"
-                  style={{ color: slot.textCard.textColor, opacity: 0.8 }}
-                >
-                  {slot.textCard.subtitle}
-                </span>
-              )}
-            </div>
+            {/* Text Card Preview — uses template layout */}
+            <CardPreview card={slot.textCard} className="w-full h-full rounded-lg" />
 
             {/* Duration Badge */}
             <div className="absolute bottom-2 left-2 px-1.5 py-0.5 bg-black/70 rounded text-xs text-white">

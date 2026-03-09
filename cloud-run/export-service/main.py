@@ -96,6 +96,7 @@ class TitleCardData(BaseModel):
     durationSeconds: float = 3
     backgroundColor: str = "#000000"
     textColor: str = "#FFFFFF"
+    templateId: Optional[str] = None  # Layout template
 
 
 class TransitionData(BaseModel):
@@ -110,6 +111,7 @@ class InterstitialCardData(BaseModel):
     durationSeconds: float = 3
     backgroundColor: str = "#000000"
     textColor: str = "#FFFFFF"
+    templateId: Optional[str] = None  # Layout template
 
 
 class ExportRequest(BaseModel):
@@ -203,6 +205,98 @@ def escape_ffmpeg_text(text: str) -> str:
         .replace(":", "\\:")
         .replace("%", "%%")
     )
+
+
+def build_card_drawtext(
+    text: str,
+    subtitle: Optional[str],
+    text_color: str,
+    font_file: str,
+    template_id: Optional[str] = None,
+) -> str:
+    """
+    Build FFmpeg drawtext filter string based on template layout.
+
+    All templates use the same font file and text color — they differ
+    in position, size, and optional decorative elements.
+    """
+    esc_text = escape_ffmpeg_text(text)
+    esc_sub = escape_ffmpeg_text(subtitle) if subtitle else None
+    tid = template_id or "classic-center"
+
+    if tid == "lower-third":
+        # Text at bottom-left area (75% down)
+        parts = [
+            f"drawtext=text='{esc_text}':fontfile={font_file}:fontsize=42:fontcolor={text_color}:x=w*0.08:y=h*0.72"
+        ]
+        if esc_sub:
+            parts.append(
+                f"drawtext=text='{esc_sub}':fontfile={font_file}:fontsize=24:fontcolor={text_color}@0.8:x=w*0.08:y=h*0.72+56"
+            )
+        # Thin line above text
+        parts.insert(0, f"drawbox=x=w*0.08:y=h*0.70:w=w*0.15:h=2:color={text_color}@0.3:t=fill")
+        return ",".join(parts)
+
+    elif tid == "top-title":
+        # Title at top center (15% down)
+        parts = [
+            f"drawtext=text='{esc_text}':fontfile={font_file}:fontsize=42:fontcolor={text_color}:x=(w-text_w)/2:y=h*0.15"
+        ]
+        if esc_sub:
+            # Line separator + subtitle below
+            parts.append(f"drawbox=x=(w-60)/2:y=h*0.15+60:w=60:h=2:color={text_color}@0.3:t=fill")
+            parts.append(
+                f"drawtext=text='{esc_sub}':fontfile={font_file}:fontsize=24:fontcolor={text_color}@0.8:x=(w-text_w)/2:y=h*0.15+80"
+            )
+        return ",".join(parts)
+
+    elif tid == "elegant-stack":
+        # Large light title centered, small tracked subtitle, dots between
+        parts = [
+            f"drawtext=text='{esc_text}':fontfile={font_file}:fontsize=56:fontcolor={text_color}:x=(w-text_w)/2:y=(h-text_h)/2-30"
+        ]
+        if esc_sub:
+            parts.append(
+                f"drawtext=text='· · ·':fontfile={font_file}:fontsize=20:fontcolor={text_color}@0.5:x=(w-text_w)/2:y=(h)/2+10"
+            )
+            parts.append(
+                f"drawtext=text='{esc_sub}':fontfile={font_file}:fontsize=20:fontcolor={text_color}@0.7:x=(w-text_w)/2:y=(h)/2+45"
+            )
+        return ",".join(parts)
+
+    elif tid == "date-stamp":
+        # Semibold title centered, small tracked subtitle for dates
+        parts = [
+            f"drawtext=text='{esc_text}':fontfile={font_file}:fontsize=48:fontcolor={text_color}:x=(w-text_w)/2:y=(h-text_h)/2-20"
+        ]
+        if esc_sub:
+            parts.append(f"drawbox=x=(w-40)/2:y=(h)/2+10:w=40:h=1:color={text_color}@0.4:t=fill")
+            parts.append(
+                f"drawtext=text='{esc_sub}':fontfile={font_file}:fontsize=18:fontcolor={text_color}@0.6:x=(w-text_w)/2:y=(h)/2+30"
+            )
+        return ",".join(parts)
+
+    elif tid == "minimal":
+        # Small text, lots of whitespace
+        parts = [
+            f"drawtext=text='{esc_text}':fontfile={font_file}:fontsize=36:fontcolor={text_color}:x=(w-text_w)/2:y=(h-text_h)/2"
+        ]
+        if esc_sub:
+            parts.append(
+                f"drawtext=text='{esc_sub}':fontfile={font_file}:fontsize=14:fontcolor={text_color}@0.5:x=(w-text_w)/2:y=h*0.75"
+            )
+        return ",".join(parts)
+
+    else:
+        # classic-center (default) — original behavior
+        parts = [
+            f"drawtext=text='{esc_text}':fontfile={font_file}:fontsize=48:fontcolor={text_color}:x=(w-text_w)/2:y=(h-text_h)/2"
+        ]
+        if esc_sub:
+            parts.append(
+                f"drawtext=text='{esc_sub}':fontfile={font_file}:fontsize=28:fontcolor={text_color}:x=(w-text_w)/2:y=(h+text_h)/2+20"
+            )
+        return ",".join(parts)
 
 
 def generate_ass_subtitles(subtitles: list[SubtitleData]) -> str:
@@ -508,9 +602,7 @@ async def process_export(request: ExportRequest, work_dir: Path) -> tuple[bool, 
         bg_color = ic.backgroundColor.replace("#", "0x")
         text_color = ic.textColor.replace("#", "0x")
 
-        drawtext = f"drawtext=text='{escape_ffmpeg_text(ic.text)}':fontfile={FONT_FILE}:fontsize=48:fontcolor={text_color}:x=(w-text_w)/2:y=(h-text_h)/2"
-        if ic.subtitle:
-            drawtext += f",drawtext=text='{escape_ffmpeg_text(ic.subtitle)}':fontfile={FONT_FILE}:fontsize=28:fontcolor={text_color}:x=(w-text_w)/2:y=(h+text_h)/2+20"
+        drawtext = build_card_drawtext(ic.text, ic.subtitle, text_color, FONT_FILE, ic.templateId)
 
         success = run_ffmpeg([
             "-f", "lavfi", "-i", f"color=c={bg_color}:s={width}x{height}:d={ic.durationSeconds}",
@@ -542,9 +634,7 @@ async def process_export(request: ExportRequest, work_dir: Path) -> tuple[bool, 
         bg_color = tc.backgroundColor.replace("#", "0x")
         text_color = tc.textColor.replace("#", "0x")
 
-        drawtext = f"drawtext=text='{escape_ffmpeg_text(tc.text)}':fontfile={FONT_FILE}:fontsize=48:fontcolor={text_color}:x=(w-text_w)/2:y=(h-text_h)/2"
-        if tc.subtitle:
-            drawtext += f",drawtext=text='{escape_ffmpeg_text(tc.subtitle)}':fontfile={FONT_FILE}:fontsize=28:fontcolor={text_color}:x=(w-text_w)/2:y=(h+text_h)/2+20"
+        drawtext = build_card_drawtext(tc.text, tc.subtitle, text_color, FONT_FILE, tc.templateId)
 
         success = run_ffmpeg([
             "-f", "lavfi", "-i", f"color=c={bg_color}:s={width}x{height}:d={tc.durationSeconds}",
@@ -566,9 +656,7 @@ async def process_export(request: ExportRequest, work_dir: Path) -> tuple[bool, 
         bg_color = oc.backgroundColor.replace("#", "0x")
         text_color = oc.textColor.replace("#", "0x")
 
-        drawtext = f"drawtext=text='{escape_ffmpeg_text(oc.text)}':fontfile={FONT_FILE}:fontsize=48:fontcolor={text_color}:x=(w-text_w)/2:y=(h-text_h)/2"
-        if oc.subtitle:
-            drawtext += f",drawtext=text='{escape_ffmpeg_text(oc.subtitle)}':fontfile={FONT_FILE}:fontsize=28:fontcolor={text_color}:x=(w-text_w)/2:y=(h+text_h)/2+20"
+        drawtext = build_card_drawtext(oc.text, oc.subtitle, text_color, FONT_FILE, oc.templateId)
 
         success = run_ffmpeg([
             "-f", "lavfi", "-i", f"color=c={bg_color}:s={width}x{height}:d={oc.durationSeconds}",
