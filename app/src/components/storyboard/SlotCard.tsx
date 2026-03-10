@@ -4,6 +4,42 @@ import { useState, useRef, useEffect } from 'react';
 import type { StoryboardSlot, AspectRatio } from '@/types';
 import { CardPreview } from './CardEditor';
 
+// ── Thumbnail cache (survives re-renders, cleared on tab close) ──
+function thumbCacheKey(url: string, ratio: string) {
+  return `thumb:${ratio}:${url}`;
+}
+
+function getCachedThumb(url: string, ratio: string): string | null {
+  try { return sessionStorage.getItem(thumbCacheKey(url, ratio)); } catch { return null; }
+}
+
+function setCachedThumb(url: string, ratio: string, dataUrl: string) {
+  try { sessionStorage.setItem(thumbCacheKey(url, ratio), dataUrl); } catch { /* quota */ }
+}
+
+// ── Staggered generation queue (max 3 concurrent) ──
+const thumbQueue: (() => void)[] = [];
+let thumbActive = 0;
+const MAX_CONCURRENT_THUMBS = 3;
+
+function enqueueThumb(fn: () => void) {
+  thumbQueue.push(fn);
+  drainThumbQueue();
+}
+
+function drainThumbQueue() {
+  while (thumbActive < MAX_CONCURRENT_THUMBS && thumbQueue.length > 0) {
+    const next = thumbQueue.shift()!;
+    thumbActive++;
+    next();
+  }
+}
+
+function thumbDone() {
+  thumbActive--;
+  drainThumbQueue();
+}
+
 interface SlotCardProps {
   slot: StoryboardSlot;
   targetAspectRatio: AspectRatio;
@@ -26,45 +62,77 @@ export function SlotCard({
   dragHandleProps,
 }: SlotCardProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
+  const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(() => {
+    // Instant restore from cache
+    if (slot.status === 'filled' && slot.clip?.videoUrl) {
+      return getCachedThumb(slot.clip.videoUrl, targetAspectRatio);
+    }
+    return null;
+  });
   const [isHovered, setIsHovered] = useState(false);
 
-  // Generate thumbnail from video
+  // Generate thumbnail from video (staggered + cached)
   useEffect(() => {
     if (slot.status !== 'filled' || !slot.clip?.videoUrl) {
       setThumbnailUrl(null);
       return;
     }
 
-    const video = document.createElement('video');
-    video.crossOrigin = 'anonymous';
-    video.muted = true;
-    video.preload = 'metadata';
+    const videoUrl = slot.clip.videoUrl;
 
-    video.onloadeddata = () => {
-      video.currentTime = 0.5;
-    };
+    // Already cached — skip generation
+    const cached = getCachedThumb(videoUrl, targetAspectRatio);
+    if (cached) {
+      setThumbnailUrl(cached);
+      return;
+    }
 
-    video.onseeked = () => {
-      try {
-        const canvas = document.createElement('canvas');
-        canvas.width = 160;
-        canvas.height = targetAspectRatio === '16:9' ? 90 : 284;
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-          setThumbnailUrl(canvas.toDataURL('image/jpeg', 0.7));
+    let cancelled = false;
+
+    enqueueThumb(() => {
+      if (cancelled) { thumbDone(); return; }
+
+      const video = document.createElement('video');
+      video.crossOrigin = 'anonymous';
+      video.muted = true;
+      video.preload = 'metadata';
+
+      const cleanup = () => {
+        video.src = '';
+        thumbDone();
+      };
+
+      video.onloadeddata = () => {
+        if (cancelled) { cleanup(); return; }
+        video.currentTime = 0.5;
+      };
+
+      video.onseeked = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = 160;
+          canvas.height = targetAspectRatio === '16:9' ? 90 : 284;
+          const ctx = canvas.getContext('2d');
+          if (ctx && !cancelled) {
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+            setCachedThumb(videoUrl, targetAspectRatio, dataUrl);
+            setThumbnailUrl(dataUrl);
+          }
+        } catch {
+          // CORS or other error
         }
-      } catch {
-        // CORS or other error
-      }
-    };
+        cleanup();
+      };
 
-    video.src = slot.clip.videoUrl;
-    video.load();
+      video.onerror = cleanup;
+
+      video.src = videoUrl;
+      video.load();
+    });
 
     return () => {
-      video.src = '';
+      cancelled = true;
     };
   }, [slot.status, slot.clip?.videoUrl, targetAspectRatio]);
 
@@ -134,26 +202,29 @@ export function SlotCard({
         )}
 
         {slot.status === 'text-card' && slot.textCard && (
-          <div className="relative w-full h-full">
+          <div
+            className="relative w-full h-full cursor-pointer"
+            onClick={onEditTextCard}
+          >
             {/* Text Card Preview — uses template layout */}
             <CardPreview card={slot.textCard} className="w-full h-full rounded-lg" />
 
-            {/* Duration Badge */}
-            <div className="absolute bottom-2 left-2 px-1.5 py-0.5 bg-black/70 rounded text-xs text-white">
+            {/* Duration Badge — z-10 to stay above CardPreview text */}
+            <div className="absolute bottom-2 left-2 z-10 px-1.5 py-0.5 bg-black/70 rounded text-xs text-white">
               {slot.textCard.durationSeconds}s
             </div>
 
             {/* Type Badge */}
-            <div className="absolute bottom-2 right-2 px-1.5 py-0.5 bg-primary/80 rounded text-xs text-white">
+            <div className="absolute bottom-2 right-2 z-10 px-1.5 py-0.5 bg-primary/80 rounded text-xs text-white">
               文字卡
             </div>
 
-            {/* Hover Overlay with Edit + Remove */}
+            {/* Hover Overlay with Edit + Remove — z-20 above card content */}
             {isHovered && (
-              <div className="absolute inset-0 bg-black/40 flex items-center justify-center gap-2">
+              <div className="absolute inset-0 z-20 bg-black/40 flex items-center justify-center gap-2">
                 {onEditTextCard && (
                   <button
-                    onClick={onEditTextCard}
+                    onClick={(e) => { e.stopPropagation(); onEditTextCard(); }}
                     className="p-2 bg-primary rounded-full hover:bg-primary/80 transition-colors"
                   >
                     <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -162,7 +233,7 @@ export function SlotCard({
                   </button>
                 )}
                 <button
-                  onClick={onRemoveClick}
+                  onClick={(e) => { e.stopPropagation(); onRemoveClick(); }}
                   className="p-2 bg-destructive rounded-full hover:bg-destructive/80 transition-colors"
                 >
                   <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">

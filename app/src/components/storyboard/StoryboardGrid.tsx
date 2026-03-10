@@ -278,6 +278,9 @@ export function StoryboardGrid({
               onDragOver={(e) => handleDragOver(e, index)}
               onDrop={() => handleDrop(index)}
               onDragEnd={() => setDraggedIndex(null)}
+              onClick={() => {
+                if (slot.status === 'text-card') setEditingTextCardIndex(index);
+              }}
             >
               <SlotCard
                 slot={slot}

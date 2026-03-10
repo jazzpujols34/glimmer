@@ -90,7 +90,7 @@ export function CardPreview({
   if (card.textBoxes?.length) {
     return (
       <div
-        className={`relative overflow-hidden ${className}`}
+        className={`relative overflow-hidden pointer-events-none ${className}`}
         style={{
           backgroundColor: card.backgroundColor,
           ...(bgImageUrl ? {
@@ -113,7 +113,6 @@ export function CardPreview({
               color: box.color,
               fontWeight: box.bold ? 700 : 400,
               textShadow: bgImageUrl ? '0 1px 4px rgba(0,0,0,0.5)' : undefined,
-              zIndex: 1,
             }}
           >
             {box.text || ' '}
@@ -147,7 +146,7 @@ export function CardPreview({
 
   return (
     <div
-      className={`relative overflow-hidden ${className}`}
+      className={`relative overflow-hidden pointer-events-none ${className}`}
       style={{
         backgroundColor: card.backgroundColor,
         ...(bgImageUrl ? {
