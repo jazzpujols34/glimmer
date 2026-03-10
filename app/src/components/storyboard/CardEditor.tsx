@@ -550,13 +550,14 @@ export function CardEditor({ label, card, onChange, showToggle, enabled = true, 
                 <button
                   key={preset.label}
                   type="button"
-                  onClick={() =>
-                    emitChange(textBoxes, {
+                  onClick={() => {
+                    const recolored = textBoxes.map(b => ({ ...b, color: preset.text }));
+                    emitChange(recolored, {
                       backgroundColor: preset.bg,
                       textColor: preset.text,
                       backgroundImage: undefined,
-                    })
-                  }
+                    });
+                  }}
                   className={`w-8 h-8 rounded-full border-2 transition-all ${
                     !card.backgroundImage && card.backgroundColor === preset.bg
                       ? 'border-primary ring-2 ring-primary/30'
@@ -574,12 +575,13 @@ export function CardEditor({ label, card, onChange, showToggle, enabled = true, 
                   <button
                     key={bg.filename}
                     type="button"
-                    onClick={() =>
-                      emitChange(textBoxes, {
+                    onClick={() => {
+                      const recolored = textBoxes.map(b => ({ ...b, color: bg.textColor }));
+                      emitChange(recolored, {
                         backgroundImage: bg.filename,
                         textColor: bg.textColor,
-                      })
-                    }
+                      });
+                    }}
                     className={`aspect-video rounded-lg overflow-hidden border-2 transition-all ${
                       card.backgroundImage === bg.filename
                         ? 'border-primary ring-2 ring-primary/30'
