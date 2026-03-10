@@ -27,13 +27,14 @@ export function PhotoUploader({ photos, onPhotosChange, maxPhotos = 10 }: PhotoU
     const { safe, blocked } = await checkFiles(fileArray);
 
     if (blocked.length > 0) {
+      const fileDetails = blocked
+        .map(b => `${b.file.name} (系統判定為不當內容，信心度 ${(b.confidence * 100).toFixed(0)}%)`)
+        .join('、');
       setNsfwWarning(
-        blocked.length === 1
-          ? '已移除 1 張不符合使用條款的圖片'
-          : `已移除 ${blocked.length} 張不符合使用條款的圖片`
+        `已移除 ${blocked.length} 張圖片：${fileDetails}。如果這是誤判，請換一張照片或聯繫我們。`
       );
-      // Auto-dismiss warning after 5 seconds
-      setTimeout(() => setNsfwWarning(null), 5000);
+      // Auto-dismiss warning after 8 seconds
+      setTimeout(() => setNsfwWarning(null), 8000);
     }
 
     if (safe.length === 0) return;

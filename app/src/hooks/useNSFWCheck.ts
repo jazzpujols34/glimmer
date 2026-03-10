@@ -26,8 +26,8 @@ export interface NSFWResult {
 }
 
 // NSFW categories to flag
-const NSFW_CATEGORIES = ['Porn', 'Hentai', 'Sexy'];
-const NSFW_THRESHOLD = 0.6; // 60% confidence threshold
+const NSFW_CATEGORIES = ['Porn', 'Hentai'];
+const NSFW_THRESHOLD = 0.7; // 70% confidence threshold — 'Sexy' removed (too many false positives on pets/skin-toned objects)
 
 /**
  * Check if an image file is NSFW
@@ -68,8 +68,14 @@ async function checkImage(file: File): Promise<NSFWResult> {
   }
 }
 
+export interface BlockedFile {
+  file: File;
+  category: string;
+  confidence: number;
+}
+
 export interface UseNSFWCheckResult {
-  checkFiles: (files: File[]) => Promise<{ safe: File[]; blocked: File[]; error?: string }>;
+  checkFiles: (files: File[]) => Promise<{ safe: File[]; blocked: BlockedFile[]; error?: string }>;
   isLoading: boolean;
   isModelLoaded: boolean;
 }
@@ -83,7 +89,7 @@ export function useNSFWCheck(): UseNSFWCheckResult {
   const [isModelLoaded, setIsModelLoaded] = useState(false);
   const modelLoadedRef = useRef(false);
 
-  const checkFiles = useCallback(async (files: File[]): Promise<{ safe: File[]; blocked: File[]; error?: string }> => {
+  const checkFiles = useCallback(async (files: File[]): Promise<{ safe: File[]; blocked: BlockedFile[]; error?: string }> => {
     if (files.length === 0) {
       return { safe: [], blocked: [] };
     }
@@ -99,24 +105,25 @@ export function useNSFWCheck(): UseNSFWCheckResult {
       }
 
       const safe: File[] = [];
-      const blocked: File[] = [];
+      const blocked: BlockedFile[] = [];
 
       // Check files in parallel for speed
       const results = await Promise.all(
         files.map(async (file) => {
           try {
             const result = await checkImage(file);
+            logger.debug('nsfw', `${file.name} → ${result.category || 'clean'} (${(result.confidence * 100).toFixed(0)}%)`);
             return { file, result };
           } catch {
             // If check fails, allow the file (don't block on errors)
-            return { file, result: { isNSFW: false, confidence: 0 } };
+            return { file, result: { isNSFW: false, confidence: 0 } as NSFWResult };
           }
         })
       );
 
       for (const { file, result } of results) {
         if (result.isNSFW) {
-          blocked.push(file);
+          blocked.push({ file, category: result.category || 'unknown', confidence: result.confidence });
         } else {
           safe.push(file);
         }
