@@ -525,12 +525,13 @@ function editorReducer(state: EditorState, action: EditorAction): EditorState {
         break;
       }
 
-      const mcA: MusicClip = { ...origMc, id: generateId(), trimEnd: splitSourceTime };
+      const mcA: MusicClip = { ...origMc, id: generateId(), trimEnd: splitSourceTime, fadeOutDuration: 0 };
       const mcB: MusicClip = {
         ...origMc,
         id: generateId(),
         trimStart: splitSourceTime,
         timelinePosition: origMc.timelinePosition + (splitSourceTime - origMc.trimStart),
+        fadeInDuration: 0,
       };
 
       const newMusicClips = [...state.musicClips];

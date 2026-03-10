@@ -181,6 +181,8 @@ export async function POST(
       trimStart: number;
       trimEnd: number;
       volume: number;
+      fadeInDuration: number;
+      fadeOutDuration: number;
     }> = [];
 
     const sourceTracks = storyboard.musicTracks || (
@@ -210,6 +212,8 @@ export async function POST(
         trimStart: track.trimStart,
         trimEnd: track.trimEnd,
         volume: track.volume,
+        fadeInDuration: 'fadeInDuration' in track ? (track as unknown as { fadeInDuration: number }).fadeInDuration : 0,
+        fadeOutDuration: 'fadeOutDuration' in track ? (track as unknown as { fadeOutDuration: number }).fadeOutDuration : 0,
       });
 
       logger.debug('storyboard-export', `Music track: ${track.name}, pos ${track.timelinePosition}s, vol ${track.volume}`);

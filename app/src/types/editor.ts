@@ -121,6 +121,8 @@ export interface MusicClip {
   trimEnd: number;           // out-point in source audio (seconds)
   timelinePosition: number;  // where on timeline (seconds)
   volume: number;            // 0-1
+  fadeInDuration: number;    // seconds, 0 = no fade in
+  fadeOutDuration: number;   // seconds, 0 = no fade out
 }
 // Effective duration = trimEnd - trimStart (no speed for audio)
 

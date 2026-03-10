@@ -339,8 +339,19 @@ export async function exportVideo(
 
       musicInputs.push('-i', musicFilename);
       const delayMs = Math.round(mc.timelinePosition * 1000);
+      const mcDur = mc.trimEnd - mc.trimStart;
+      const fadeIn = mc.fadeInDuration ?? 0;
+      const fadeOut = mc.fadeOutDuration ?? 0;
+      let fadeFilters = '';
+      if (fadeIn > 0) {
+        fadeFilters += `,afade=t=in:d=${fadeIn}`;
+      }
+      if (fadeOut > 0) {
+        const fadeOutStart = mcDur - fadeOut;
+        fadeFilters += `,afade=t=out:st=${Math.max(0, fadeOutStart)}:d=${fadeOut}`;
+      }
       musicFilterParts.push(
-        `[${i + 1}:a]atrim=start=${mc.trimStart}:end=${mc.trimEnd},asetpts=PTS-STARTPTS,adelay=${delayMs}|${delayMs},volume=${mc.volume}[mc${i}]`
+        `[${i + 1}:a]atrim=start=${mc.trimStart}:end=${mc.trimEnd},asetpts=PTS-STARTPTS${fadeFilters},adelay=${delayMs}|${delayMs},volume=${mc.volume}[mc${i}]`
       );
     }
 

@@ -320,7 +320,8 @@ export function VideoPreview() {
       const activeMusicIds = new Set<string>();
 
       for (const mc of s.musicClips) {
-        const mcEnd = mc.timelinePosition + (mc.trimEnd - mc.trimStart);
+        const mcDur = mc.trimEnd - mc.trimStart;
+        const mcEnd = mc.timelinePosition + mcDur;
         if (globalPos >= mc.timelinePosition && globalPos < mcEnd) {
           activeMusicIds.add(mc.id);
           let el = musicMap.get(mc.id);
@@ -328,9 +329,21 @@ export function VideoPreview() {
             el = new Audio(mc.blobUrl);
             musicMap.set(mc.id, el);
           }
-          el.volume = musicMuted ? 0 : mc.volume;
+          // Calculate fade-adjusted volume
+          let fadeMultiplier = 1;
+          const elapsed = globalPos - mc.timelinePosition;
+          const fadeIn = mc.fadeInDuration ?? 0;
+          const fadeOut = mc.fadeOutDuration ?? 0;
+          if (fadeIn > 0 && elapsed < fadeIn) {
+            fadeMultiplier = elapsed / fadeIn;
+          }
+          const remaining = mcEnd - globalPos;
+          if (fadeOut > 0 && remaining < fadeOut) {
+            fadeMultiplier = Math.min(fadeMultiplier, remaining / fadeOut);
+          }
+          el.volume = musicMuted ? 0 : mc.volume * fadeMultiplier;
           if (el.paused) {
-            el.currentTime = mc.trimStart + (globalPos - mc.timelinePosition);
+            el.currentTime = mc.trimStart + elapsed;
             el.play().catch(() => {});
           }
         }

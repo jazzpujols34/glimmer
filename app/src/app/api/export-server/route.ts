@@ -41,6 +41,8 @@ interface MusicExportData {
   trimStart: number;
   trimEnd: number;
   volume: number;
+  fadeInDuration?: number;
+  fadeOutDuration?: number;
 }
 
 interface TitleCardExportData {
@@ -204,6 +206,8 @@ export async function POST(request: NextRequest) {
         trimStart: mc.trimStart,
         trimEnd: mc.trimEnd,
         volume: mc.volume,
+        fadeInDuration: mc.fadeInDuration ?? 0,
+        fadeOutDuration: mc.fadeOutDuration ?? 0,
       };
     });
 

@@ -88,6 +88,8 @@ class MusicClipData(BaseModel):
     trimStart: float = 0
     trimEnd: float
     volume: float = 0.5
+    fadeInDuration: float = 0
+    fadeOutDuration: float = 0
 
 
 class TitleCardData(BaseModel):
@@ -823,8 +825,15 @@ async def process_export(request: ExportRequest, work_dir: Path) -> tuple[bool, 
 
             delay_ms = int(mc.timelinePosition * 1000)
             idx = len(music_files)  # 1-indexed since 0 is video
+            mc_dur = mc.trimEnd - mc.trimStart
+            fade_filters = ""
+            if mc.fadeInDuration > 0:
+                fade_filters += f",afade=t=in:d={mc.fadeInDuration}"
+            if mc.fadeOutDuration > 0:
+                fade_out_start = max(0, mc_dur - mc.fadeOutDuration)
+                fade_filters += f",afade=t=out:st={fade_out_start}:d={mc.fadeOutDuration}"
             filter_parts.append(
-                f"[{idx}:a]atrim=start={mc.trimStart}:end={mc.trimEnd},asetpts=PTS-STARTPTS,adelay={delay_ms}|{delay_ms},volume={mc.volume}[mc{i}]"
+                f"[{idx}:a]atrim=start={mc.trimStart}:end={mc.trimEnd},asetpts=PTS-STARTPTS{fade_filters},adelay={delay_ms}|{delay_ms},volume={mc.volume}[mc{i}]"
             )
 
         if filter_parts:

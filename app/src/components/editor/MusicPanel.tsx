@@ -33,6 +33,8 @@ export function MusicPanel() {
       trimEnd: track.durationSeconds,
       timelinePosition: state.playheadPosition,
       volume: 0.3,
+      fadeInDuration: 0,
+      fadeOutDuration: 0,
     };
     dispatch({ type: 'ADD_MUSIC_CLIP', payload: musicClip });
   };
@@ -59,6 +61,8 @@ export function MusicPanel() {
       trimEnd: duration,
       timelinePosition: state.playheadPosition,
       volume: 0.3,
+      fadeInDuration: 0,
+      fadeOutDuration: 0,
     };
     dispatch({ type: 'ADD_MUSIC_CLIP', payload: musicClip });
     if (fileInputRef.current) fileInputRef.current.value = '';
@@ -149,6 +153,49 @@ export function MusicPanel() {
               })
             }
           />
+        </div>
+
+        {/* Fade In / Fade Out */}
+        <div className="space-y-3">
+          <Label className="text-xs">淡入淡出</Label>
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] text-muted-foreground w-10 flex-shrink-0">淡入</span>
+              <Slider
+                min={0}
+                max={Math.min(effectiveDur * 10, 50)}
+                step={1}
+                value={[(selectedClip.fadeInDuration ?? 0) * 10]}
+                onValueChange={([v]) =>
+                  dispatch({
+                    type: 'UPDATE_MUSIC_CLIP',
+                    payload: { id: selectedClip.id, updates: { fadeInDuration: v / 10 } },
+                  })
+                }
+              />
+              <span className="text-[10px] text-muted-foreground w-8 text-right flex-shrink-0">
+                {((selectedClip.fadeInDuration ?? 0)).toFixed(1)}s
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] text-muted-foreground w-10 flex-shrink-0">淡出</span>
+              <Slider
+                min={0}
+                max={Math.min(effectiveDur * 10, 50)}
+                step={1}
+                value={[(selectedClip.fadeOutDuration ?? 0) * 10]}
+                onValueChange={([v]) =>
+                  dispatch({
+                    type: 'UPDATE_MUSIC_CLIP',
+                    payload: { id: selectedClip.id, updates: { fadeOutDuration: v / 10 } },
+                  })
+                }
+              />
+              <span className="text-[10px] text-muted-foreground w-8 text-right flex-shrink-0">
+                {((selectedClip.fadeOutDuration ?? 0)).toFixed(1)}s
+              </span>
+            </div>
+          </div>
         </div>
 
         {/* Position */}
