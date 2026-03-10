@@ -8,7 +8,7 @@
 
 **Stack:** Next.js 16, React, TypeScript, Tailwind CSS, Cloudflare Pages (Edge Runtime), Cloudflare KV, Cloudflare R2
 
-**Stats (2026-03-04):** 172 commits, 140 source files, 51 tests, deployed on Cloudflare Pages
+**Stats (2026-03-10):** 176+ commits, 140+ source files, 51 tests, deployed on Cloudflare Pages
 
 ## Folder Structure
 
@@ -163,6 +163,14 @@ Pay-per-video credits (not subscriptions). Email-only identity (no passwords/OAu
 - Category-aware: `getSystemPrompt(occasion)` selects person vs pet base prompt. Keep occasion layer separate.
 
 ## Recent Learnings
+
+- **[2026-03-10] Draggable Text Boxes**: Card editor now supports free-positioned text boxes via pointer events. `CardTextBox` type on `StoryboardTitleCard` (optional, backward compat). Positions stored as 0-100% of canvas. Font size uses `cqh` CSS unit. `CardPreview` renders textBoxes if present, falls back to template. `InteractiveCanvas` is the editable version.
+
+- **[2026-03-10] Card Backgrounds**: 12 SVG backgrounds in `app/public/backgrounds/`, registered in `CARD_BACKGROUNDS` (constants.ts). Any format works (JPG/PNG/SVG). Ideal size: 1920x1080. Cloud Run Dockerfile needs `librsvg2-bin` for SVG support in FFmpeg. Falls back to solid color if download fails.
+
+- **[2026-03-10] Thumbnail Caching**: SlotCard video thumbnails cached in sessionStorage (keyed by URL+ratio). Max 3 concurrent generations via queue. Fixes slow storyboard load with many clips.
+
+- **[2026-03-10] z-index + pointer-events**: `CardPreview` uses `absolute inset-0` with `zIndex: 1` — any clickable overlay on top needs `z-20`+ AND preview needs `pointer-events-none`. Native HTML `draggable` swallows clicks — always add explicit `onClick` on draggable wrappers.
 
 - **[2026-03-04] Code Cleanup**: Consolidated duplicated code across 34 files into shared modules (`constants.ts`, `media-utils.ts`, `video-url.ts`). Fixed 4 bugs: pet occasion label undefined, updateJob resetting 30-day TTL, upload-music returning fake R2 key, export-server validating after credit check. Removed 6 dead exports. Net -320 lines.
 
