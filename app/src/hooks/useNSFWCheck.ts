@@ -25,9 +25,14 @@ export interface NSFWResult {
   category?: string;
 }
 
-// NSFW categories to flag
-const NSFW_CATEGORIES = ['Porn', 'Hentai'];
-const NSFW_THRESHOLD = 0.7; // 70% confidence threshold — 'Sexy' removed (too many false positives on pets/skin-toned objects)
+// Per-category thresholds — 'Sexy' needs higher confidence because
+// nsfwjs MobileNet frequently misclassifies pet photos and skin-toned
+// objects as 'Sexy'. Porn/Hentai are more reliable at lower thresholds.
+const NSFW_THRESHOLDS: Record<string, number> = {
+  Porn: 0.7,
+  Hentai: 0.7,
+  Sexy: 0.85,
+};
 
 /**
  * Check if an image file is NSFW
@@ -48,18 +53,23 @@ async function checkImage(file: File): Promise<NSFWResult> {
 
     const predictions = await model.classify(img);
 
-    // Find the highest NSFW category score
+    // Check each NSFW category against its specific threshold
     let maxNSFWScore = 0;
     let maxCategory = '';
+    let isNSFW = false;
     for (const pred of predictions) {
-      if (NSFW_CATEGORIES.includes(pred.className) && pred.probability > maxNSFWScore) {
+      const threshold = NSFW_THRESHOLDS[pred.className];
+      if (threshold !== undefined && pred.probability > maxNSFWScore) {
         maxNSFWScore = pred.probability;
         maxCategory = pred.className;
+        if (pred.probability >= threshold) {
+          isNSFW = true;
+        }
       }
     }
 
     return {
-      isNSFW: maxNSFWScore >= NSFW_THRESHOLD,
+      isNSFW,
       confidence: maxNSFWScore,
       category: maxCategory || undefined,
     };
