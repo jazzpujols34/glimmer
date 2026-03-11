@@ -6,7 +6,7 @@ import { Logo } from '@/components/Logo';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { AccessGate } from '@/components/AccessGate';
-import { ArrowLeft, Plus, FolderOpen, Calendar, Film } from 'lucide-react';
+import { ArrowLeft, Plus, FolderOpen, Calendar, Film, Pencil, Check, X } from 'lucide-react';
 import type { Project } from '@/types';
 
 export default function ProjectsPage() {
@@ -23,6 +23,8 @@ function ProjectsPageContent() {
   const [error, setError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [newProjectName, setNewProjectName] = useState('');
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState('');
 
   useEffect(() => {
     loadProjects();
@@ -63,6 +65,28 @@ function ProjectsPageContent() {
     }
   }
 
+  async function handleRename(projectId: string) {
+    const trimmed = renameValue.trim();
+    if (!trimmed) return;
+    try {
+      const res = await fetch(`/api/projects/${projectId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: trimmed }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || '重新命名失敗');
+      }
+      setProjects(prev => prev.map(p =>
+        p.id === projectId ? { ...p, name: trimmed } : p
+      ));
+      setRenamingId(null);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : '重新命名失敗');
+    }
+  }
+
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('zh-TW', {
       year: 'numeric',
@@ -78,9 +102,9 @@ function ProjectsPageContent() {
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <Logo />
           <Button variant="outline" asChild>
-            <Link href="/">
+            <Link href="/gallery">
               <ArrowLeft className="w-4 h-4 mr-2" />
-              返回首頁
+              返回影片庫
             </Link>
           </Button>
         </div>
@@ -148,15 +172,55 @@ function ProjectsPageContent() {
           ) : (
             <div className="grid gap-4 sm:grid-cols-2">
               {projects.map((project) => (
-                <Link key={project.id} href={`/projects/${project.id}`}>
-                  <Card className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer h-full">
-                    <CardContent className="p-6">
-                      <h3 className="font-semibold text-lg mb-2">{project.name}</h3>
-                      {project.description && (
-                        <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
-                          {project.description}
-                        </p>
+                <Card key={project.id} className="overflow-hidden hover:shadow-lg transition-shadow h-full">
+                  <CardContent className="p-6">
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      {renamingId === project.id ? (
+                        <form
+                          className="flex items-center gap-2 flex-1"
+                          onSubmit={(e) => { e.preventDefault(); handleRename(project.id); }}
+                        >
+                          <input
+                            type="text"
+                            value={renameValue}
+                            onChange={(e) => setRenameValue(e.target.value)}
+                            className="flex-1 px-2 py-1 rounded border border-border bg-background text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-primary"
+                            maxLength={100}
+                            autoFocus
+                            onKeyDown={(e) => { if (e.key === 'Escape') setRenamingId(null); }}
+                          />
+                          <Button type="submit" size="icon" variant="ghost" disabled={!renameValue.trim()}>
+                            <Check className="w-4 h-4" />
+                          </Button>
+                          <Button type="button" size="icon" variant="ghost" onClick={() => setRenamingId(null)}>
+                            <X className="w-4 h-4" />
+                          </Button>
+                        </form>
+                      ) : (
+                        <>
+                          <Link href={`/projects/${project.id}`} className="flex-1 min-w-0">
+                            <h3 className="font-semibold text-lg hover:text-primary transition-colors truncate">
+                              {project.name}
+                            </h3>
+                          </Link>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="flex-shrink-0 text-muted-foreground hover:text-foreground"
+                            onClick={() => { setRenamingId(project.id); setRenameValue(project.name); }}
+                            title="重新命名"
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </Button>
+                        </>
                       )}
+                    </div>
+                    {project.description && (
+                      <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
+                        {project.description}
+                      </p>
+                    )}
+                    <Link href={`/projects/${project.id}`}>
                       <div className="flex items-center gap-4 text-sm text-muted-foreground">
                         <span className="flex items-center gap-1">
                           <Film className="w-4 h-4" />
@@ -167,9 +231,9 @@ function ProjectsPageContent() {
                           {formatDate(project.updatedAt)}
                         </span>
                       </div>
-                    </CardContent>
-                  </Card>
-                </Link>
+                    </Link>
+                  </CardContent>
+                </Card>
               ))}
             </div>
           )}
