@@ -81,7 +81,11 @@ export function resolveVideoUrl(
 export function getVideoUrl(jobId: string, url: string | undefined, index: number = 0): string {
   if (!url) return '';
   if (!url.startsWith('http')) {
-    return `/api/proxy-video?jobId=${jobId}&index=${index}`;
+    // Preserve original R2 index from key (e.g. "videos/job_xxx/2.mp4" → index=2)
+    // This prevents browser cache serving stale video after clip deletion/reordering
+    const r2Match = url.match(/^videos\/[^/]+\/(\d+)\.mp4$/);
+    const videoIndex = r2Match ? parseInt(r2Match[1], 10) : index;
+    return `/api/proxy-video?jobId=${jobId}&index=${videoIndex}`;
   }
   return url;
 }

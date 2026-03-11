@@ -8,7 +8,11 @@ import { logger } from '@/lib/logger';
 
 /**
  * Proxy video fetches server-side to bypass CORS restrictions on CDN URLs.
- * Query params: jobId, index (0-based video index)
+ * Query params: jobId, index (original R2 index, NOT array position)
+ *
+ * After clip deletion, KV videoUrls array shrinks but R2 files keep their
+ * original indices. So ?index=2 may be out of bounds in KV but still valid
+ * in R2 at videos/{jobId}/2.mp4.
  */
 export async function GET(request: NextRequest) {
   try {
@@ -24,49 +28,51 @@ export async function GET(request: NextRequest) {
 
     const job = await getJob(jobId);
 
-    // If job exists in KV, use its video URLs
+    // If job exists in KV, try to serve from its video URLs
     if (job && job.status === 'complete') {
       const urls = job.videoUrls?.length ? job.videoUrls : job.videoUrl ? [job.videoUrl] : [];
       logger.debug('proxy-video', `Job ${jobId} found in KV, ${urls.length} videos`);
 
-      if (index < 0 || index >= urls.length) {
-        return NextResponse.json({ error: `Invalid video index: ${index} (available: 0-${urls.length - 1})` }, { status: 400 });
-      }
+      if (index >= 0 && index < urls.length) {
+        const videoUrl = urls[index];
+        const isR2Key = !videoUrl.startsWith('http');
 
-      const videoUrl = urls[index];
-      const isR2Key = !videoUrl.startsWith('http');
-
-      if (isR2Key) {
-        const r2Object = await r2Get(videoUrl);
-        if (r2Object) {
-          logger.debug('proxy-video', `R2 object found: ${videoUrl}, size=${r2Object.size}`);
-          const headers = new Headers({
-            'Content-Type': r2Object.contentType,
-            'Content-Length': String(r2Object.size),
-            'Cache-Control': 'public, s-maxage=86400, max-age=14400',
-          });
-          return new NextResponse(r2Object.body, { status: 200, headers });
+        if (isR2Key) {
+          const r2Object = await r2Get(videoUrl);
+          if (r2Object) {
+            logger.debug('proxy-video', `R2 object found: ${videoUrl}, size=${r2Object.size}`);
+            const headers = new Headers({
+              'Content-Type': r2Object.contentType,
+              'Content-Length': String(r2Object.size),
+              'Cache-Control': 'public, s-maxage=86400, max-age=14400',
+            });
+            return new NextResponse(r2Object.body, { status: 200, headers });
+          }
+        } else {
+          // CDN URL
+          const cdnResponse = await fetch(videoUrl);
+          if (cdnResponse.ok) {
+            const contentType = cdnResponse.headers.get('content-type') || 'video/mp4';
+            const contentLength = cdnResponse.headers.get('content-length');
+            const headers = new Headers({
+              'Content-Type': contentType,
+              'Cache-Control': 'public, s-maxage=86400, max-age=14400',
+            });
+            if (contentLength) headers.set('Content-Length', contentLength);
+            return new NextResponse(cdnResponse.body, { status: 200, headers });
+          }
         }
       } else {
-        // CDN URL
-        const cdnResponse = await fetch(videoUrl);
-        if (cdnResponse.ok) {
-          const contentType = cdnResponse.headers.get('content-type') || 'video/mp4';
-          const contentLength = cdnResponse.headers.get('content-length');
-          const headers = new Headers({
-            'Content-Type': contentType,
-            'Cache-Control': 'public, s-maxage=86400, max-age=14400',
-          });
-          if (contentLength) headers.set('Content-Length', contentLength);
-          return new NextResponse(cdnResponse.body, { status: 200, headers });
-        }
+        // Index out of bounds — fall through to R2 direct lookup
+        // This happens after clip deletion when R2 keys retain original indices
+        logger.debug('proxy-video', `Index ${index} out of bounds (${urls.length} urls), falling through to R2`);
       }
     }
 
-    // KV record expired or video URL failed - try R2 directly with standard key pattern
-    // Videos are archived to: videos/{jobId}/{index}.mp4
+    // KV record expired, index out of bounds, or video URL failed
+    // Try R2 directly with standard key pattern: videos/{jobId}/{index}.mp4
     const r2Key = `videos/${jobId}/${index}.mp4`;
-    logger.debug('proxy-video', `KV miss or URL failed, trying R2 directly: ${r2Key}`);
+    logger.debug('proxy-video', `Trying R2 directly: ${r2Key}`);
 
     const r2Object = await r2Get(r2Key);
     if (r2Object) {
