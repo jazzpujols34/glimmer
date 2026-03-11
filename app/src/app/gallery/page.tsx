@@ -9,11 +9,11 @@ import { LanguageToggle } from '@/components/LanguageToggle';
 import { useTranslation } from '@/lib/i18n';
 import { useAccess } from '@/hooks/useAccess';
 import { OCCASION_LABELS } from '@/lib/constants';
-import { Play, Download, Calendar, Film, ArrowLeft, Trash2, Scissors, AlertCircle, X, Star, FolderOpen, ChevronDown, Clock, Lock, CheckSquare, Square, Wand2, RefreshCw } from 'lucide-react';
+import { Play, Download, Calendar, Film, ArrowLeft, Trash2, Scissors, AlertCircle, X, Star, FolderOpen, ChevronDown, Clock, Lock, CheckSquare, Square, Wand2, RefreshCw, LayoutGrid, Pencil, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { trackGalleryView } from '@/lib/analytics';
 import { logger } from '@/lib/logger';
-import type { Project } from '@/types';
+import type { Project, Storyboard } from '@/types';
 
 type GalleryFilter = 'all' | 'favorites' | 'projects';
 
@@ -37,7 +37,7 @@ interface GalleryJob {
 
 export default function GalleryPage() {
   const t = useTranslation();
-  const { hasPaidAccess } = useAccess();
+  const { hasPaidAccess, email } = useAccess();
   const [jobs, setJobs] = useState<GalleryJob[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -52,6 +52,7 @@ export default function GalleryPage() {
   const [loadedVideos, setLoadedVideos] = useState<Set<string>>(new Set());
   const [refreshing, setRefreshing] = useState(false);
   const [refreshResult, setRefreshResult] = useState<{ updated: number; checked: number } | null>(null);
+  const [storyboards, setStoryboards] = useState<Storyboard[]>([]);
 
   // Stable clip labels: map URL → original letter label (set when modal opens)
   const clipLabelsRef = useRef<Map<string, string>>(new Map());
@@ -72,9 +73,27 @@ export default function GalleryPage() {
     return clipLabelsRef.current.get(url) || String.fromCharCode(65 + fallbackIndex);
   };
 
-  // Multi-select for showcase builder
+  // Multi-select for batch operations (job-level)
   const [selectMode, setSelectMode] = useState(false);
+  const [selectedJobs, setSelectedJobs] = useState<Set<string>>(new Set()); // job IDs
+  const [batchMoving, setBatchMoving] = useState(false);
+  const [batchDeleting, setBatchDeleting] = useState(false);
+  const [moveDropdownOpen, setMoveDropdownOpen] = useState(false);
+
+  // Legacy clip-level selection for showcase builder
   const [selectedClips, setSelectedClips] = useState<Set<string>>(new Set()); // Format: "jobId:videoIndex"
+
+  const toggleJobSelection = (jobId: string) => {
+    setSelectedJobs(prev => {
+      const next = new Set(prev);
+      if (next.has(jobId)) {
+        next.delete(jobId);
+      } else {
+        next.add(jobId);
+      }
+      return next;
+    });
+  };
 
   const toggleClipSelection = (jobId: string, videoIndex: number) => {
     const key = `${jobId}:${videoIndex}`;
@@ -90,8 +109,72 @@ export default function GalleryPage() {
   };
 
   const clearSelection = () => {
+    setSelectedJobs(new Set());
     setSelectedClips(new Set());
     setSelectMode(false);
+    setMoveDropdownOpen(false);
+  };
+
+  const handleBatchMove = async (targetProjectId: string | null) => {
+    if (selectedJobs.size === 0) return;
+    setBatchMoving(true);
+    try {
+      const res = await fetch('/api/gallery/batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'move',
+          jobIds: Array.from(selectedJobs),
+          projectId: targetProjectId,
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || '移動失敗');
+      }
+      // Update local state: set projectId on moved jobs
+      setJobs(prev => prev.map(j =>
+        selectedJobs.has(j.id) ? { ...j, projectId: targetProjectId || undefined } : j
+      ));
+      clearSelection();
+      setMoveDropdownOpen(false);
+      // Reload projects to update counts
+      const projectsRes = await fetch('/api/projects');
+      if (projectsRes.ok) {
+        const projectsData = await projectsRes.json();
+        setProjects(projectsData.projects || []);
+      }
+    } catch (err) {
+      alert(err instanceof Error ? err.message : '移動失敗');
+    } finally {
+      setBatchMoving(false);
+    }
+  };
+
+  const handleBatchDelete = async () => {
+    if (selectedJobs.size === 0) return;
+    if (!confirm(`確定要刪除選取的 ${selectedJobs.size} 支影片嗎？此操作無法復原。`)) return;
+    setBatchDeleting(true);
+    try {
+      const res = await fetch('/api/gallery/batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'delete',
+          jobIds: Array.from(selectedJobs),
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || '刪除失敗');
+      }
+      setJobs(prev => prev.filter(j => !selectedJobs.has(j.id)));
+      clearSelection();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : '刪除失敗');
+    } finally {
+      setBatchDeleting(false);
+    }
   };
 
   // Close modal on Escape key
@@ -129,6 +212,21 @@ export default function GalleryPage() {
 
     loadGallery();
   }, []);
+
+  // Load user's storyboards
+  useEffect(() => {
+    if (!email) return;
+    async function loadStoryboards() {
+      try {
+        const res = await fetch(`/api/storyboards?email=${encodeURIComponent(email!)}`);
+        if (res.ok) {
+          const data = await res.json();
+          setStoryboards(data.storyboards || []);
+        }
+      } catch { /* ignore */ }
+    }
+    loadStoryboards();
+  }, [email]);
 
   // Refresh all processing jobs by polling external providers
   const handleRefresh = async () => {
@@ -391,7 +489,7 @@ export default function GalleryPage() {
               onClick={() => setFilter('all')}
             >
               <Film className="w-4 h-4 sm:mr-2" />
-              <span className="hidden sm:inline">全部</span> ({jobs.length})
+              <span className="hidden sm:inline">全部</span> ({jobs.filter(j => !j.projectId).length})
             </Button>
             <Button
               variant={filter === 'favorites' ? 'default' : 'outline'}
@@ -399,7 +497,7 @@ export default function GalleryPage() {
               onClick={() => setFilter('favorites')}
             >
               <Star className="w-4 h-4 sm:mr-2" />
-              <span className="hidden sm:inline">收藏</span> ({jobs.filter(j => j.favorite).length})
+              <span className="hidden sm:inline">收藏</span> ({jobs.filter(j => !j.projectId && j.favorite).length})
             </Button>
             {hasPaidAccess && (
               <Button
@@ -463,31 +561,124 @@ export default function GalleryPage() {
             </div>
           )}
 
+          {/* My Storyboards */}
+          {storyboards.length > 0 && (
+            <div className="mb-6">
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
+                  <LayoutGrid className="w-4 h-4" />
+                  我的故事板
+                </h2>
+                {hasPaidAccess && (
+                  <Button variant="ghost" size="sm" asChild>
+                    <Link href="/storyboard/new">
+                      + 新增
+                    </Link>
+                  </Button>
+                )}
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {storyboards.map((sb) => {
+                  const filledCount = sb.slots.filter(s => s.status === 'filled' || s.status === 'text-card').length;
+                  return (
+                    <Link
+                      key={sb.id}
+                      href={`/storyboard/${sb.id}`}
+                      className="group flex items-center gap-3 p-3 rounded-lg border border-border hover:border-primary/50 hover:bg-muted/50 transition-colors"
+                    >
+                      <div className="flex-shrink-0 w-10 h-10 rounded bg-muted flex items-center justify-center text-muted-foreground group-hover:text-primary transition-colors">
+                        <Film className="w-5 h-5" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-sm truncate">{sb.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {filledCount}/{sb.slots.length} 格 · {sb.aspectRatio} · {new Date(sb.updatedAt).toLocaleDateString('zh-TW')}
+                        </p>
+                      </div>
+                      <Pencil className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Selection bar */}
           {selectMode && (
-            <div className="flex items-center justify-center gap-4 mb-4 p-3 bg-muted/50 rounded-lg">
+            <div className="flex flex-wrap items-center justify-center gap-3 mb-4 p-3 bg-muted/50 rounded-lg">
               <span className="text-sm">
-                已選取 <strong>{selectedClips.size}</strong> 支影片
+                已選取 <strong>{selectedJobs.size}</strong> 支影片
               </span>
-              {selectedClips.size >= 2 && (
-                <Button size="sm" asChild>
-                  <Link href={`/showcase?clips=${encodeURIComponent(Array.from(selectedClips).join(','))}`}>
-                    <Wand2 className="w-4 h-4 mr-2" />
-                    製作展示影片
-                  </Link>
-                </Button>
-              )}
-              {selectedClips.size > 0 && selectedClips.size < 2 && (
-                <span className="text-sm text-muted-foreground">再選 {2 - selectedClips.size} 支影片</span>
+              {selectedJobs.size > 0 && (
+                <>
+                  {/* Move to project dropdown */}
+                  <div className="relative">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setMoveDropdownOpen(!moveDropdownOpen)}
+                      disabled={batchMoving}
+                    >
+                      <FolderOpen className="w-4 h-4 mr-2" />
+                      {batchMoving ? '移動中...' : '移至專案'}
+                      <ChevronDown className="w-3 h-3 ml-1" />
+                    </Button>
+                    {moveDropdownOpen && (
+                      <div className="absolute top-full left-0 mt-1 w-48 bg-background border border-border rounded-lg shadow-lg py-1 z-10">
+                        {projects.length === 0 ? (
+                          <div className="px-3 py-2 text-sm text-muted-foreground">尚無專案</div>
+                        ) : (
+                          projects.map((p) => (
+                            <button
+                              key={p.id}
+                              className="w-full px-3 py-2 text-left text-sm hover:bg-muted flex items-center gap-2"
+                              onClick={() => handleBatchMove(p.id)}
+                            >
+                              <FolderOpen className="w-4 h-4" />
+                              {p.name}
+                            </button>
+                          ))
+                        )}
+                        <Link
+                          href="/projects"
+                          className="w-full px-3 py-2 text-left text-sm hover:bg-muted flex items-center gap-2 border-t border-border text-primary"
+                        >
+                          <Plus className="w-4 h-4" />
+                          管理專案
+                        </Link>
+                      </div>
+                    )}
+                  </div>
+                  {/* Batch delete */}
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    onClick={handleBatchDelete}
+                    disabled={batchDeleting}
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    {batchDeleting ? '刪除中...' : '刪除'}
+                  </Button>
+                  {/* Showcase (needs 2+ clips selected) */}
+                  {selectedClips.size >= 2 && (
+                    <Button size="sm" variant="outline" asChild>
+                      <Link href={`/showcase?clips=${encodeURIComponent(Array.from(selectedClips).join(','))}`}>
+                        <Wand2 className="w-4 h-4 mr-2" />
+                        製作展示影片
+                      </Link>
+                    </Button>
+                  )}
+                </>
               )}
             </div>
           )}
 
           {(() => {
-            // Filter jobs based on selected tab
+            // Gallery only shows clips NOT in any project (Google Drive model)
+            const galleryJobs = jobs.filter(j => !j.projectId);
             const filteredJobs = filter === 'favorites'
-              ? jobs.filter(j => j.favorite)
-              : jobs;
+              ? galleryJobs.filter(j => j.favorite)
+              : galleryJobs;
 
             if (loading) {
               return (
@@ -516,7 +707,33 @@ export default function GalleryPage() {
               );
             }
 
-            if (jobs.length === 0) {
+            if (galleryJobs.length === 0) {
+              // All clips are in projects
+              if (jobs.length > 0) {
+                return (
+                  <Card className="max-w-md mx-auto">
+                    <CardContent className="p-8 text-center">
+                      <FolderOpen className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
+                      <h2 className="text-xl font-semibold mb-2">所有影片都已歸入專案</h2>
+                      <p className="text-muted-foreground mb-4">
+                        前往專案管理查看你的影片
+                      </p>
+                      <div className="flex gap-3 justify-center">
+                        <Button asChild variant="outline">
+                          <Link href="/projects">
+                            <FolderOpen className="w-4 h-4 mr-2" />
+                            專案管理
+                          </Link>
+                        </Button>
+                        <Button asChild>
+                          <Link href="/create">{t('gallery.createFirst')}</Link>
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              }
+              // Truly empty
               return (
                 <Card className="max-w-md mx-auto">
                   <CardContent className="p-8 text-center">
@@ -565,14 +782,7 @@ export default function GalleryPage() {
                   className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer break-inside-avoid mb-4"
                   onClick={() => {
                     if (selectMode) {
-                      // In select mode, clicking card with single video toggles selection
-                      if (!job.videoUrls || job.videoUrls.length === 1) {
-                        toggleClipSelection(job.id, 0);
-                      } else {
-                        // For multi-video jobs, open modal to select specific clips
-                        initClipLabels(job);
-                        setSelectedJob(job);
-                      }
+                      toggleJobSelection(job.id);
                     } else {
                       initClipLabels(job);
                       setSelectedJob(job);
@@ -631,30 +841,18 @@ export default function GalleryPage() {
                     {/* Selection checkbox */}
                     {selectMode && (
                       <div className="absolute top-2 left-2">
-                        {(() => {
-                          // Check if any video from this job is selected
-                          const videoCount = job.videoUrls?.length || 1;
-                          const selectedCount = Array.from(selectedClips).filter(key => key.startsWith(`${job.id}:`)).length;
-                          const isFullySelected = selectedCount === videoCount;
-                          const isPartiallySelected = selectedCount > 0 && selectedCount < videoCount;
-
-                          return (
-                            <div className={cn(
-                              "w-6 h-6 rounded flex items-center justify-center",
-                              isFullySelected ? "bg-primary text-primary-foreground" :
-                              isPartiallySelected ? "bg-primary/50 text-primary-foreground" :
-                              "bg-white/80 text-muted-foreground"
-                            )}>
-                              {isFullySelected ? (
-                                <CheckSquare className="w-4 h-4" />
-                              ) : isPartiallySelected ? (
-                                <span className="text-xs font-bold">{selectedCount}</span>
-                              ) : (
-                                <Square className="w-4 h-4" />
-                              )}
-                            </div>
-                          );
-                        })()}
+                        <div className={cn(
+                          "w-6 h-6 rounded flex items-center justify-center",
+                          selectedJobs.has(job.id)
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-white/80 text-muted-foreground"
+                        )}>
+                          {selectedJobs.has(job.id) ? (
+                            <CheckSquare className="w-4 h-4" />
+                          ) : (
+                            <Square className="w-4 h-4" />
+                          )}
+                        </div>
                       </div>
                     )}
                     {/* Expiration warning badge */}

@@ -15,6 +15,11 @@ import {
   AlertCircle,
   X,
   Scissors,
+  CheckSquare,
+  Square,
+  FolderOpen,
+  ChevronDown,
+  ArrowUpFromLine,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Project, GenerationJob } from '@/types';
@@ -34,8 +39,30 @@ export default function ProjectDetailPage({
   const [deleting, setDeleting] = useState<string | null>(null);
   const [videoErrors, setVideoErrors] = useState<Set<string>>(new Set());
 
+  // Multi-select state
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedJobs, setSelectedJobs] = useState<Set<string>>(new Set());
+  const [batchMoving, setBatchMoving] = useState(false);
+  const [batchDeleting, setBatchDeleting] = useState(false);
+  const [moveDropdownOpen, setMoveDropdownOpen] = useState(false);
+  const [otherProjects, setOtherProjects] = useState<Project[]>([]);
+
   useEffect(() => {
     loadProject();
+  }, [id]);
+
+  // Load other projects for the move dropdown
+  useEffect(() => {
+    async function loadOtherProjects() {
+      try {
+        const res = await fetch('/api/projects');
+        if (res.ok) {
+          const data = await res.json();
+          setOtherProjects((data.projects || []).filter((p: Project) => p.id !== id));
+        }
+      } catch { /* ignore */ }
+    }
+    loadOtherProjects();
   }, [id]);
 
   async function loadProject() {
@@ -93,7 +120,6 @@ export default function ProjectDetailPage({
       if (!res.ok) throw new Error('刪除失敗');
       const data = await res.json();
       alert(data.message);
-      // Reload to get updated job list
       loadProject();
     } catch (err) {
       alert(err instanceof Error ? err.message : '刪除失敗');
@@ -115,6 +141,75 @@ export default function ProjectDetailPage({
       alert(err instanceof Error ? err.message : '刪除失敗');
     } finally {
       setDeleting(null);
+    }
+  }
+
+  // Multi-select handlers
+  function toggleJobSelection(jobId: string) {
+    setSelectedJobs(prev => {
+      const next = new Set(prev);
+      if (next.has(jobId)) next.delete(jobId);
+      else next.add(jobId);
+      return next;
+    });
+  }
+
+  function clearSelection() {
+    setSelectedJobs(new Set());
+    setSelectMode(false);
+    setMoveDropdownOpen(false);
+  }
+
+  async function handleBatchMove(targetProjectId: string | null) {
+    if (selectedJobs.size === 0) return;
+    setBatchMoving(true);
+    try {
+      const res = await fetch('/api/gallery/batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'move',
+          jobIds: Array.from(selectedJobs),
+          projectId: targetProjectId,
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || '移動失敗');
+      }
+      // Remove moved jobs from local list
+      setJobs(prev => prev.filter(j => !selectedJobs.has(j.id)));
+      clearSelection();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : '移動失敗');
+    } finally {
+      setBatchMoving(false);
+    }
+  }
+
+  async function handleBatchDelete() {
+    if (selectedJobs.size === 0) return;
+    if (!confirm(`確定要刪除選取的 ${selectedJobs.size} 支影片嗎？此操作無法復原。`)) return;
+    setBatchDeleting(true);
+    try {
+      const res = await fetch('/api/gallery/batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'delete',
+          jobIds: Array.from(selectedJobs),
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || '刪除失敗');
+      }
+      setJobs(prev => prev.filter(j => !selectedJobs.has(j.id)));
+      clearSelection();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : '刪除失敗');
+    } finally {
+      setBatchDeleting(false);
     }
   }
 
@@ -168,19 +263,40 @@ export default function ProjectDetailPage({
             {project.description && (
               <p className="text-muted-foreground mb-4">{project.description}</p>
             )}
-            <div className="flex flex-wrap gap-4 items-center">
+            <div className="flex flex-wrap gap-3 items-center">
               <span className="text-sm text-muted-foreground">
                 {jobs.length} 支影片 · {favoriteCount} 已收藏
               </span>
-              <Button asChild>
+              <Button asChild size="sm">
                 <Link href={`/create?projectId=${project.id}`}>
                   <Plus className="w-4 h-4 mr-2" />
                   生成新影片
                 </Link>
               </Button>
-              {nonFavoriteCount > 0 && (
+              <Button
+                variant={selectMode ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => {
+                  if (selectMode) clearSelection();
+                  else setSelectMode(true);
+                }}
+              >
+                {selectMode ? (
+                  <>
+                    <X className="w-4 h-4 mr-2" />
+                    取消選取
+                  </>
+                ) : (
+                  <>
+                    <CheckSquare className="w-4 h-4 mr-2" />
+                    選取管理
+                  </>
+                )}
+              </Button>
+              {!selectMode && nonFavoriteCount > 0 && (
                 <Button
                   variant="destructive"
+                  size="sm"
                   onClick={handleCleanup}
                   disabled={cleaning}
                 >
@@ -190,6 +306,64 @@ export default function ProjectDetailPage({
               )}
             </div>
           </div>
+
+          {/* Selection action bar */}
+          {selectMode && selectedJobs.size > 0 && (
+            <div className="flex flex-wrap items-center justify-center gap-3 mb-6 p-3 bg-muted/50 rounded-lg">
+              <span className="text-sm">
+                已選取 <strong>{selectedJobs.size}</strong> 支影片
+              </span>
+              {/* Move back to gallery */}
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => handleBatchMove(null)}
+                disabled={batchMoving}
+              >
+                <ArrowUpFromLine className="w-4 h-4 mr-2" />
+                {batchMoving ? '移動中...' : '移回影片庫'}
+              </Button>
+              {/* Move to another project */}
+              {otherProjects.length > 0 && (
+                <div className="relative">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setMoveDropdownOpen(!moveDropdownOpen)}
+                    disabled={batchMoving}
+                  >
+                    <FolderOpen className="w-4 h-4 mr-2" />
+                    移至其他專案
+                    <ChevronDown className="w-3 h-3 ml-1" />
+                  </Button>
+                  {moveDropdownOpen && (
+                    <div className="absolute top-full left-0 mt-1 w-48 bg-background border border-border rounded-lg shadow-lg py-1 z-10">
+                      {otherProjects.map((p) => (
+                        <button
+                          key={p.id}
+                          className="w-full px-3 py-2 text-left text-sm hover:bg-muted flex items-center gap-2"
+                          onClick={() => handleBatchMove(p.id)}
+                        >
+                          <FolderOpen className="w-4 h-4" />
+                          {p.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+              {/* Batch delete */}
+              <Button
+                size="sm"
+                variant="destructive"
+                onClick={handleBatchDelete}
+                disabled={batchDeleting}
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                {batchDeleting ? '刪除中...' : '刪除'}
+              </Button>
+            </div>
+          )}
 
           {/* Videos grid */}
           {jobs.length === 0 ? (
@@ -213,8 +387,17 @@ export default function ProjectDetailPage({
                 return (
                   <Card
                     key={job.id}
-                    className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer relative group break-inside-avoid mb-4"
-                    onClick={() => setSelectedJob(job)}
+                    className={cn(
+                      "overflow-hidden hover:shadow-lg transition-shadow cursor-pointer relative group break-inside-avoid mb-4",
+                      selectMode && selectedJobs.has(job.id) && "ring-2 ring-primary"
+                    )}
+                    onClick={() => {
+                      if (selectMode) {
+                        toggleJobSelection(job.id);
+                      } else {
+                        setSelectedJob(job);
+                      }
+                    }}
                   >
                     <div
                       className={cn(
@@ -246,21 +429,40 @@ export default function ProjectDetailPage({
                           </div>
                         </div>
                       )}
-                      {/* Favorite star toggle */}
-                      <button
-                        className="absolute top-2 left-2 p-1 rounded-full bg-black/50 hover:bg-black/70 transition-colors"
-                        onClick={(e) => handleToggleFavorite(job.id, e)}
-                        title={job.favorite ? '取消收藏' : '收藏'}
-                      >
-                        <Star
-                          className={cn(
-                            'w-5 h-5',
-                            job.favorite
-                              ? 'text-yellow-400 fill-yellow-400'
-                              : 'text-white'
-                          )}
-                        />
-                      </button>
+                      {/* Favorite star toggle (non-select mode) */}
+                      {!selectMode && (
+                        <button
+                          className="absolute top-2 left-2 p-1 rounded-full bg-black/50 hover:bg-black/70 transition-colors"
+                          onClick={(e) => handleToggleFavorite(job.id, e)}
+                          title={job.favorite ? '取消收藏' : '收藏'}
+                        >
+                          <Star
+                            className={cn(
+                              'w-5 h-5',
+                              job.favorite
+                                ? 'text-yellow-400 fill-yellow-400'
+                                : 'text-white'
+                            )}
+                          />
+                        </button>
+                      )}
+                      {/* Selection checkbox */}
+                      {selectMode && (
+                        <div className="absolute top-2 left-2">
+                          <div className={cn(
+                            "w-6 h-6 rounded flex items-center justify-center",
+                            selectedJobs.has(job.id)
+                              ? "bg-primary text-primary-foreground"
+                              : "bg-white/80 text-muted-foreground"
+                          )}>
+                            {selectedJobs.has(job.id) ? (
+                              <CheckSquare className="w-4 h-4" />
+                            ) : (
+                              <Square className="w-4 h-4" />
+                            )}
+                          </div>
+                        </div>
+                      )}
                     </div>
                     <CardContent className="p-3">
                       <h3 className="font-semibold truncate text-sm">{job.name}</h3>
@@ -274,7 +476,7 @@ export default function ProjectDetailPage({
       </main>
 
       {/* Video modal */}
-      {selectedJob && (
+      {selectedJob && !selectMode && (
         <div
           className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4"
           onClick={() => setSelectedJob(null)}
