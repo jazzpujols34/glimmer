@@ -45,6 +45,7 @@ interface SlotCardProps {
   targetAspectRatio: AspectRatio;
   onAddClick: () => void;
   onRemoveClick: () => void;
+  onRemoveSlot?: () => void;
   onEditTextCard?: () => void;
   onTrimClick?: () => void;
   isDragging?: boolean;
@@ -56,6 +57,7 @@ export function SlotCard({
   targetAspectRatio,
   onAddClick,
   onRemoveClick,
+  onRemoveSlot,
   onEditTextCard,
   onTrimClick,
   isDragging,
@@ -154,6 +156,19 @@ export function SlotCard({
       <div className="absolute top-2 left-2 z-10 w-6 h-6 rounded-full bg-black/60 flex items-center justify-center text-xs font-medium text-white">
         {slot.index + 1}
       </div>
+
+      {/* Remove Slot Button (delete entire slot, not just content) */}
+      {onRemoveSlot && isHovered && slot.status === 'empty' && (
+        <button
+          onClick={(e) => { e.stopPropagation(); onRemoveSlot(); }}
+          className="absolute top-2 right-2 z-10 w-6 h-6 rounded-full bg-destructive/80 hover:bg-destructive flex items-center justify-center transition-colors"
+          title="刪除此格"
+        >
+          <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      )}
 
       {/* Drag Handle */}
       {isFilledOrCard && dragHandleProps && (

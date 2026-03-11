@@ -370,6 +370,106 @@ function StoryboardEditorPageContent() {
     [storyboard, storyboardId, setStoryboard, setStoryboardDirect]
   );
 
+  const handleAddSlot = useCallback(
+    async (position?: number) => {
+      if (!storyboard || storyboard.slots.length >= 30) return;
+
+      // Optimistic: add empty slot locally
+      const newSlots = [...storyboard.slots];
+      const insertAt = position !== undefined ? Math.min(position, newSlots.length) : newSlots.length;
+      newSlots.splice(insertAt, 0, {
+        id: `slot_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
+        index: insertAt,
+        status: 'empty' as const,
+      });
+      newSlots.forEach((s, i) => { s.index = i; });
+
+      const newTransitions = [...storyboard.transitions];
+      if (newSlots.length > 1 && newTransitions.length < newSlots.length - 1) {
+        newTransitions.splice(Math.max(0, insertAt - 1), 0, 'cut' as StoryboardTransitionType);
+      }
+
+      const newStoryboard = {
+        ...storyboard,
+        slots: newSlots,
+        transitions: newTransitions,
+        slotCount: newSlots.length,
+      };
+      setStoryboard(newStoryboard);
+
+      setSaving(true);
+      try {
+        const res = await fetch(`/api/storyboards/${storyboardId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'addSlot', position }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setStoryboardDirect(data.storyboard);
+        }
+      } catch (err) {
+        logger.error('Error adding slot:', err);
+      } finally {
+        setSaving(false);
+      }
+    },
+    [storyboard, storyboardId, setStoryboard, setStoryboardDirect]
+  );
+
+  const handleRemoveSlot = useCallback(
+    async (slotIndex: number) => {
+      if (!storyboard || storyboard.slots.length <= 2) return;
+
+      const slot = storyboard.slots[slotIndex];
+      if (slot.status === 'filled' || slot.status === 'text-card') {
+        if (!confirm('此格已有內容，確定要刪除？')) return;
+      }
+
+      // Optimistic: remove slot locally
+      const newSlots = [...storyboard.slots];
+      newSlots.splice(slotIndex, 1);
+      newSlots.forEach((s, i) => { s.index = i; });
+
+      const newTransitions = [...storyboard.transitions];
+      if (newTransitions.length > 0) {
+        newTransitions.splice(Math.min(slotIndex, newTransitions.length - 1), 1);
+      }
+
+      const newStoryboard = {
+        ...storyboard,
+        slots: newSlots,
+        transitions: newTransitions,
+        slotCount: newSlots.length,
+      };
+      setStoryboard(newStoryboard);
+
+      setSaving(true);
+      try {
+        const res = await fetch(`/api/storyboards/${storyboardId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'removeSlot', slotIndex }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setStoryboardDirect(data.storyboard);
+        }
+      } catch (err) {
+        logger.error('Error removing slot:', err);
+        // Revert on error
+        const res = await fetch(`/api/storyboards/${storyboardId}`);
+        if (res.ok) {
+          const data = await res.json();
+          setStoryboardDirect(data.storyboard);
+        }
+      } finally {
+        setSaving(false);
+      }
+    },
+    [storyboard, storyboardId, setStoryboard, setStoryboardDirect]
+  );
+
   const handleDelete = async () => {
     if (!confirm('確定要刪除此故事板嗎？')) return;
 
@@ -548,7 +648,7 @@ function StoryboardEditorPageContent() {
             <div>
               <h1 className="font-semibold">{storyboard.name}</h1>
               <p className="text-xs text-muted-foreground">
-                故事板 · {storyboard.slotCount} 格 · {storyboard.aspectRatio}
+                故事板 · {storyboard.slots.length} 格 · {storyboard.aspectRatio}
               </p>
             </div>
           </div>
@@ -663,6 +763,8 @@ function StoryboardEditorPageContent() {
           onUpdateSlot={handleUpdateSlot}
           onUpdateTransition={handleUpdateTransition}
           onReorderSlots={handleReorderSlots}
+          onAddSlot={handleAddSlot}
+          onRemoveSlot={handleRemoveSlot}
           galleryJobs={galleryJobs}
         />
       </main>

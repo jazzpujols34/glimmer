@@ -16,6 +16,8 @@ interface StoryboardGridProps {
   onUpdateSlot: (slotIndex: number, slot: Partial<StoryboardSlot>) => Promise<void>;
   onUpdateTransition: (transitionIndex: number, transition: StoryboardTransitionType) => Promise<void>;
   onReorderSlots: (fromIndex: number, toIndex: number) => Promise<void>;
+  onAddSlot?: (position?: number) => Promise<void>;
+  onRemoveSlot?: (slotIndex: number) => Promise<void>;
   galleryJobs: GenerationJob[];
 }
 
@@ -24,6 +26,8 @@ export function StoryboardGrid({
   onUpdateSlot,
   onUpdateTransition,
   onReorderSlots,
+  onAddSlot,
+  onRemoveSlot,
   galleryJobs,
 }: StoryboardGridProps) {
   const [modalOpen, setModalOpen] = useState(false);
@@ -43,7 +47,7 @@ export function StoryboardGrid({
 
   // Calculate remaining empty slots (text cards count as filled)
   const filledCount = storyboard.slots.filter((s) => s.status === 'filled' || s.status === 'text-card').length;
-  const emptyCount = storyboard.slotCount - filledCount;
+  const emptyCount = storyboard.slots.length - filledCount;
   const [editingTextCardIndex, setEditingTextCardIndex] = useState<number | null>(null);
   const [trimmingSlotIndex, setTrimmingSlotIndex] = useState<number | null>(null);
 
@@ -239,8 +243,9 @@ export function StoryboardGrid({
 
   // Calculate grid columns based on slot count
   const getGridCols = () => {
-    if (storyboard.slotCount <= 6) return 'grid-cols-3';
-    if (storyboard.slotCount <= 12) return 'grid-cols-4';
+    const count = storyboard.slots.length;
+    if (count <= 6) return 'grid-cols-3';
+    if (count <= 12) return 'grid-cols-4';
     return 'grid-cols-5';
   };
 
@@ -250,7 +255,7 @@ export function StoryboardGrid({
       <div className="flex items-center justify-between text-sm">
         <div className="flex items-center gap-4">
           <span className="text-muted-foreground">
-            {filledCount} / {storyboard.slotCount} 格已填入
+            {filledCount} / {storyboard.slots.length} 格已填入
           </span>
           <span className="text-muted-foreground">
             約 {Math.round((storyboard.slots.reduce((acc, s) => {
@@ -287,6 +292,7 @@ export function StoryboardGrid({
                 targetAspectRatio={storyboard.aspectRatio}
                 onAddClick={() => handleAddClick(index)}
                 onRemoveClick={() => handleRemoveClick(index)}
+                onRemoveSlot={onRemoveSlot && storyboard.slots.length > 2 ? () => onRemoveSlot(index) : undefined}
                 onEditTextCard={slot.status === 'text-card' ? () => setEditingTextCardIndex(index) : undefined}
                 onTrimClick={slot.status === 'filled' && slot.clip ? () => setTrimmingSlotIndex(index) : undefined}
                 isDragging={draggedIndex === index}
@@ -304,6 +310,19 @@ export function StoryboardGrid({
             )}
           </div>
         ))}
+
+        {/* Add Slot Card */}
+        {onAddSlot && storyboard.slots.length < 30 && (
+          <button
+            onClick={() => onAddSlot()}
+            className="flex flex-col items-center justify-center gap-2 border-2 border-dashed border-border/50 rounded-lg hover:border-primary/50 hover:bg-primary/5 transition-colors min-h-[120px]"
+          >
+            <svg className="w-8 h-8 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v16m8-8H4" />
+            </svg>
+            <span className="text-xs text-muted-foreground">新增格子</span>
+          </button>
+        )}
       </div>
 
       {/* Bulk Actions */}

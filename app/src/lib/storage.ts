@@ -383,6 +383,77 @@ export async function reorderStoryboardSlots(
   return storyboard;
 }
 
+export async function addSlotToStoryboard(
+  storyboardId: string,
+  position?: number, // insert at this index; defaults to end
+): Promise<Storyboard | undefined> {
+  const storyboard = await getStoryboard(storyboardId);
+  if (!storyboard) return undefined;
+
+  const slots = [...storyboard.slots];
+  const insertAt = position !== undefined ? Math.min(position, slots.length) : slots.length;
+
+  const newSlot: StoryboardSlot = {
+    id: generateSlotId(),
+    index: insertAt,
+    status: 'empty',
+  };
+
+  slots.splice(insertAt, 0, newSlot);
+  // Re-index
+  slots.forEach((s, i) => { s.index = i; });
+
+  // Add a transition for the new slot
+  const transitions = [...storyboard.transitions];
+  if (slots.length > 1) {
+    // Insert 'cut' transition at the appropriate position
+    const transitionInsertAt = Math.max(0, insertAt - 1);
+    if (transitions.length < slots.length - 1) {
+      transitions.splice(transitionInsertAt, 0, 'cut');
+    }
+  }
+
+  storyboard.slots = slots;
+  storyboard.transitions = transitions;
+  storyboard.slotCount = slots.length;
+  storyboard.updatedAt = new Date().toISOString();
+
+  await kvPut(`${STORYBOARD_PREFIX}${storyboardId}`, JSON.stringify(storyboard));
+  return storyboard;
+}
+
+export async function removeSlotFromStoryboard(
+  storyboardId: string,
+  slotIndex: number,
+): Promise<Storyboard | undefined> {
+  const storyboard = await getStoryboard(storyboardId);
+  if (!storyboard) return undefined;
+  if (storyboard.slots.length <= 2) return undefined; // Min 2 slots
+
+  if (slotIndex < 0 || slotIndex >= storyboard.slots.length) return undefined;
+
+  const slots = [...storyboard.slots];
+  slots.splice(slotIndex, 1);
+  // Re-index
+  slots.forEach((s, i) => { s.index = i; });
+
+  // Remove the corresponding transition
+  const transitions = [...storyboard.transitions];
+  if (transitions.length > 0) {
+    // Remove transition at slotIndex (or last one if removing last slot)
+    const transitionRemoveAt = Math.min(slotIndex, transitions.length - 1);
+    transitions.splice(transitionRemoveAt, 1);
+  }
+
+  storyboard.slots = slots;
+  storyboard.transitions = transitions;
+  storyboard.slotCount = slots.length;
+  storyboard.updatedAt = new Date().toISOString();
+
+  await kvPut(`${STORYBOARD_PREFIX}${storyboardId}`, JSON.stringify(storyboard));
+  return storyboard;
+}
+
 // === Batch Generation Storage ===
 // Batch = N photos → N-1 video segments using first-last-frame mode
 

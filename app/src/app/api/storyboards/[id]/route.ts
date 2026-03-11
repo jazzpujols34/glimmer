@@ -6,6 +6,8 @@ import {
   updateStoryboardSlot,
   updateStoryboardTransition,
   reorderStoryboardSlots,
+  addSlotToStoryboard,
+  removeSlotFromStoryboard,
 } from '@/lib/storage';
 import { captureError } from '@/lib/errors';
 import type { StoryboardSlot, StoryboardTransitionType, StoryboardTitleCard, StoryboardMusic, StoryboardMusicTrack, StoryboardSubtitle } from '@/types';
@@ -96,6 +98,31 @@ export async function PATCH(request: Request, { params }: RouteParams) {
         const updated = await reorderStoryboardSlots(id, fromIndex, toIndex);
         if (!updated) {
           return NextResponse.json({ error: '重新排序失敗' }, { status: 400 });
+        }
+        return NextResponse.json({ storyboard: updated });
+      }
+
+      case 'addSlot': {
+        const { position } = data as { position?: number };
+        const storyboard = await getStoryboard(id);
+        if (storyboard && storyboard.slots.length >= 30) {
+          return NextResponse.json({ error: '最多 30 格' }, { status: 400 });
+        }
+        const updated = await addSlotToStoryboard(id, position);
+        if (!updated) {
+          return NextResponse.json({ error: '新增格子失敗' }, { status: 400 });
+        }
+        return NextResponse.json({ storyboard: updated });
+      }
+
+      case 'removeSlot': {
+        const { slotIndex: removeIndex } = data as { slotIndex: number };
+        if (typeof removeIndex !== 'number') {
+          return NextResponse.json({ error: '缺少 slotIndex' }, { status: 400 });
+        }
+        const updated = await removeSlotFromStoryboard(id, removeIndex);
+        if (!updated) {
+          return NextResponse.json({ error: '刪除格子失敗（至少保留 2 格）' }, { status: 400 });
         }
         return NextResponse.json({ storyboard: updated });
       }
