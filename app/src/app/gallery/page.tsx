@@ -267,24 +267,12 @@ export default function GalleryPage() {
 
     setDeleting(`${jobId}-keep`);
     try {
-      // Delete from highest index to lowest so indices don't shift
-      // Skip the one we want to keep
-      let currentKeepIdx = keepIndex;
-      for (let idx = totalClips - 1; idx >= 0; idx--) {
-        if (idx === currentKeepIdx) continue;
-        // After deleting an index above keepIndex, keepIndex stays the same
-        // After deleting an index below keepIndex, keepIndex shifts down by 1
-        const res = await fetch(`/api/gallery/${jobId}?videoIndex=${idx}`, { method: 'DELETE' });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || '刪除失敗');
-        if (idx < currentKeepIdx) currentKeepIdx--;
-      }
-
-      // Fetch final state
-      const res = await fetch(`/api/gallery/${jobId}`);
+      // Single atomic API call — server keeps only the specified index
+      const res = await fetch(`/api/gallery/${jobId}?keepOnly=${keepIndex}`, { method: 'DELETE' });
       const data = await res.json();
+      if (!res.ok) throw new Error(data.error || '刪除失敗');
 
-      const updatedVideoUrls = data.videoUrls || [data.videoUrl];
+      const updatedVideoUrls = data.videoUrls || [];
       setJobs((prev) => prev.map((j) =>
         j.id === jobId ? { ...j, videoUrls: updatedVideoUrls, videoUrl: updatedVideoUrls[0] } : j
       ));

@@ -113,6 +113,33 @@ export async function DELETE(
       return NextResponse.json({ error: '找不到該影片' }, { status: 404 });
     }
 
+    // keepOnly — keep a single clip, delete all others (atomic operation)
+    const keepOnlyParam = url.searchParams.get('keepOnly');
+    if (keepOnlyParam !== null) {
+      const keepIndex = parseInt(keepOnlyParam, 10);
+      const videoUrls = job.videoUrls || [];
+      if (isNaN(keepIndex) || keepIndex < 0 || keepIndex >= videoUrls.length) {
+        return NextResponse.json({ error: '無效的影片索引' }, { status: 400 });
+      }
+
+      const keptUrl = videoUrls[keepIndex];
+      const updated = await updateJob(id, {
+        videoUrls: [keptUrl],
+        videoUrl: keptUrl,
+      });
+
+      if (!updated) {
+        return NextResponse.json({ error: '刪除失敗' }, { status: 500 });
+      }
+
+      return NextResponse.json({
+        success: true,
+        deleted: 'clips',
+        remainingClips: 1,
+        videoUrls: getVideoUrls(id, [keptUrl]),
+      });
+    }
+
     // If videoIndex is specified, only delete that specific clip
     if (videoIndexParam !== null) {
       const videoIndex = parseInt(videoIndexParam, 10);
