@@ -100,6 +100,33 @@ export async function GET(
       });
     }
 
+    // If complete but not archived, retry archival (CDN URLs expire in 24h)
+    if (job.status === 'complete' && !job.archived && job.videoUrls?.length) {
+      const hasCdnUrls = job.videoUrls.some(u => u.startsWith('http'));
+      if (hasCdnUrls) {
+        logger.debug('R2', `Retrying archival for job ${id} (${job.videoUrls.length} videos)`);
+        try {
+          const archive = await archiveVideos(id, job.videoUrls);
+          if (archive.archived) {
+            await updateJob(id, {
+              videoUrls: archive.urls,
+              videoUrl: archive.urls[0],
+              archived: true,
+            });
+            return NextResponse.json({
+              id: job.id,
+              status: 'complete',
+              progress: 100,
+              videoUrl: getVideoUrl(job.id, archive.urls[0], 0),
+              videoUrls: getVideoUrls(job.id, archive.urls),
+            });
+          }
+        } catch (err) {
+          logger.error(`[R2] Archival retry failed for job ${id}:`, err);
+        }
+      }
+    }
+
     // Return current state (complete, error, or queued)
     return NextResponse.json({
       id: job.id,

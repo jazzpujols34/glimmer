@@ -1,13 +1,37 @@
 export const runtime = 'edge';
 
 import { NextResponse } from 'next/server';
-import { getCompletedJobs } from '@/lib/storage';
+import { getCompletedJobs, updateJob } from '@/lib/storage';
+import { archiveVideos } from '@/lib/r2';
 import { captureError } from '@/lib/errors';
 import { getVideoUrl, getVideoUrls } from '@/lib/video-url';
+import { logger } from '@/lib/logger';
 
 export async function GET() {
   try {
     const jobs = await getCompletedJobs();
+
+    // Retry archival for any unarchived jobs (CDN URLs expire in 24h)
+    for (const job of jobs) {
+      if (!job.archived && job.videoUrls?.some(u => u.startsWith('http'))) {
+        try {
+          const archive = await archiveVideos(job.id, job.videoUrls);
+          if (archive.archived) {
+            await updateJob(job.id, {
+              videoUrls: archive.urls,
+              videoUrl: archive.urls[0],
+              archived: true,
+            });
+            job.videoUrls = archive.urls;
+            job.videoUrl = archive.urls[0];
+            job.archived = true;
+            logger.debug('R2', `Gallery: archived job ${job.id} on retry`);
+          }
+        } catch {
+          // Non-blocking — still return the CDN URLs
+        }
+      }
+    }
 
     return NextResponse.json({
       jobs: jobs.map(job => ({
