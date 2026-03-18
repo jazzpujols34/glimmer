@@ -267,7 +267,7 @@ function BatchPageInner() {
                   className={cn(
                     "h-full transition-all duration-500",
                     isComplete ? "bg-green-500" :
-                    hasError ? "bg-destructive" :
+                    hasError ? "bg-amber-500" :
                     isPartial ? "bg-amber-500" :
                     "bg-primary"
                   )}
@@ -291,7 +291,7 @@ function BatchPageInner() {
                   {quick.status === 'complete' ? (
                     <CheckCircle className="w-6 h-6 text-green-500" />
                   ) : quick.status === 'error' ? (
-                    <XCircle className="w-6 h-6 text-destructive" />
+                    <XCircle className="w-6 h-6 text-amber-500" />
                   ) : quick.status === 'exporting' ? (
                     <Music className="w-6 h-6 text-primary animate-pulse" />
                   ) : (
@@ -301,7 +301,7 @@ function BatchPageInner() {
                     {quick.status === 'generating' && '生成片段中...'}
                     {quick.status === 'exporting' && '合成影片中...'}
                     {quick.status === 'complete' && '影片完成！'}
-                    {quick.status === 'error' && '發生錯誤'}
+                    {quick.status === 'error' && '處理遇到限制'}
                   </span>
                 </div>
 

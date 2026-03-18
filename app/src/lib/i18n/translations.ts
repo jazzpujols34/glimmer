@@ -69,8 +69,8 @@ export const translations = {
     // Generate page
     'generate.complete': '影片已完成！',
     'generate.ready': '您的回憶影片已經準備好了',
-    'generate.error': '發生錯誤',
-    'generate.retry': '返回重試',
+    'generate.error': '這張照片暫時無法使用',
+    'generate.retry': '再試一次',
     'generate.download': '下載生成影片',
     'generate.downloadN': '下載影片 {n}',
     'generate.createAnother': '製作另一支影片',
@@ -123,7 +123,7 @@ export const translations = {
 
     // Common
     'common.loading': '載入中...',
-    'common.error': '發生錯誤',
+    'common.error': '處理遇到限制',
     'common.save': '儲存',
     'common.cancel': '取消',
     'common.delete': '刪除',

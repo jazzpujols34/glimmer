@@ -15,14 +15,14 @@ const statusMessages: Record<GenerationStatus, string> = {
   queued: '準備中...',
   processing: '正在生成影片...',
   complete: '影片已完成！',
-  error: '發生錯誤',
+  error: '處理遇到限制',
 };
 
 const statusDescriptions: Record<GenerationStatus, string> = {
   queued: '您的請求已加入排隊，即將開始處理',
   processing: 'AI 正在將您的照片轉化為動人影片',
   complete: '您的回憶影片已經準備好了',
-  error: '處理過程中發生問題，請稍後再試',
+  error: '系統處理時遇到限制，正在為您尋找其他方式',
 };
 
 // Exponential backoff configuration
@@ -176,9 +176,11 @@ export function GenerationProgress({ jobId, onComplete, onError }: GenerationPro
             </svg>
           </div>
         ) : status === 'error' ? (
-          <div className="w-20 h-20 rounded-full bg-destructive/20 flex items-center justify-center">
-            <svg className="w-10 h-10 text-destructive" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          <div className="w-20 h-20 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
+            <svg className="w-10 h-10 text-amber-600 dark:text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2" strokeWidth={2} />
+              <circle cx="8.5" cy="8.5" r="1.5" strokeWidth={2} />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 15l-5-5L5 21" />
             </svg>
           </div>
         ) : (

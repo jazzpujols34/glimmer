@@ -8,7 +8,7 @@ import { Logo } from '@/components/Logo';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { GenerationProgress } from '@/components/GenerationProgress';
-import { ChevronLeft, ChevronRight, Clock, FolderOpen, Share2 } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, Clock, FolderOpen, Image, Share2 } from 'lucide-react';
 import { trackGenerationComplete, trackGenerationError } from '@/lib/analytics';
 
 // Share button icons
@@ -43,6 +43,7 @@ export default function GeneratePage({ params }: PageProps) {
   const [result, setResult] = useState<CompletionData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [retryKey, setRetryKey] = useState(0);
+  const [showTechInfo, setShowTechInfo] = useState(false);
   const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
   const videoRef = useRef<HTMLVideoElement>(null);
 
@@ -108,24 +109,43 @@ export default function GeneratePage({ params }: PageProps) {
         <Card className="max-w-2xl mx-auto">
           <CardContent className="p-8">
             {error ? (
-              // Error state
+              // Error state — warm tone, blame the system, never the user's content
               <div className="space-y-6 text-center">
-                <div className="w-20 h-20 mx-auto rounded-full bg-destructive/20 flex items-center justify-center">
-                  <svg className="w-10 h-10 text-destructive" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
+                <div className="w-20 h-20 mx-auto rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
+                  <Image className="w-10 h-10 text-amber-600 dark:text-amber-400" />
                 </div>
-                <div>
-                  <h2 className="text-2xl font-semibold">發生錯誤</h2>
-                  <p className="text-muted-foreground mt-2">{error}</p>
+                <div className="space-y-3">
+                  <h2 className="text-2xl font-semibold">這張照片暫時無法使用</h2>
+                  <p className="text-muted-foreground">
+                    系統處理時遇到限制，並非照片本身的問題。
+                  </p>
+                  <p className="text-muted-foreground">
+                    您可以換一張照片，或稍後再試。<br />
+                    每一段回憶都值得被好好珍藏。
+                  </p>
                 </div>
                 <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                  <Button onClick={() => { setError(null); setRetryKey(k => k + 1); }}>
-                    重試
+                  <Button asChild>
+                    <Link href="/create">換一張照片</Link>
                   </Button>
-                  <Button variant="outline" asChild>
-                    <Link href="/create">返回重新製作</Link>
+                  <Button variant="outline" onClick={() => { setError(null); setShowTechInfo(false); setRetryKey(k => k + 1); }}>
+                    再試一次
                   </Button>
+                </div>
+                {/* Collapsible technical info */}
+                <div>
+                  <button
+                    onClick={() => setShowTechInfo(!showTechInfo)}
+                    className="inline-flex items-center gap-1 text-xs text-muted-foreground/60 hover:text-muted-foreground transition-colors"
+                  >
+                    <ChevronDown className={`w-3 h-3 transition-transform ${showTechInfo ? 'rotate-180' : ''}`} />
+                    技術資訊
+                  </button>
+                  {showTechInfo && (
+                    <p className="mt-2 text-xs text-muted-foreground/50 font-mono break-all">
+                      {error}
+                    </p>
+                  )}
                 </div>
               </div>
             ) : result ? (
