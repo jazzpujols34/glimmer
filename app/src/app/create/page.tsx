@@ -131,8 +131,14 @@ function CreatePageInner() {
     }
 
     const verified = searchParams.get('verified');
+    const verifiedEmail = searchParams.get('email');
     const verifyError = searchParams.get('verify_error');
     if (verified === '1') {
+      // Restore email from verification redirect (handles new tab / different browser context)
+      if (verifiedEmail) {
+        setEmail(verifiedEmail);
+        localStorage.setItem('glimmer_email', verifiedEmail);
+      }
       // Refresh credit balance to pick up verified status
       setCreditBalance(prev => prev ? { ...prev, verified: true } : null);
       // Clean URL but keep projectId

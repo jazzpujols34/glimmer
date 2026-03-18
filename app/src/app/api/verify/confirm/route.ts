@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
     await kvDelete(`verify:${token}`);
 
     logger.debug('verify', `Email verified: ${normalized}`);
-    return NextResponse.redirect(`${appUrl}/create?verified=1`);
+    return NextResponse.redirect(`${appUrl}/create?verified=1&email=${encodeURIComponent(normalized)}`);
   } catch (error) {
     captureError(error, { route: '/api/verify/confirm' });
     return NextResponse.redirect(`${appUrl}/create?verify_error=error`);

@@ -19,7 +19,7 @@ export function AccessGate({ children }: AccessGateProps) {
 
   useEffect(() => {
     if (!loading && !hasPaidAccess) {
-      router.replace('/upgrade');
+      router.push('/upgrade');
     }
   }, [loading, hasPaidAccess, router]);
 

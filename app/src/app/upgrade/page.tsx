@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Logo } from '@/components/Logo';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -27,6 +28,8 @@ const FEATURES = [
 ];
 
 export default function UpgradePage() {
+  const router = useRouter();
+
   useEffect(() => {
     trackUpgradePageView(0); // Credit balance unknown at this point
   }, []);
@@ -91,8 +94,8 @@ export default function UpgradePage() {
               <Button size="lg" asChild>
                 <Link href="/create#pricing">購買點數</Link>
               </Button>
-              <Button variant="outline" asChild>
-                <Link href="/create">先體驗免費版</Link>
+              <Button variant="outline" onClick={() => router.back()}>
+                先體驗免費版
               </Button>
             </div>
           </CardContent>
