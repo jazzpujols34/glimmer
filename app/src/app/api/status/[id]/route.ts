@@ -19,11 +19,18 @@ const CONTENT_FILTER_ERRORS = [
   'content_policy_violation',
 ];
 
-// Provider fallback order: byteplus → kling-ai → veo-3.1
-const FALLBACK_PROVIDERS: Record<string, ModelType> = {
-  'byteplus': 'kling-ai',
-  'kling-ai': 'veo-3.1',
-};
+// Provider fallback order (tried in sequence, skipping those without credentials)
+const FALLBACK_ORDER: ModelType[] = ['byteplus', 'kling-ai', 'veo-3.1'];
+
+function getNextProvider(current: ModelType): ModelType | undefined {
+  const idx = FALLBACK_ORDER.indexOf(current);
+  if (idx === -1) return undefined;
+  // Return the next provider in the list that isn't the current one
+  for (let i = idx + 1; i < FALLBACK_ORDER.length; i++) {
+    return FALLBACK_ORDER[i];
+  }
+  return undefined;
+}
 
 export async function GET(
   request: NextRequest,
@@ -63,39 +70,46 @@ export async function GET(
 
           // Check if this is a content filter rejection that we can retry with a different provider
           const isContentFilter = CONTENT_FILTER_ERRORS.some(code => errorStr.includes(code));
-          const fallbackProvider = job.provider ? FALLBACK_PROVIDERS[job.provider] : undefined;
+          const fallbackProvider = job.provider ? getNextProvider(job.provider) : undefined;
 
           if (isContentFilter && fallbackProvider && !job.fallbackAttempted && job.photoKeys?.length) {
-            logger.debug('Fallback', `Provider ${job.provider} content-filtered job ${id}, retrying with ${fallbackProvider}`);
+            logger.debug('Fallback', `Provider ${job.provider} content-filtered job ${id}, trying fallback`);
             try {
               const photos = await retrievePhotos(job.photoKeys);
               if (photos.length > 0) {
-                const taskData = await createVideoTask({
-                  photos,
-                  name: job.name || '',
-                  occasion: job.occasion || 'other',
-                  settings: { ...job.settings!, model: fallbackProvider },
-                });
-
-                await updateJob(id, {
-                  status: 'processing',
-                  progress: 10,
-                  provider: taskData.provider,
-                  externalTaskIds: taskData.externalTaskIds,
-                  veoOperationName: taskData.veoOperationName,
-                  fallbackAttempted: true,
-                  error: undefined,
-                });
-
-                logger.debug('Fallback', `Job ${id} re-submitted to ${fallbackProvider}`);
-                return NextResponse.json({
-                  id: job.id,
-                  status: 'processing',
-                  progress: 10,
-                });
+                // Try providers in fallback order until one succeeds
+                const providersToTry = [fallbackProvider, getNextProvider(fallbackProvider)].filter(Boolean) as ModelType[];
+                for (const provider of providersToTry) {
+                  try {
+                    const taskData = await createVideoTask({
+                      photos,
+                      name: job.name || '',
+                      occasion: job.occasion || 'other',
+                      settings: { ...job.settings!, model: provider },
+                    });
+                    await updateJob(id, {
+                      status: 'processing',
+                      progress: 10,
+                      provider: taskData.provider,
+                      externalTaskIds: taskData.externalTaskIds,
+                      veoOperationName: taskData.veoOperationName,
+                      fallbackAttempted: true,
+                      error: undefined,
+                    });
+                    logger.debug('Fallback', `Job ${id} re-submitted to ${provider}`);
+                    return NextResponse.json({
+                      id: job.id,
+                      status: 'processing',
+                      progress: 10,
+                    });
+                  } catch (providerErr) {
+                    logger.error(`[Fallback] ${provider} failed for job ${id}:`, providerErr);
+                    // Continue to next provider
+                  }
+                }
               }
             } catch (fallbackErr) {
-              logger.error(`[Fallback] Failed to retry job ${id} with ${fallbackProvider}:`, fallbackErr);
+              logger.error(`[Fallback] Photo retrieval failed for job ${id}:`, fallbackErr);
             }
           }
 
