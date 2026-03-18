@@ -4,6 +4,7 @@ import { NextRequest } from 'next/server';
 import imageSize from 'image-size';
 import { createJob, updateJob, addJobToProject, getProject } from '@/lib/storage';
 import { createVideoTask } from '@/lib/veo';
+import { storePhotos } from '@/lib/r2';
 import { checkCredits, consumeCredit, isAdmin } from '@/lib/credits';
 import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
 import { captureError } from '@/lib/errors';
@@ -140,6 +141,9 @@ export async function POST(request: NextRequest) {
       settings,
     });
 
+    // Store photos in R2 for provider fallback (fire-and-forget, non-blocking)
+    const photoKeys = await storePhotos(jobId, photos);
+
     // Save external task tracking data to KV
     await updateJob(jobId, {
       status: 'processing',
@@ -147,6 +151,7 @@ export async function POST(request: NextRequest) {
       provider: taskData.provider,
       externalTaskIds: taskData.externalTaskIds,
       veoOperationName: taskData.veoOperationName,
+      photoKeys: photoKeys.length > 0 ? photoKeys : undefined,
     });
 
     // Deduct credit AFTER external task creation succeeds

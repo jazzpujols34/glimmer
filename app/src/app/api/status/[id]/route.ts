@@ -2,14 +2,28 @@ export const runtime = 'edge';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getJob, updateJob, setJobComplete, setJobError } from '@/lib/storage';
-import { checkVideoTaskStatus } from '@/lib/veo';
-import { archiveVideos } from '@/lib/r2';
+import { checkVideoTaskStatus, createVideoTask } from '@/lib/veo';
+import { archiveVideos, retrievePhotos, deletePhotos } from '@/lib/r2';
 import { checkCredits } from '@/lib/credits';
 import { sendCompletionEmail } from '@/lib/email';
 import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
 import { captureError } from '@/lib/errors';
 import { logger } from '@/lib/logger';
 import { getVideoUrl, getVideoUrls } from '@/lib/video-url';
+import type { ModelType } from '@/types';
+
+// Errors that indicate provider content filtering (not actual NSFW content)
+const CONTENT_FILTER_ERRORS = [
+  'OutputVideoSensitiveContentDetected',
+  'SensitiveContentDetected',
+  'content_policy_violation',
+];
+
+// Provider fallback order: byteplus → kling-ai → veo-3.1
+const FALLBACK_PROVIDERS: Record<string, ModelType> = {
+  'byteplus': 'kling-ai',
+  'kling-ai': 'veo-3.1',
+};
 
 export async function GET(
   request: NextRequest,
@@ -46,6 +60,45 @@ export async function GET(
           const errorStr = typeof result.error === 'object'
             ? ((result.error as Record<string, string>).message || JSON.stringify(result.error))
             : String(result.error);
+
+          // Check if this is a content filter rejection that we can retry with a different provider
+          const isContentFilter = CONTENT_FILTER_ERRORS.some(code => errorStr.includes(code));
+          const fallbackProvider = job.provider ? FALLBACK_PROVIDERS[job.provider] : undefined;
+
+          if (isContentFilter && fallbackProvider && !job.fallbackAttempted && job.photoKeys?.length) {
+            logger.debug('Fallback', `Provider ${job.provider} content-filtered job ${id}, retrying with ${fallbackProvider}`);
+            try {
+              const photos = await retrievePhotos(job.photoKeys);
+              if (photos.length > 0) {
+                const taskData = await createVideoTask({
+                  photos,
+                  name: job.name || '',
+                  occasion: job.occasion || 'other',
+                  settings: { ...job.settings!, model: fallbackProvider },
+                });
+
+                await updateJob(id, {
+                  status: 'processing',
+                  progress: 10,
+                  provider: taskData.provider,
+                  externalTaskIds: taskData.externalTaskIds,
+                  veoOperationName: taskData.veoOperationName,
+                  fallbackAttempted: true,
+                  error: undefined,
+                });
+
+                logger.debug('Fallback', `Job ${id} re-submitted to ${fallbackProvider}`);
+                return NextResponse.json({
+                  id: job.id,
+                  status: 'processing',
+                  progress: 10,
+                });
+              }
+            } catch (fallbackErr) {
+              logger.error(`[Fallback] Failed to retry job ${id} with ${fallbackProvider}:`, fallbackErr);
+            }
+          }
+
           await setJobError(id, errorStr);
           return NextResponse.json({
             id: job.id,
@@ -73,6 +126,11 @@ export async function GET(
             paidUser,
             archived: archive.archived,
           });
+
+          // Clean up stored photos (no longer needed after successful generation)
+          if (job.photoKeys?.length) {
+            deletePhotos(job.photoKeys).catch(() => {});
+          }
 
           // Send completion notification email (fire-and-forget)
           if (job.email) {

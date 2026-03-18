@@ -74,6 +74,9 @@ export interface GenerationJob {
   provider?: ModelType;
   externalTaskIds?: string[];       // BytePlus/Kling task IDs
   veoOperationName?: string;        // Veo operation resource name
+  // Photo storage for provider fallback (R2 keys)
+  photoKeys?: string[];             // R2 keys for stored photos
+  fallbackAttempted?: boolean;      // true if already retried with fallback provider
 }
 
 export interface ApiResponse<T> {
