@@ -25,6 +25,7 @@ function ProjectsPageContent() {
   const [newProjectName, setNewProjectName] = useState('');
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
+  const [actionError, setActionError] = useState<string | null>(null);
 
   useEffect(() => {
     loadProjects();
@@ -59,7 +60,7 @@ function ProjectsPageContent() {
       setProjects((prev) => [data.project, ...prev]);
       setNewProjectName('');
     } catch (err) {
-      alert(err instanceof Error ? err.message : '建立失敗');
+      setActionError(err instanceof Error ? err.message : '建立失敗');
     } finally {
       setCreating(false);
     }
@@ -83,7 +84,7 @@ function ProjectsPageContent() {
       ));
       setRenamingId(null);
     } catch (err) {
-      alert(err instanceof Error ? err.message : '重新命名失敗');
+      setActionError(err instanceof Error ? err.message : '重新命名失敗');
     }
   }
 
@@ -119,6 +120,16 @@ function ProjectsPageContent() {
               將多個影片片段整理成一個專案，方便管理與製作
             </p>
           </div>
+
+          {/* Action error */}
+          {actionError && (
+            <div className="flex items-center gap-2 p-3 rounded-lg bg-destructive/10 text-destructive text-sm mb-4">
+              <span className="flex-1">{actionError}</span>
+              <button onClick={() => setActionError(null)} className="p-1 hover:bg-destructive/10 rounded">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          )}
 
           {/* Create new project */}
           <Card className="mb-8">

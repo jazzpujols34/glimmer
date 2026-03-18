@@ -395,6 +395,11 @@ function BatchPageInner() {
                     <span className="text-sm font-medium">段落 {index + 1}</span>
                     {getStatusIcon(segment.status)}
                   </div>
+                  {segment.status === 'error' && segment.error && (
+                    <p className="text-xs text-destructive mt-1 line-clamp-2">
+                      {segment.error}
+                    </p>
+                  )}
                 </CardContent>
               </Card>
             ))}

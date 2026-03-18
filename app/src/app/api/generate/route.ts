@@ -152,8 +152,12 @@ export async function POST(request: NextRequest) {
     // Deduct credit AFTER external task creation succeeds
     const creditResult = await consumeCredit(email, jobId);
     if (!creditResult.success) {
-      // Shouldn't happen (we checked above), but log defensively
-      logger.error(`[API] Credit deduction failed for ${email} on job ${jobId}`);
+      // Shouldn't happen (we checked above), but alert so we notice free videos
+      captureError(new Error(`Credit deduction failed for ${email} on job ${jobId}`), {
+        route: '/api/generate',
+        email,
+        jobId,
+      });
     }
 
     // Add job to project if projectId provided

@@ -42,6 +42,7 @@ export default function GeneratePage({ params }: PageProps) {
   const { id } = use(params);
   const [result, setResult] = useState<CompletionData | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [retryKey, setRetryKey] = useState(0);
   const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
   const videoRef = useRef<HTMLVideoElement>(null);
 
@@ -118,9 +119,14 @@ export default function GeneratePage({ params }: PageProps) {
                   <h2 className="text-2xl font-semibold">發生錯誤</h2>
                   <p className="text-muted-foreground mt-2">{error}</p>
                 </div>
-                <Button asChild>
-                  <Link href="/create">返回重試</Link>
-                </Button>
+                <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                  <Button onClick={() => { setError(null); setRetryKey(k => k + 1); }}>
+                    重試
+                  </Button>
+                  <Button variant="outline" asChild>
+                    <Link href="/create">返回重新製作</Link>
+                  </Button>
+                </div>
               </div>
             ) : result ? (
               // Complete state
@@ -318,6 +324,7 @@ export default function GeneratePage({ params }: PageProps) {
             ) : (
               // Processing state
               <GenerationProgress
+                key={retryKey}
                 jobId={id}
                 onComplete={handleComplete}
                 onError={handleError}

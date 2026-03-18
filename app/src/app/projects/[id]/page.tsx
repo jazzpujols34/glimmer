@@ -46,6 +46,7 @@ export default function ProjectDetailPage({
   const [batchDeleting, setBatchDeleting] = useState(false);
   const [moveDropdownOpen, setMoveDropdownOpen] = useState(false);
   const [otherProjects, setOtherProjects] = useState<Project[]>([]);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   useEffect(() => {
     loadProject();
@@ -99,14 +100,14 @@ export default function ProjectDetailPage({
         setSelectedJob((prev) => (prev ? { ...prev, favorite: data.favorite } : null));
       }
     } catch (err) {
-      alert(err instanceof Error ? err.message : '更新失敗');
+      setActionError(err instanceof Error ? err.message : '更新失敗');
     }
   }
 
   async function handleCleanup() {
     const nonFavorites = jobs.filter((j) => !j.favorite);
     if (nonFavorites.length === 0) {
-      alert('沒有需要刪除的影片（所有影片都已收藏）');
+      setActionError('沒有需要刪除的影片（所有影片都已收藏）');
       return;
     }
 
@@ -119,10 +120,9 @@ export default function ProjectDetailPage({
       const res = await fetch(`/api/projects/${id}/cleanup`, { method: 'DELETE' });
       if (!res.ok) throw new Error('刪除失敗');
       const data = await res.json();
-      alert(data.message);
       loadProject();
     } catch (err) {
-      alert(err instanceof Error ? err.message : '刪除失敗');
+      setActionError(err instanceof Error ? err.message : '刪除失敗');
     } finally {
       setCleaning(false);
     }
@@ -138,7 +138,7 @@ export default function ProjectDetailPage({
       setJobs((prev) => prev.filter((j) => j.id !== jobId));
       if (selectedJob?.id === jobId) setSelectedJob(null);
     } catch (err) {
-      alert(err instanceof Error ? err.message : '刪除失敗');
+      setActionError(err instanceof Error ? err.message : '刪除失敗');
     } finally {
       setDeleting(null);
     }
@@ -181,7 +181,7 @@ export default function ProjectDetailPage({
       setJobs(prev => prev.filter(j => !selectedJobs.has(j.id)));
       clearSelection();
     } catch (err) {
-      alert(err instanceof Error ? err.message : '移動失敗');
+      setActionError(err instanceof Error ? err.message : '移動失敗');
     } finally {
       setBatchMoving(false);
     }
@@ -207,7 +207,7 @@ export default function ProjectDetailPage({
       setJobs(prev => prev.filter(j => !selectedJobs.has(j.id)));
       clearSelection();
     } catch (err) {
-      alert(err instanceof Error ? err.message : '刪除失敗');
+      setActionError(err instanceof Error ? err.message : '刪除失敗');
     } finally {
       setBatchDeleting(false);
     }
@@ -253,6 +253,18 @@ export default function ProjectDetailPage({
           </Button>
         </div>
       </header>
+
+      {/* Action error banner */}
+      {actionError && (
+        <div className="container mx-auto px-4 pt-4">
+          <div className="max-w-6xl mx-auto flex items-center gap-2 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
+            <span className="flex-1">{actionError}</span>
+            <button onClick={() => setActionError(null)} className="p-1 hover:bg-destructive/10 rounded">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Main content */}
       <main className="container mx-auto px-4 py-8">

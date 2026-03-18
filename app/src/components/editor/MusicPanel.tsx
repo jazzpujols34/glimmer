@@ -17,6 +17,7 @@ export function MusicPanel() {
   const dispatch = useEditorDispatch();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [previewingId, setPreviewingId] = useState<string | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const previewAudioRef = useRef<HTMLAudioElement | null>(null);
 
   const selectedClip = state.musicClips.find(mc => mc.id === state.selectedMusicClipId);
@@ -43,9 +44,10 @@ export function MusicPanel() {
     const file = e.target.files?.[0];
     if (!file) return;
     if (!file.type.startsWith('audio/')) {
-      alert('請選擇音訊檔案 (MP3, WAV, etc.)');
+      setUploadError('請選擇音訊檔案 (MP3, WAV, etc.)');
       return;
     }
+    setUploadError(null);
 
     const blobUrl = URL.createObjectURL(file);
     const duration = await getAudioDuration(blobUrl);
@@ -230,6 +232,11 @@ export function MusicPanel() {
       )}
 
       {/* Upload */}
+      {uploadError && (
+        <div className="text-xs text-destructive bg-destructive/10 rounded-lg px-3 py-2">
+          {uploadError}
+        </div>
+      )}
       <div className="space-y-2">
         <Label className="text-xs font-medium">上傳音樂</Label>
         <button

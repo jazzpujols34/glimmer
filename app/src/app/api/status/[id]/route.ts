@@ -43,11 +43,14 @@ export async function GET(
 
       if (result.done) {
         if (result.error) {
-          await setJobError(id, result.error);
+          const errorStr = typeof result.error === 'object'
+            ? ((result.error as Record<string, string>).message || JSON.stringify(result.error))
+            : String(result.error);
+          await setJobError(id, errorStr);
           return NextResponse.json({
             id: job.id,
             status: 'error',
-            error: result.error,
+            error: errorStr,
           });
         }
         if (result.videoUrls && result.videoUrls.length > 0) {
@@ -127,6 +130,11 @@ export async function GET(
       }
     }
 
+    // Normalize error to string (providers may return objects like {code, message})
+    const normalizedError = job.error
+      ? (typeof job.error === 'object' ? ((job.error as Record<string, string>).message || JSON.stringify(job.error)) : String(job.error))
+      : undefined;
+
     // Return current state (complete, error, or queued)
     return NextResponse.json({
       id: job.id,
@@ -134,7 +142,7 @@ export async function GET(
       progress: job.progress,
       videoUrl: getVideoUrl(job.id, job.videoUrl, 0),
       videoUrls: getVideoUrls(job.id, job.videoUrls),
-      error: job.error,
+      error: normalizedError,
     });
   } catch (error) {
     captureError(error, { route: '/api/status' });

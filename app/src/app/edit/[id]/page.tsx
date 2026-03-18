@@ -239,13 +239,19 @@ function EditorLoader({ jobId }: { jobId: string }) {
     loadFresh();
   }
 
-  // Cleanup: revoke all blob URLs when component unmounts
+  // Cleanup: revoke all blob URLs on unmount and tab close
   useEffect(() => {
-    return () => {
+    const cleanup = () => {
       for (const url of blobUrlsRef.current) {
         URL.revokeObjectURL(url);
       }
       blobUrlsRef.current = [];
+    };
+
+    window.addEventListener('beforeunload', cleanup);
+    return () => {
+      window.removeEventListener('beforeunload', cleanup);
+      cleanup();
     };
   }, []);
 

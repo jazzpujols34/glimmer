@@ -21,6 +21,7 @@ export function SubtitlePanel() {
   const state = useEditor();
   const dispatch = useEditorDispatch();
   const [generating, setGenerating] = useState(false);
+  const [generateError, setGenerateError] = useState<string | null>(null);
 
   const handleAddManual = () => {
     const startTime = state.playheadPosition;
@@ -39,6 +40,7 @@ export function SubtitlePanel() {
   const handleAutoGenerate = async () => {
     if (state.clips.length === 0) return;
     setGenerating(true);
+    setGenerateError(null);
 
     try {
       // Extract audio from the first clip and send to transcription API
@@ -70,10 +72,10 @@ export function SubtitlePanel() {
       if (segments.length > 0) {
         dispatch({ type: 'SET_SUBTITLES', payload: segments });
       } else {
-        alert('未偵測到語音內容');
+        setGenerateError('未偵測到語音內容');
       }
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'AI 字幕生成失敗');
+      setGenerateError(err instanceof Error ? err.message : 'AI 字幕生成失敗');
     } finally {
       setGenerating(false);
     }
@@ -84,6 +86,13 @@ export function SubtitlePanel() {
   return (
     <div className="p-4 space-y-4 overflow-y-auto">
       <h3 className="font-semibold text-sm">字幕</h3>
+
+      {/* Error */}
+      {generateError && (
+        <div className="text-xs text-destructive bg-destructive/10 rounded-lg px-3 py-2">
+          {generateError}
+        </div>
+      )}
 
       {/* Actions */}
       <div className="flex gap-2">

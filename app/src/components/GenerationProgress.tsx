@@ -126,7 +126,11 @@ export function GenerationProgress({ jobId, onComplete, onError }: GenerationPro
           onComplete(data.videoUrl, videoUrls, data.analysis);
           return; // Stop polling
         } else if (data.status === 'error') {
-          onError(data.error || '發生錯誤');
+          // Normalize error — API may return string or object
+          const errMsg = typeof data.error === 'object'
+            ? (data.error?.message || JSON.stringify(data.error))
+            : (data.error || '發生錯誤');
+          onError(errMsg);
           return; // Stop polling
         }
 

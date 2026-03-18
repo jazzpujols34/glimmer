@@ -53,6 +53,7 @@ export default function GalleryPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [refreshResult, setRefreshResult] = useState<{ updated: number; checked: number } | null>(null);
   const [storyboards, setStoryboards] = useState<Storyboard[]>([]);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   // Stable clip labels: map URL → original letter label (set when modal opens)
   const clipLabelsRef = useRef<Map<string, string>>(new Map());
@@ -145,7 +146,7 @@ export default function GalleryPage() {
         setProjects(projectsData.projects || []);
       }
     } catch (err) {
-      alert(err instanceof Error ? err.message : '移動失敗');
+      setActionError(err instanceof Error ? err.message : '移動失敗');
     } finally {
       setBatchMoving(false);
     }
@@ -171,7 +172,7 @@ export default function GalleryPage() {
       setJobs(prev => prev.filter(j => !selectedJobs.has(j.id)));
       clearSelection();
     } catch (err) {
-      alert(err instanceof Error ? err.message : '刪除失敗');
+      setActionError(err instanceof Error ? err.message : '刪除失敗');
     } finally {
       setBatchDeleting(false);
     }
@@ -311,7 +312,7 @@ export default function GalleryPage() {
         setSelectedJob(null);
       }
     } catch (err) {
-      alert(err instanceof Error ? err.message : '刪除失敗');
+      setActionError(err instanceof Error ? err.message : '刪除失敗');
     } finally {
       setDeleting(null);
     }
@@ -350,7 +351,7 @@ export default function GalleryPage() {
         }
       }
     } catch (err) {
-      alert(err instanceof Error ? err.message : '刪除失敗');
+      setActionError(err instanceof Error ? err.message : '刪除失敗');
     } finally {
       setDeleting(null);
     }
@@ -383,7 +384,7 @@ export default function GalleryPage() {
         setSelectedVideoIndex(0);
       }
     } catch (err) {
-      alert(err instanceof Error ? err.message : '刪除失敗');
+      setActionError(err instanceof Error ? err.message : '刪除失敗');
     } finally {
       setDeleting(null);
     }
@@ -408,7 +409,7 @@ export default function GalleryPage() {
         setSelectedJob((prev) => prev ? { ...prev, favorite: data.favorite } : null);
       }
     } catch (err) {
-      alert(err instanceof Error ? err.message : '更新失敗');
+      setActionError(err instanceof Error ? err.message : '更新失敗');
     }
   };
 
@@ -432,7 +433,7 @@ export default function GalleryPage() {
       }
       setProjectDropdownOpen(false);
     } catch (err) {
-      alert(err instanceof Error ? err.message : '移動失敗');
+      setActionError(err instanceof Error ? err.message : '移動失敗');
     } finally {
       setMovingToProject(false);
     }
@@ -470,6 +471,18 @@ export default function GalleryPage() {
           </div>
         </div>
       </header>
+
+      {/* Action error banner */}
+      {actionError && (
+        <div className="container mx-auto px-4 pt-4">
+          <div className="max-w-6xl mx-auto flex items-center gap-2 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
+            <span className="flex-1">{actionError}</span>
+            <button onClick={() => setActionError(null)} className="p-1 hover:bg-destructive/10 rounded">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Main content */}
       <main className="container mx-auto px-4 py-12">

@@ -30,6 +30,7 @@ export function MusicModal({ storyboardId, musicTracks, totalDuration, onSave, o
   const [previewTrack, setPreviewTrack] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -84,12 +85,13 @@ export function MusicModal({ storyboardId, musicTracks, totalDuration, onSave, o
   };
 
   const handleFileUpload = async (file: File) => {
+    setUploadError(null);
     if (!file.type.startsWith('audio/')) {
-      alert('請選擇音訊檔案');
+      setUploadError('請選擇音訊檔案');
       return;
     }
     if (file.size > 20 * 1024 * 1024) {
-      alert('檔案大小不能超過 20MB');
+      setUploadError('檔案大小不能超過 20MB');
       return;
     }
 
@@ -120,7 +122,7 @@ export function MusicModal({ storyboardId, musicTracks, totalDuration, onSave, o
       setTracks(prev => [...prev, newTrack]);
       setShowPicker(false);
     } catch (err) {
-      alert(err instanceof Error ? err.message : '上傳失敗');
+      setUploadError(err instanceof Error ? err.message : '上傳失敗');
     } finally {
       setUploading(false);
     }
@@ -351,6 +353,12 @@ export function MusicModal({ storyboardId, musicTracks, totalDuration, onSave, o
                 )}
 
                 {pickerTab === 'upload' && (
+                  <div className="space-y-2">
+                  {uploadError && (
+                    <div className="text-sm text-destructive bg-destructive/10 rounded-lg px-3 py-2">
+                      {uploadError}
+                    </div>
+                  )}
                   <div
                     className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
                       dragOver ? 'border-primary bg-primary/10' : 'border-border'
@@ -384,6 +392,7 @@ export function MusicModal({ storyboardId, musicTracks, totalDuration, onSave, o
                         />
                       </>
                     )}
+                  </div>
                   </div>
                 )}
               </div>

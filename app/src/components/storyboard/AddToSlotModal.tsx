@@ -60,7 +60,7 @@ export function AddToSlotModal({
 
       const videoFiles = Array.from(files).filter((f) => f.type.startsWith('video/'));
       if (videoFiles.length === 0) {
-        alert('請選擇影片檔案');
+        setError('請選擇影片檔案');
         return;
       }
 

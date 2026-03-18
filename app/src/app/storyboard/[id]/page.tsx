@@ -118,12 +118,25 @@ function StoryboardEditorPageContent() {
   const [galleryJobs, setGalleryJobs] = useState<GenerationJob[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [saving, setSaving] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const saveStatusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showExportModal, setShowExportModal] = useState(false);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [showTitleCardModal, setShowTitleCardModal] = useState(false);
   const [showMusicModal, setShowMusicModal] = useState(false);
   const [showSubtitleModal, setShowSubtitleModal] = useState(false);
+
+  const markSaved = useCallback(() => {
+    if (saveStatusTimerRef.current) clearTimeout(saveStatusTimerRef.current);
+    setSaveStatus('saved');
+    saveStatusTimerRef.current = setTimeout(() => setSaveStatus('idle'), 2000);
+  }, []);
+
+  const markError = useCallback(() => {
+    if (saveStatusTimerRef.current) clearTimeout(saveStatusTimerRef.current);
+    setSaveStatus('error');
+    saveStatusTimerRef.current = setTimeout(() => setSaveStatus('idle'), 3000);
+  }, []);
 
   // Track in-flight updates to prevent race conditions
   const updatingSlots = useRef<Set<number>>(new Set());
@@ -132,19 +145,19 @@ function StoryboardEditorPageContent() {
 
   // Sync storyboard to server (for undo/redo)
   const syncToServer = useCallback(async (s: Storyboard) => {
-    setSaving(true);
+    setSaveStatus('saving');
     try {
       await fetch(`/api/storyboards/${storyboardId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'fullUpdate', storyboard: s }),
       });
+      markSaved();
     } catch (err) {
       logger.error('Error syncing to server:', err);
-    } finally {
-      setSaving(false);
+      markError();
     }
-  }, [storyboardId]);
+  }, [storyboardId, markSaved, markError]);
 
   // Use history hook for undo/redo
   const {
@@ -233,7 +246,7 @@ function StoryboardEditorPageContent() {
       setStoryboard(newStoryboard);
 
       updatingSlots.current.add(slotIndex);
-      setSaving(true);
+      setSaveStatus('saving');
       try {
         const res = await fetch(`/api/storyboards/${storyboardId}`, {
           method: 'PATCH',
@@ -252,8 +265,10 @@ function StoryboardEditorPageContent() {
         const data = await res.json();
         // Update directly without adding to history (server confirmed)
         setStoryboardDirect(data.storyboard);
+        markSaved();
       } catch (err) {
         logger.error('Error updating slot:', err);
+        markError();
         // Revert on error - refetch
         const res = await fetch(`/api/storyboards/${storyboardId}`);
         if (res.ok) {
@@ -262,7 +277,6 @@ function StoryboardEditorPageContent() {
         }
       } finally {
         updatingSlots.current.delete(slotIndex);
-        setSaving(false);
       }
     },
     [storyboard, storyboardId, setStoryboard, setStoryboardDirect]
@@ -286,7 +300,7 @@ function StoryboardEditorPageContent() {
       setStoryboard(newStoryboard);
 
       updatingTransitions.current.add(transitionIndex);
-      setSaving(true);
+      setSaveStatus('saving');
       try {
         const res = await fetch(`/api/storyboards/${storyboardId}`, {
           method: 'PATCH',
@@ -304,11 +318,12 @@ function StoryboardEditorPageContent() {
 
         const data = await res.json();
         setStoryboardDirect(data.storyboard);
+        markSaved();
       } catch (err) {
         logger.error('Error updating transition:', err);
+        markError();
       } finally {
         updatingTransitions.current.delete(transitionIndex);
-        setSaving(false);
       }
     },
     [storyboard, storyboardId, setStoryboard, setStoryboardDirect]
@@ -336,7 +351,7 @@ function StoryboardEditorPageContent() {
       setStoryboard(newStoryboard);
 
       isReordering.current = true;
-      setSaving(true);
+      setSaveStatus('saving');
       try {
         const res = await fetch(`/api/storyboards/${storyboardId}`, {
           method: 'PATCH',
@@ -354,8 +369,10 @@ function StoryboardEditorPageContent() {
 
         const data = await res.json();
         setStoryboardDirect(data.storyboard);
+        markSaved();
       } catch (err) {
         logger.error('Error reordering slots:', err);
+        markError();
         // Revert on error - refetch
         const res = await fetch(`/api/storyboards/${storyboardId}`);
         if (res.ok) {
@@ -364,7 +381,6 @@ function StoryboardEditorPageContent() {
         }
       } finally {
         isReordering.current = false;
-        setSaving(false);
       }
     },
     [storyboard, storyboardId, setStoryboard, setStoryboardDirect]
@@ -397,7 +413,7 @@ function StoryboardEditorPageContent() {
       };
       setStoryboard(newStoryboard);
 
-      setSaving(true);
+      setSaveStatus('saving');
       try {
         const res = await fetch(`/api/storyboards/${storyboardId}`, {
           method: 'PATCH',
@@ -408,10 +424,10 @@ function StoryboardEditorPageContent() {
           const data = await res.json();
           setStoryboardDirect(data.storyboard);
         }
+        markSaved();
       } catch (err) {
         logger.error('Error adding slot:', err);
-      } finally {
-        setSaving(false);
+        markError();
       }
     },
     [storyboard, storyboardId, setStoryboard, setStoryboardDirect]
@@ -444,7 +460,7 @@ function StoryboardEditorPageContent() {
       };
       setStoryboard(newStoryboard);
 
-      setSaving(true);
+      setSaveStatus('saving');
       try {
         const res = await fetch(`/api/storyboards/${storyboardId}`, {
           method: 'PATCH',
@@ -455,16 +471,16 @@ function StoryboardEditorPageContent() {
           const data = await res.json();
           setStoryboardDirect(data.storyboard);
         }
+        markSaved();
       } catch (err) {
         logger.error('Error removing slot:', err);
+        markError();
         // Revert on error
         const res = await fetch(`/api/storyboards/${storyboardId}`);
         if (res.ok) {
           const data = await res.json();
           setStoryboardDirect(data.storyboard);
         }
-      } finally {
-        setSaving(false);
       }
     },
     [storyboard, storyboardId, setStoryboard, setStoryboardDirect]
@@ -484,7 +500,8 @@ function StoryboardEditorPageContent() {
 
       router.push('/gallery');
     } catch (err) {
-      alert(err instanceof Error ? err.message : '刪除失敗');
+      setSaveStatus('error');
+      setError(err instanceof Error ? err.message : '刪除失敗');
     }
   };
 
@@ -502,7 +519,7 @@ function StoryboardEditorPageContent() {
     };
     setStoryboard(newStoryboard);
 
-    setSaving(true);
+    setSaveStatus('saving');
     try {
       // Update title card
       await fetch(`/api/storyboards/${storyboardId}`, {
@@ -522,10 +539,10 @@ function StoryboardEditorPageContent() {
         const data = await res.json();
         setStoryboardDirect(data.storyboard);
       }
+      markSaved();
     } catch (err) {
       logger.error('Error saving title cards:', err);
-    } finally {
-      setSaving(false);
+      markError();
     }
   };
 
@@ -539,7 +556,7 @@ function StoryboardEditorPageContent() {
     };
     setStoryboard(newStoryboard);
 
-    setSaving(true);
+    setSaveStatus('saving');
     try {
       const res = await fetch(`/api/storyboards/${storyboardId}`, {
         method: 'PATCH',
@@ -551,10 +568,10 @@ function StoryboardEditorPageContent() {
         const data = await res.json();
         setStoryboardDirect(data.storyboard);
       }
+      markSaved();
     } catch (err) {
       logger.error('Error saving music tracks:', err);
-    } finally {
-      setSaving(false);
+      markError();
     }
   };
 
@@ -567,7 +584,7 @@ function StoryboardEditorPageContent() {
     };
     setStoryboard(newStoryboard);
 
-    setSaving(true);
+    setSaveStatus('saving');
     try {
       const res = await fetch(`/api/storyboards/${storyboardId}`, {
         method: 'PATCH',
@@ -579,10 +596,10 @@ function StoryboardEditorPageContent() {
         const data = await res.json();
         setStoryboardDirect(data.storyboard);
       }
+      markSaved();
     } catch (err) {
       logger.error('Error saving subtitles:', err);
-    } finally {
-      setSaving(false);
+      markError();
     }
   };
 
@@ -663,13 +680,29 @@ function StoryboardEditorPageContent() {
           </div>
 
           <div className="flex items-center gap-2">
-            {saving && (
+            {saveStatus === 'saving' && (
               <span className="text-xs text-muted-foreground flex items-center gap-1">
                 <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                 </svg>
                 儲存中
+              </span>
+            )}
+            {saveStatus === 'saved' && (
+              <span className="text-xs text-green-600 dark:text-green-400 flex items-center gap-1">
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                已儲存
+              </span>
+            )}
+            {saveStatus === 'error' && (
+              <span className="text-xs text-destructive flex items-center gap-1">
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+                儲存失敗
               </span>
             )}
             {/* Undo/Redo Buttons */}

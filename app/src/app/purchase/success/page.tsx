@@ -21,7 +21,7 @@ export default function PurchaseSuccessPage() {
 
     // Retry a few times — webhook may take a moment to add credits
     let attempts = 0;
-    const maxAttempts = 5;
+    const maxAttempts = 15;
 
     const checkCredits = async () => {
       try {
@@ -29,7 +29,7 @@ export default function PurchaseSuccessPage() {
         if (res.ok) {
           const data = await res.json();
           setRemaining(data.remaining);
-          // If credits are 0, webhook may not have fired yet — retry
+          // If credits are 0, webhook may not have fired yet — retry (up to ~30s)
           if (data.remaining === 0 && attempts < maxAttempts) {
             attempts++;
             setTimeout(checkCredits, 2000);
@@ -79,7 +79,10 @@ export default function PurchaseSuccessPage() {
             </div>
 
             {loading ? (
-              <p className="text-sm text-muted-foreground">載入中...</p>
+              <div className="space-y-2">
+                <p className="text-sm text-muted-foreground">正在確認付款...</p>
+                <p className="text-xs text-muted-foreground">ECPay 確認可能需要數秒，請稍候</p>
+              </div>
             ) : remaining !== null ? (
               <div className="p-4 rounded-lg bg-primary/10">
                 <p className="flex items-center justify-center gap-2 text-lg font-medium">

@@ -10,7 +10,7 @@ import { isValidEmail } from '@/lib/validation';
 import { successResponse, errorResponse, errors } from '@/lib/api-response';
 import { logger } from '@/lib/logger';
 
-const VERIFY_TOKEN_TTL = 900; // 15 minutes
+const VERIFY_TOKEN_TTL = 86400; // 24 hours
 
 export async function POST(request: NextRequest) {
   try {

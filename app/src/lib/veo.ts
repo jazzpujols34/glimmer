@@ -159,7 +159,8 @@ async function checkBytePlusTasks(taskIds: string[]): Promise<TaskCheckResult> {
       if (url) videoUrls.push(url);
       else return { done: true, error: 'No video URL in BytePlus response' };
     } else if (status === 'failed' || status === 'error') {
-      const errorMsg = data.error || data.message || 'BytePlus generation failed';
+      const rawError = data.error || data.message || 'BytePlus generation failed';
+      const errorMsg = typeof rawError === 'object' ? (rawError.message || JSON.stringify(rawError)) : String(rawError);
       captureError(new Error(errorMsg), { provider: 'byteplus', taskId });
       return { done: true, error: errorMsg };
     } else {

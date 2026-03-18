@@ -37,6 +37,7 @@ export function AddClipsDialog({ open, onClose }: AddClipsDialogProps) {
   const [selectedVideos, setSelectedVideos] = useState<{ jobId: string; index: number; sourceUrl: string }[]>([]);
   const [localFiles, setLocalFiles] = useState<File[]>([]);
   const [adding, setAdding] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Fetch gallery on open
@@ -169,7 +170,7 @@ export function AddClipsDialog({ open, onClose }: AddClipsDialogProps) {
       dispatch({ type: 'ADD_CLIPS', payload: clips });
       onClose();
     } catch (err) {
-      alert(err instanceof Error ? err.message : '新增片段失敗');
+      setActionError(err instanceof Error ? err.message : '新增片段失敗');
     } finally {
       setAdding(false);
     }
@@ -364,7 +365,16 @@ export function AddClipsDialog({ open, onClose }: AddClipsDialogProps) {
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between p-4 border-t border-border">
+        <div className="p-4 border-t border-border space-y-2">
+          {actionError && (
+            <div className="flex items-center gap-2 text-sm text-destructive bg-destructive/10 rounded-lg px-3 py-2">
+              <span className="flex-1">{actionError}</span>
+              <button onClick={() => setActionError(null)} className="p-1 hover:bg-destructive/10 rounded">
+                <X className="w-3 h-3" />
+              </button>
+            </div>
+          )}
+          <div className="flex items-center justify-between">
           <span className="text-sm text-muted-foreground">
             已選擇 {totalToAdd} 個片段
             {selectedVideos.length > 0 && localFiles.length > 0 && (
@@ -388,6 +398,7 @@ export function AddClipsDialog({ open, onClose }: AddClipsDialogProps) {
                 </>
               )}
             </Button>
+          </div>
           </div>
         </div>
       </div>

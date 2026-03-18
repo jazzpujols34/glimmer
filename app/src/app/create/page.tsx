@@ -43,8 +43,19 @@ function CreatePageInner() {
     if (typeof window !== 'undefined') return localStorage.getItem('glimmer_email') || '';
     return '';
   });
-  const [name, setName] = useState('');
-  const [occasion, setOccasion] = useState<OccasionType>('memorial');
+  const [name, setName] = useState(() => {
+    if (typeof window !== 'undefined') return localStorage.getItem('glimmer_name') || '';
+    return '';
+  });
+  const [occasion, setOccasion] = useState<OccasionType>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('glimmer_occasion');
+      if (saved && ['memorial', 'birthday', 'wedding', 'pet', 'other'].includes(saved)) {
+        return saved as OccasionType;
+      }
+    }
+    return 'memorial';
+  });
   const [photos, setPhotos] = useState<File[]>([]);
   const [firstFrame, setFirstFrame] = useState<File | null>(null);
   const [lastFrame, setLastFrame] = useState<File | null>(null);
@@ -101,6 +112,25 @@ function CreatePageInner() {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [email]);
+
+  // Persist name/occasion to localStorage
+  useEffect(() => {
+    localStorage.setItem('glimmer_name', name);
+  }, [name]);
+  useEffect(() => {
+    localStorage.setItem('glimmer_occasion', occasion);
+  }, [occasion]);
+
+  // Warn on navigation when photos are uploaded
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (photos.length > 0 || firstFrame) {
+        e.preventDefault();
+      }
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [photos.length, firstFrame]);
 
   // Scroll to error when it appears
   useEffect(() => {
@@ -740,9 +770,12 @@ function CreatePageInner() {
 
 function PurchaseButton({ email, packId, label }: { email: string; packId: string; label: string }) {
   const [loading, setLoading] = useState(false);
+  const [purchaseError, setPurchaseError] = useState<string | null>(null);
 
   const handlePurchase = async () => {
+    if (loading) return;
     setLoading(true);
+    setPurchaseError(null);
     // Track purchase start
     const packAmount = packId === 'pack20' ? 299 : packId === 'pack50' ? 599 : 0;
     trackPurchaseStart(packId, packAmount);
@@ -778,24 +811,29 @@ function PurchaseButton({ email, packId, label }: { email: string; packId: strin
         document.body.appendChild(form);
         form.submit();
       } else if (data.error) {
-        alert(data.error);
+        setPurchaseError(data.error);
         setLoading(false);
       }
     } catch {
-      alert('付款系統發生錯誤，請稍後再試');
+      setPurchaseError('付款系統發生錯誤，請稍後再試');
       setLoading(false);
     }
   };
 
   return (
-    <Button
-      type="button"
-      variant="outline"
-      size="sm"
-      onClick={handlePurchase}
-      disabled={loading}
-    >
-      {loading ? '處理中...' : label}
-    </Button>
+    <div className="inline-flex flex-col">
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        onClick={handlePurchase}
+        disabled={loading}
+      >
+        {loading ? '處理中...' : label}
+      </Button>
+      {purchaseError && (
+        <span className="text-xs text-destructive mt-1">{purchaseError}</span>
+      )}
+    </div>
   );
 }
