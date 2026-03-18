@@ -64,59 +64,6 @@ export async function r2Delete(key: string): Promise<boolean> {
   return true;
 }
 
-// --- Photo storage (for provider fallback on content rejection) ---
-
-/**
- * Store uploaded photos in R2 so they can be re-used if the primary
- * provider rejects the output (e.g. BytePlus "sensitive content" false positive).
- * Returns R2 keys on success, empty array on failure.
- */
-export async function storePhotos(
-  jobId: string,
-  photos: Buffer[],
-): Promise<string[]> {
-  const r2 = await getR2();
-  if (!r2) return [];
-
-  const keys: string[] = [];
-  for (let i = 0; i < photos.length; i++) {
-    const key = `photos/${jobId}/${i}`;
-    try {
-      await r2.put(key, photos[i].buffer as ArrayBuffer, { httpMetadata: { contentType: 'image/jpeg' } });
-      keys.push(key);
-    } catch (err) {
-      logger.error(`[R2] Failed to store photo ${i} for job ${jobId}:`, err);
-      // Clean up already-stored photos
-      for (const k of keys) { try { await r2.delete(k); } catch {} }
-      return [];
-    }
-  }
-  return keys;
-}
-
-/**
- * Retrieve stored photos from R2 as Buffers.
- */
-export async function retrievePhotos(photoKeys: string[]): Promise<Buffer[]> {
-  const photos: Buffer[] = [];
-  for (const key of photoKeys) {
-    const obj = await r2Get(key);
-    if (!obj) return []; // Missing photo = can't retry
-    const arrayBuf = await new Response(obj.body).arrayBuffer();
-    photos.push(Buffer.from(arrayBuf));
-  }
-  return photos;
-}
-
-/**
- * Delete stored photos (cleanup after generation completes or expires).
- */
-export async function deletePhotos(photoKeys: string[]): Promise<void> {
-  for (const key of photoKeys) {
-    try { await r2Delete(key); } catch {}
-  }
-}
-
 // --- Video archival ---
 
 /**

@@ -2,35 +2,14 @@ export const runtime = 'edge';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getJob, updateJob, setJobComplete, setJobError } from '@/lib/storage';
-import { checkVideoTaskStatus, createVideoTask } from '@/lib/veo';
-import { archiveVideos, retrievePhotos, deletePhotos } from '@/lib/r2';
+import { checkVideoTaskStatus } from '@/lib/veo';
+import { archiveVideos } from '@/lib/r2';
 import { checkCredits } from '@/lib/credits';
 import { sendCompletionEmail } from '@/lib/email';
 import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
 import { captureError } from '@/lib/errors';
 import { logger } from '@/lib/logger';
 import { getVideoUrl, getVideoUrls } from '@/lib/video-url';
-import type { ModelType } from '@/types';
-
-// Errors that indicate provider content filtering (not actual NSFW content)
-const CONTENT_FILTER_ERRORS = [
-  'OutputVideoSensitiveContentDetected',
-  'SensitiveContentDetected',
-  'content_policy_violation',
-];
-
-// Provider fallback order (tried in sequence, skipping those without credentials)
-const FALLBACK_ORDER: ModelType[] = ['byteplus', 'kling-ai', 'veo-3.1'];
-
-function getNextProvider(current: ModelType): ModelType | undefined {
-  const idx = FALLBACK_ORDER.indexOf(current);
-  if (idx === -1) return undefined;
-  // Return the next provider in the list that isn't the current one
-  for (let i = idx + 1; i < FALLBACK_ORDER.length; i++) {
-    return FALLBACK_ORDER[i];
-  }
-  return undefined;
-}
 
 export async function GET(
   request: NextRequest,
@@ -68,51 +47,6 @@ export async function GET(
             ? ((result.error as Record<string, string>).message || JSON.stringify(result.error))
             : String(result.error);
 
-          // Check if this is a content filter rejection that we can retry with a different provider
-          const isContentFilter = CONTENT_FILTER_ERRORS.some(code => errorStr.includes(code));
-          const fallbackProvider = job.provider ? getNextProvider(job.provider) : undefined;
-
-          if (isContentFilter && fallbackProvider && !job.fallbackAttempted && job.photoKeys?.length) {
-            logger.debug('Fallback', `Provider ${job.provider} content-filtered job ${id}, trying fallback`);
-            try {
-              const photos = await retrievePhotos(job.photoKeys);
-              if (photos.length > 0) {
-                // Try providers in fallback order until one succeeds
-                const providersToTry = [fallbackProvider, getNextProvider(fallbackProvider)].filter(Boolean) as ModelType[];
-                for (const provider of providersToTry) {
-                  try {
-                    const taskData = await createVideoTask({
-                      photos,
-                      name: job.name || '',
-                      occasion: job.occasion || 'other',
-                      settings: { ...job.settings!, model: provider },
-                    });
-                    await updateJob(id, {
-                      status: 'processing',
-                      progress: 10,
-                      provider: taskData.provider,
-                      externalTaskIds: taskData.externalTaskIds,
-                      veoOperationName: taskData.veoOperationName,
-                      fallbackAttempted: true,
-                      error: undefined,
-                    });
-                    logger.debug('Fallback', `Job ${id} re-submitted to ${provider}`);
-                    return NextResponse.json({
-                      id: job.id,
-                      status: 'processing',
-                      progress: 10,
-                    });
-                  } catch (providerErr) {
-                    logger.error(`[Fallback] ${provider} failed for job ${id}:`, providerErr);
-                    // Continue to next provider
-                  }
-                }
-              }
-            } catch (fallbackErr) {
-              logger.error(`[Fallback] Photo retrieval failed for job ${id}:`, fallbackErr);
-            }
-          }
-
           await setJobError(id, errorStr);
           return NextResponse.json({
             id: job.id,
@@ -140,11 +74,6 @@ export async function GET(
             paidUser,
             archived: archive.archived,
           });
-
-          // Clean up stored photos (no longer needed after successful generation)
-          if (job.photoKeys?.length) {
-            deletePhotos(job.photoKeys).catch(() => {});
-          }
 
           // Send completion notification email (fire-and-forget)
           if (job.email) {
