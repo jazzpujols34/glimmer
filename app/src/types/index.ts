@@ -210,6 +210,8 @@ export interface StoryboardMusicTrack {
   timelinePosition: number;          // seconds — where on timeline this track starts
   trimStart: number;                 // seconds — trim in-point within audio
   trimEnd: number;                   // seconds — trim out-point within audio
+  fadeInDuration?: number;            // seconds, 0 = no fade in
+  fadeOutDuration?: number;           // seconds, 0 = no fade out
 }
 
 export type SubtitlePosition = 'top' | 'center' | 'bottom';

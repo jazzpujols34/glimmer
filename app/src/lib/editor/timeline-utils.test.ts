@@ -94,6 +94,7 @@ describe('getMusicClipDuration', () => {
     const mc: MusicClip = {
       id: 'mc_1', name: 'Song', type: 'bundled', src: 'track.mp3', blobUrl: '',
       originalDuration: 180, trimStart: 10, trimEnd: 70, timelinePosition: 0, volume: 1,
+      fadeInDuration: 0, fadeOutDuration: 0,
     };
     expect(getMusicClipDuration(mc)).toBe(60);
   });

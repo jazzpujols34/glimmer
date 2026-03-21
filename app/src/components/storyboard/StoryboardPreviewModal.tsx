@@ -40,7 +40,7 @@ export function StoryboardPreviewModal({ storyboard, onClose }: StoryboardPrevie
   const audioRef = useRef<HTMLAudioElement>(null); // legacy single ref, kept for first track
   const audioRefsMap = useRef<Map<string, HTMLAudioElement>>(new Map());
   const cardTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const transitionTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const transitionTimerRef = useRef<number | null>(null);
   const playStartTimeRef = useRef<number>(0);
   const elapsedBeforePlayRef = useRef<number>(0);
   const animationFrameRef = useRef<number | null>(null);
@@ -187,8 +187,8 @@ export function StoryboardPreviewModal({ storyboard, onClose }: StoryboardPrevie
       clearTimeout(cardTimerRef.current);
       cardTimerRef.current = null;
     }
-    if (transitionTimerRef.current) {
-      clearTimeout(transitionTimerRef.current);
+    if (transitionTimerRef.current != null) {
+      cancelAnimationFrame(transitionTimerRef.current);
       transitionTimerRef.current = null;
     }
   }, []);
@@ -247,7 +247,7 @@ export function StoryboardPreviewModal({ storyboard, onClose }: StoryboardPrevie
       setTransitionProgress(progress);
 
       if (progress < 1) {
-        transitionTimerRef.current = requestAnimationFrame(animate) as unknown as NodeJS.Timeout;
+        transitionTimerRef.current = requestAnimationFrame(animate);
       } else {
         // Transition complete
         setTransitioning(false);
@@ -266,7 +266,7 @@ export function StoryboardPreviewModal({ storyboard, onClose }: StoryboardPrevie
       }
     };
 
-    transitionTimerRef.current = requestAnimationFrame(animate) as unknown as NodeJS.Timeout;
+    transitionTimerRef.current = requestAnimationFrame(animate);
   }, [currentTransitionMs, nextItem, transitioning, totalItems, skipToNext]);
 
   // Play card with timer
