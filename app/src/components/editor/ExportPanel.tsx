@@ -4,7 +4,8 @@ import { useState, useEffect } from 'react';
 import { useEditor, useEditorDispatch } from './EditorContext';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { exportVideo } from '@/lib/editor/ffmpeg-export';
+// Lazy-load FFmpeg (~30MB wasm) only when user actually exports
+const importFFmpeg = () => import('@/lib/editor/ffmpeg-export').then(m => m.exportVideo);
 import { Download, Loader2, Film, CheckCircle, Server, Monitor, AlertTriangle } from 'lucide-react';
 import { trackVideoExport } from '@/lib/analytics';
 import { logger } from '@/lib/logger';
@@ -51,6 +52,7 @@ export function ExportPanel() {
     dispatch({ type: 'SET_EXPORT_PROGRESS', payload: 0 });
 
     try {
+      const exportVideo = await importFFmpeg();
       const blob = await exportVideo(state, (pct) => {
         setProgress(pct);
         dispatch({ type: 'SET_EXPORT_PROGRESS', payload: pct });

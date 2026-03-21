@@ -273,8 +273,8 @@ export function AddClipsDialog({ open, onClose }: AddClipsDialogProps) {
                                   src={url}
                                   className="w-full h-full object-cover"
                                   muted
-                                  preload="metadata"
-                                  onMouseEnter={e => e.currentTarget.play().catch(() => {})}
+                                  preload="none"
+                                  onMouseEnter={e => { e.currentTarget.preload = 'auto'; e.currentTarget.load(); e.currentTarget.play().catch(() => {}); }}
                                   onMouseLeave={e => { e.currentTarget.pause(); e.currentTarget.currentTime = 0; }}
                                 />
                                 {selected && (

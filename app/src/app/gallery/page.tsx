@@ -54,6 +54,7 @@ export default function GalleryPage() {
   const [refreshResult, setRefreshResult] = useState<{ updated: number; checked: number } | null>(null);
   const [storyboards, setStoryboards] = useState<Storyboard[]>([]);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [visibleCount, setVisibleCount] = useState(20);
 
   // Stable clip labels: map URL → original letter label (set when modal opens)
   const clipLabelsRef = useRef<Map<string, string>>(new Map());
@@ -784,9 +785,13 @@ export default function GalleryPage() {
               );
             }
 
+            const displayedJobs = filteredJobs.slice(0, visibleCount);
+            const hasMore = filteredJobs.length > visibleCount;
+
             return (
+              <>
               <div className="columns-2 md:columns-3 lg:columns-4 gap-4 space-y-4">
-                {filteredJobs.map((job) => {
+                {displayedJobs.map((job) => {
                 const isPortrait = job.settings?.aspectRatio === '9:16';
                 const expiration = getExpirationInfo(job.createdAt, job.videoUrl);
                 return (
@@ -905,6 +910,17 @@ export default function GalleryPage() {
                 );
               })}
               </div>
+              {hasMore && (
+                <div className="flex justify-center mt-8">
+                  <Button
+                    variant="outline"
+                    onClick={() => setVisibleCount(prev => prev + 20)}
+                  >
+                    顯示更多（還有 {filteredJobs.length - visibleCount} 個）
+                  </Button>
+                </div>
+              )}
+              </>
             );
           })()}
         </div>

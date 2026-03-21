@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, memo } from 'react';
 import type { StoryboardSlot, AspectRatio } from '@/types';
 import { CardPreview } from './CardEditor';
 
@@ -52,7 +52,7 @@ interface SlotCardProps {
   dragHandleProps?: React.HTMLAttributes<HTMLDivElement>;
 }
 
-export function SlotCard({
+export const SlotCard = memo(function SlotCard({
   slot,
   targetAspectRatio,
   onAddClick,
@@ -101,8 +101,15 @@ export function SlotCard({
 
       const cleanup = () => {
         video.src = '';
+        clearTimeout(timeout);
         thumbDone();
       };
+
+      // Timeout: skip thumbnail if video takes too long to load (e.g. slow CDN)
+      const timeout = setTimeout(() => {
+        cancelled = true;
+        cleanup();
+      }, 8000);
 
       video.onloadeddata = () => {
         if (cancelled) { cleanup(); return; }
@@ -335,4 +342,4 @@ export function SlotCard({
       </div>
     </div>
   );
-}
+});
