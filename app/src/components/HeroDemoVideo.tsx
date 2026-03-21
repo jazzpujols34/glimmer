@@ -1,44 +1,4 @@
-'use client';
-
-import { useState } from 'react';
-
-// TODO: Replace with actual demo video URL when available
-const DEMO_VIDEO_URL = '';
-
 export function HeroDemoVideo() {
-  const [isPlaying, setIsPlaying] = useState(false);
-
-  if (DEMO_VIDEO_URL) {
-    return (
-      <div className="relative rounded-2xl border border-border/50 bg-card/50 overflow-hidden shadow-xl">
-        <video
-          src={DEMO_VIDEO_URL}
-          className="w-full aspect-video object-cover"
-          controls={isPlaying}
-          muted
-          playsInline
-          autoPlay={isPlaying}
-          onClick={() => setIsPlaying(true)}
-          poster="/assets/demo-poster.jpg"
-        />
-        {!isPlaying && (
-          <button
-            onClick={() => setIsPlaying(true)}
-            className="absolute inset-0 flex items-center justify-center bg-black/20 hover:bg-black/30 transition-colors group"
-            aria-label="播放示範影片"
-          >
-            <div className="w-20 h-20 rounded-full bg-primary flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
-              <svg className="w-8 h-8 text-primary-foreground ml-1" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M8 5v14l11-7z" />
-              </svg>
-            </div>
-          </button>
-        )}
-      </div>
-    );
-  }
-
-  // Placeholder when no demo video is configured
   return (
     <div className="relative rounded-2xl border border-border/50 bg-card/50 overflow-hidden shadow-xl">
       {/* Browser chrome bar */}
