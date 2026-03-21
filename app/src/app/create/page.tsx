@@ -18,6 +18,7 @@ import type { OccasionType, GenerationSettings, CreditBalance, Project } from '@
 import { defaultSettings } from '@/types';
 import { FolderOpen, ChevronDown, Layers } from 'lucide-react';
 import { trackGenerationStart, trackPurchaseStart } from '@/lib/analytics';
+import { isValidEmail as checkEmail } from '@/lib/validation';
 
 const occasionKeys: { value: OccasionType; labelKey: TranslationKey; descKey: TranslationKey }[] = [
   { value: 'memorial', labelKey: 'occasion.memorial', descKey: 'occasion.memorialDesc' },
@@ -75,7 +76,7 @@ function CreatePageInner() {
   const searchParams = useSearchParams();
 
   const isFrameMode = settings.taskType === 'first-last-frame';
-  const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  const isValidEmail = checkEmail(email);
 
   // Batch mode requires at least 2 photos and not in frame mode
   const canEnableBatch = !isFrameMode && photos.length >= 2;

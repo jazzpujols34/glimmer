@@ -18,6 +18,7 @@ import {
 } from '@/lib/templates';
 import type { OccasionType, CreditBalance } from '@/types';
 import { Sparkles, Loader2, Check, ArrowLeft } from 'lucide-react';
+import { isValidEmail as checkEmail } from '@/lib/validation';
 
 const OCCASIONS: { value: OccasionType; label: string; labelEn: string }[] = [
   { value: 'memorial', label: '追思', labelEn: 'Memorial' },
@@ -58,7 +59,7 @@ function QuickPageInner() {
   const [creditBalance, setCreditBalance] = useState<CreditBalance | null>(null);
   const [creditLoading, setCreditLoading] = useState(false);
 
-  const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  const isValidEmail = checkEmail(email);
   const availableTemplates = getTemplatesByOccasion(occasion);
 
   // Auto-select first template when occasion changes

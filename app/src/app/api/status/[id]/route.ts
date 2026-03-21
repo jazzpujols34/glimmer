@@ -7,7 +7,8 @@ import { archiveVideos } from '@/lib/r2';
 import { checkCredits } from '@/lib/credits';
 import { sendCompletionEmail } from '@/lib/email';
 import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
-import { captureError } from '@/lib/errors';
+import { captureError, normalizeError } from '@/lib/errors';
+import { errors } from '@/lib/api-response';
 import { logger } from '@/lib/logger';
 import { getVideoUrl, getVideoUrls } from '@/lib/video-url';
 
@@ -21,10 +22,7 @@ export async function GET(
     const rateCheck = await checkRateLimit(`status:${ip}`, 60, 60);
     if (!rateCheck.allowed) {
       const retryAfter = Math.max(1, rateCheck.resetAt - Math.floor(Date.now() / 1000));
-      return NextResponse.json(
-        { error: 'Too many requests' },
-        { status: 429, headers: { 'Retry-After': String(retryAfter) } }
-      );
+      return errors.rateLimited(retryAfter);
     }
 
     const { id } = await params;
@@ -43,9 +41,7 @@ export async function GET(
 
       if (result.done) {
         if (result.error) {
-          const errorStr = typeof result.error === 'object'
-            ? ((result.error as Record<string, string>).message || JSON.stringify(result.error))
-            : String(result.error);
+          const errorStr = normalizeError(result.error);
 
           await setJobError(id, errorStr);
           return NextResponse.json({
@@ -131,11 +127,6 @@ export async function GET(
       }
     }
 
-    // Normalize error to string (providers may return objects like {code, message})
-    const normalizedError = job.error
-      ? (typeof job.error === 'object' ? ((job.error as Record<string, string>).message || JSON.stringify(job.error)) : String(job.error))
-      : undefined;
-
     // Return current state (complete, error, or queued)
     return NextResponse.json({
       id: job.id,
@@ -143,7 +134,7 @@ export async function GET(
       progress: job.progress,
       videoUrl: getVideoUrl(job.id, job.videoUrl, 0),
       videoUrls: getVideoUrls(job.id, job.videoUrls),
-      error: normalizedError,
+      error: job.error ? normalizeError(job.error) : undefined,
     });
   } catch (error) {
     captureError(error, { route: '/api/status' });

@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { Progress } from '@/components/ui/progress';
 import type { GenerationStatus } from '@/types';
+import { normalizeError } from '@/lib/errors';
 import { logger } from '@/lib/logger';
 
 interface GenerationProgressProps {
@@ -126,11 +127,7 @@ export function GenerationProgress({ jobId, onComplete, onError }: GenerationPro
           onComplete(data.videoUrl, videoUrls, data.analysis);
           return; // Stop polling
         } else if (data.status === 'error') {
-          // Normalize error — API may return string or object
-          const errMsg = typeof data.error === 'object'
-            ? (data.error?.message || JSON.stringify(data.error))
-            : (data.error || '發生錯誤');
-          onError(errMsg);
+          onError(normalizeError(data.error));
           return; // Stop polling
         }
 

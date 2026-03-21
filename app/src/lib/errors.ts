@@ -103,6 +103,22 @@ function parseStackFrames(stack: string): Array<{ filename: string; function: st
 }
 
 /**
+ * Normalize an error value to a string.
+ * Handles objects (e.g. provider errors like {code, message}), Error instances, and primitives.
+ */
+export function normalizeError(error: unknown, fallback = '處理遇到限制'): string {
+  if (!error) return fallback;
+  if (typeof error === 'string') return error;
+  if (error instanceof Error) return error.message;
+  if (typeof error === 'object') {
+    const obj = error as Record<string, unknown>;
+    if (typeof obj.message === 'string') return obj.message;
+    return JSON.stringify(error);
+  }
+  return String(error);
+}
+
+/**
  * Capture an error with structured context.
  * In production: sends to Sentry via HTTP API.
  * In development: logs to console with context.
