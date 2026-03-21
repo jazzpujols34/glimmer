@@ -34,6 +34,11 @@ export function StoryboardGrid({
   const [activeSlotIndex, setActiveSlotIndex] = useState<number | null>(null);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
 
+  // Ref to latest storyboard so useCallback deps don't include storyboard.slots
+  // (which is a new array ref every render, defeating SlotCard React.memo)
+  const storyboardRef = useRef(storyboard);
+  storyboardRef.current = storyboard;
+
   // Track blob URLs for cleanup to prevent memory leaks
   const blobUrlsRef = useRef<Map<number, string>>(new Map());
 
@@ -79,17 +84,18 @@ export function StoryboardGrid({
       if (activeSlotIndex === null) return;
 
       let currentSlotIndex = activeSlotIndex;
+      const { slots, slotCount } = storyboardRef.current;
 
       for (const file of files) {
         // Find next empty slot starting from activeSlotIndex
-        while (currentSlotIndex < storyboard.slotCount) {
-          if (storyboard.slots[currentSlotIndex].status === 'empty') {
+        while (currentSlotIndex < slotCount) {
+          if (slots[currentSlotIndex].status === 'empty') {
             break;
           }
           currentSlotIndex++;
         }
 
-        if (currentSlotIndex >= storyboard.slotCount) break;
+        if (currentSlotIndex >= slotCount) break;
 
         // Mark as uploading
         await onUpdateSlot(currentSlotIndex, {
@@ -135,7 +141,7 @@ export function StoryboardGrid({
         currentSlotIndex++;
       }
     },
-    [activeSlotIndex, storyboard.slots, storyboard.slotCount, onUpdateSlot]
+    [activeSlotIndex, onUpdateSlot]
   );
 
   const handleAddFromGallery = useCallback(
@@ -144,6 +150,7 @@ export function StoryboardGrid({
 
       let currentSlotIndex = activeSlotIndex;
       let addedCount = 0;
+      const { slots, slotCount } = storyboardRef.current;
 
       for (let i = 0; i < jobs.length; i++) {
         const job = jobs[i];
@@ -154,14 +161,14 @@ export function StoryboardGrid({
         if (!videoUrl) continue;
 
         // Find next empty slot
-        while (currentSlotIndex < storyboard.slotCount) {
-          if (storyboard.slots[currentSlotIndex].status === 'empty') {
+        while (currentSlotIndex < slotCount) {
+          if (slots[currentSlotIndex].status === 'empty') {
             break;
           }
           currentSlotIndex++;
         }
 
-        if (currentSlotIndex >= storyboard.slotCount) break;
+        if (currentSlotIndex >= slotCount) break;
 
         // This will throw if it fails, propagating error to caller
         const duration = await getVideoDuration(videoUrl);
@@ -188,7 +195,7 @@ export function StoryboardGrid({
         throw new Error('無法新增任何影片');
       }
     },
-    [activeSlotIndex, storyboard.slots, storyboard.slotCount, onUpdateSlot]
+    [activeSlotIndex, onUpdateSlot]
   );
 
   const handleAddTextCard = useCallback(
@@ -212,13 +219,13 @@ export function StoryboardGrid({
 
   const handleTrimSave = useCallback(
     async (slotIndex: number, trimStart: number, trimEnd: number) => {
-      const slot = storyboard.slots[slotIndex];
+      const slot = storyboardRef.current.slots[slotIndex];
       if (!slot?.clip) return;
       await onUpdateSlot(slotIndex, {
         clip: { ...slot.clip, trimStart, trimEnd },
       });
     },
-    [storyboard.slots, onUpdateSlot]
+    [onUpdateSlot]
   );
 
   // Drag and drop handlers
