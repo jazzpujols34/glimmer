@@ -1,9 +1,10 @@
 FROM python:3.11-slim
 
-# Install FFmpeg and CJK fonts for Chinese text rendering
+# Install FFmpeg, CJK fonts, and librsvg for SVG background rendering
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     fonts-noto-cjk \
+    librsvg2-bin \
     && rm -rf /var/lib/apt/lists/*
 
 # Set working directory

@@ -93,7 +93,8 @@ Avoid re-declaring these — always import from the canonical source:
 | `getVideoDuration`, `getAudioDuration` | `@/lib/media-utils` | Client-side HTML5 media duration |
 | `getVideoUrl`, `getVideoUrls` | `@/lib/video-url` | R2 key → proxy URL transform |
 | `isAdmin`, `ADMIN_EMAILS` | `@/lib/credits` | Admin check for gated routes |
-| `isValidEmail` | `@/lib/validation` | Email format validator |
+| `isValidEmail` | `@/lib/validation` | Email format validator (never inline regex) |
+| `normalizeError` | `@/lib/errors` | Error object/string normalization |
 | `getKV`, `KVNamespaceLike` | `@/lib/kv` | Low-level KV access |
 
 ## Assigned Ports
@@ -147,9 +148,13 @@ Pay-per-video credits (not subscriptions). Email-only identity (no passwords/OAu
 - In-memory state not shared across isolates — always use KV for persistence
 - Stripe/ECPay via raw `fetch()` — no SDK packages needed
 
+### Provider APIs
+- Provider errors may be objects (`{code, message}`), not strings. Always normalize with `normalizeError()` before storing or returning to client.
+- BytePlus content filter (`OutputVideoSensitiveContentDetected`) flags innocent photos (e.g. mother in tank top holding baby). This is a server-side false positive — cannot be fixed on our end.
+
 ### Video & Media
 - `<video src>` does NOT need CORS. Proxy only needed for `fetch()` / Canvas / Web Audio ops (editor)
-- `preload="metadata"` for gallery thumbnails (shows first frame). `preload="none"` = black rectangle.
+- `preload="metadata"` for gallery thumbnails (shows first frame). `preload="none"` for modal/dialog videos (load on hover).
 - AI-generated videos often have **no audio track** — FFmpeg commands must probe first (`ffprobe -select_streams a`) or use optional mapping (`-map 0:a:0?`)
 - CDN URLs expire in 24h. R2 proxy URLs (`/api/proxy-video`) never expire. Check `url.startsWith('/api/proxy-video')` before showing expiration warnings.
 
@@ -163,6 +168,12 @@ Pay-per-video credits (not subscriptions). Email-only identity (no passwords/OAu
 - Category-aware: `getSystemPrompt(occasion)` selects person vs pet base prompt. Keep occasion layer separate.
 
 ## Recent Learnings
+
+- **[2026-03-21] Provider Error Objects**: BytePlus (and potentially other providers) return errors as `{code, message}` objects, not strings. Always use `normalizeError()` from `@/lib/errors` — never assume `error` is a string. React crashes when rendering objects as text nodes.
+
+- **[2026-03-21] Error UX Principle**: Generation errors must blame the system, never the user's content. Use warm gold tones (not red), empathetic copy ("系統處理時遇到限制，並非照片本身的問題"), and hide technical details behind a collapsible toggle. BytePlus content filter aggressively flags innocent family photos — this is a known false-positive issue.
+
+- **[2026-03-21] Performance**: SlotCard wrapped with `React.memo`. FFmpeg wasm (~30MB) lazy-loaded via dynamic import only on export click. Gallery uses client-side pagination (20 per page + "顯示更多"). Thumbnail queue has 8s timeout to prevent stalls. AddClipsDialog videos use `preload="none"` (load on hover).
 
 - **[2026-03-10] Draggable Text Boxes**: Card editor now supports free-positioned text boxes via pointer events. `CardTextBox` type on `StoryboardTitleCard` (optional, backward compat). Positions stored as 0-100% of canvas. Font size uses `cqh` CSS unit. `CardPreview` renders textBoxes if present, falls back to template. `InteractiveCanvas` is the editable version.
 
@@ -180,7 +191,9 @@ Pay-per-video credits (not subscriptions). Email-only identity (no passwords/OAu
 
 - **[2026-02-28] Showcase Arsenal**: Three-tier system: gallery multi-select → showcase builder (`/showcase?clips=...`) → template quick-apply. Templates in `lib/templates.ts`.
 
-- **[2026-02-26] R2 Archival**: Videos auto-archived when generation completes. R2 proxy URLs never expire. CDN URLs expire in 24h. Archival falls back silently if R2 binding not configured.
+- **[2026-03-13] R2 Archival Retry**: Archival (CDN→R2) used to get one shot at completion time. If it failed silently, CDN URL was stored and expired in 24h — video lost forever. Now both `/api/status` and `/api/gallery` retry archival for any job with `archived=false` and CDN URLs present. Multiple retry windows across the 24h CDN lifetime.
+
+- **[2026-02-26] R2 Archival**: Videos auto-archived when generation completes. R2 proxy URLs never expire. CDN URLs expire in 24h.
 
 - **[2026-02-26] Feature Gating**: `/api/access` → `useAccess()` hook → `<AccessGate>` wrapper. Admin grants stored as purchases with `provider: 'admin'`.
 
