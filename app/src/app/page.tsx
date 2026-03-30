@@ -237,12 +237,8 @@ export default function LandingPage() {
                 That&apos;s why Glimmer was born.&rdquo;
               </p>
               <div className="flex items-center gap-3 mt-6 pl-8">
-                <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-sm font-bold text-primary">
-                  J
-                </div>
                 <div>
-                  <p className="text-sm font-medium">Jazz Lien</p>
-                  <p className="text-xs text-muted-foreground">拾光 Glimmer 創辦人 / Founder</p>
+                  <p className="text-xs text-muted-foreground">— 拾光 Glimmer 創辦人 / Founder</p>
                 </div>
               </div>
             </blockquote>
