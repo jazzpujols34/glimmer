@@ -7,7 +7,7 @@ import { Slider } from '@/components/ui/slider';
 import { Button } from '@/components/ui/button';
 import { generateId } from '@/lib/editor/timeline-utils';
 import type { MusicClip, BundledTrack } from '@/types/editor';
-import type { OccasionType } from '@/types/index';
+
 import { Upload, Play, Pause, Trash2, Music, ArrowLeft } from 'lucide-react';
 import { BUNDLED_TRACKS, OCCASION_LABELS_SHORT } from '@/lib/constants';
 import { getAudioDuration } from '@/lib/media-utils';

@@ -9,7 +9,6 @@ import {
   buildEditorTitleCard,
   buildEditorOutroCard,
   buildEditorTransitions,
-  buildSuggestedMusic,
 } from '@/lib/templates';
 import type { QuickTemplate } from '@/lib/templates';
 import type { OccasionType } from '@/types';

@@ -37,11 +37,9 @@ export function StoryboardPreviewModal({ storyboard, onClose }: StoryboardPrevie
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const nextVideoRef = useRef<HTMLVideoElement>(null);
-  const audioRef = useRef<HTMLAudioElement>(null); // legacy single ref, kept for first track
   const audioRefsMap = useRef<Map<string, HTMLAudioElement>>(new Map());
   const cardTimerRef = useRef<NodeJS.Timeout | null>(null);
   const transitionTimerRef = useRef<number | null>(null);
-  const playStartTimeRef = useRef<number>(0);
   const elapsedBeforePlayRef = useRef<number>(0);
   const animationFrameRef = useRef<number | null>(null);
   const userSeekingRef = useRef(false); // true during explicit seek/restart — allows backward music seek
@@ -373,6 +371,7 @@ export function StoryboardPreviewModal({ storyboard, onClose }: StoryboardPrevie
   // Handle index change — only start new item, don't reset elapsed time
   // (elapsed time flows continuously via the animation frame loop)
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Resetting error state when switching to a new item
     setVideoError(false);
 
     if (!currentItem || !playing) return;

@@ -144,7 +144,7 @@ export async function POST(request: NextRequest) {
 
         // Create job
         const jobId = `job_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-        const job = await createJob(jobId, {
+        const _job = await createJob(jobId, {
           name: `${name} - 片段 ${i + 1}`,
           occasion: occasion as OccasionType,
           settings,

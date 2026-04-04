@@ -43,7 +43,7 @@ export async function POST(
       .filter(slot => (slot.status === 'filled' && slot.clip) || (slot.status === 'text-card' && slot.textCard))
       .sort((a, b) => a.index - b.index);
 
-    const filledSlots = contentSlots.filter(slot => slot.status === 'filled' && slot.clip);
+    const _filledSlots = contentSlots.filter(slot => slot.status === 'filled' && slot.clip);
 
     if (contentSlots.length === 0) {
       return NextResponse.json(

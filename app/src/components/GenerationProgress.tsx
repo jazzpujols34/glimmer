@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Progress } from '@/components/ui/progress';
 import type { GenerationStatus } from '@/types';
 import { normalizeError } from '@/lib/errors';

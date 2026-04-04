@@ -11,7 +11,6 @@ import type {
   BatchStatus,
   GenerationSettings,
   QuickJob,
-  QuickJobStatus,
 } from '@/types';
 import { kvGet, kvPut, kvDelete, kvListKeys } from './kv';
 

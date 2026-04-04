@@ -76,6 +76,7 @@ export const SlotCard = memo(function SlotCard({
   // Generate thumbnail from video (staggered + cached)
   useEffect(() => {
     if (slot.status !== 'filled' || !slot.clip?.videoUrl) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Clearing thumbnail when slot becomes unfilled
       setThumbnailUrl(null);
       return;
     }
@@ -270,6 +271,7 @@ export const SlotCard = memo(function SlotCard({
         {slot.status === 'filled' && slot.clip && (
           <div className="relative w-full h-full">
             {thumbnailUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element -- Canvas-generated blob URL thumbnail, next/image incompatible
               <img
                 src={thumbnailUrl}
                 alt={`Slot ${slot.index + 1}`}

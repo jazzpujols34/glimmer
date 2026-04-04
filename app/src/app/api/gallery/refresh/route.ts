@@ -2,7 +2,7 @@ export const runtime = 'edge';
 
 import { NextResponse } from 'next/server';
 import { kvGet, kvListKeys } from '@/lib/kv';
-import { getJob, setJobComplete, setJobError, updateJob } from '@/lib/storage';
+import { setJobComplete, setJobError, updateJob } from '@/lib/storage';
 import { checkVideoTaskStatus } from '@/lib/veo';
 import { archiveVideos } from '@/lib/r2';
 import { checkCredits } from '@/lib/credits';

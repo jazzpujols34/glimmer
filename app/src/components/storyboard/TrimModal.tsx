@@ -65,6 +65,7 @@ export function TrimModal({ videoUrl, duration, trimStart: initialStart, trimEnd
     return () => {
       if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- currentTime is intentionally excluded; adding it would cause infinite re-renders since the animation frame loop updates it continuously
   }, [playing, trimStart, trimEnd]);
 
   // When trim start changes, seek video

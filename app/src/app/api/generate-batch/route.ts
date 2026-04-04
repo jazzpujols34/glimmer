@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
         logger.warn('Failed to parse settings, using defaults');
       }
     }
-    let settings = validateSettings(parsedSettings);
+    const settings = validateSettings(parsedSettings);
     // Force first-last-frame mode and single result for batch
     settings.taskType = 'first-last-frame';
     settings.numResults = 1;

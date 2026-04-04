@@ -37,16 +37,19 @@ export function StoryboardGrid({
   // Ref to latest storyboard so useCallback deps don't include storyboard.slots
   // (which is a new array ref every render, defeating SlotCard React.memo)
   const storyboardRef = useRef(storyboard);
-  storyboardRef.current = storyboard;
+  useEffect(() => {
+    storyboardRef.current = storyboard;
+  });
 
   // Track blob URLs for cleanup to prevent memory leaks
   const blobUrlsRef = useRef<Map<number, string>>(new Map());
 
   // Cleanup blob URLs on unmount
   useEffect(() => {
+    const urls = blobUrlsRef.current;
     return () => {
-      blobUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
-      blobUrlsRef.current.clear();
+      urls.forEach((url) => URL.revokeObjectURL(url));
+      urls.clear();
     };
   }, []);
 

@@ -48,7 +48,7 @@ export async function GET(
     }
 
     const segments: SegmentStatus[] = [];
-    let hasProcessing = false;
+    let _hasProcessing = false;
 
     // Check each segment job
     for (const jobId of batch.segmentJobIds) {
@@ -65,7 +65,7 @@ export async function GET(
 
       // If job is still processing, poll external API
       if (job.status === 'processing' && job.provider) {
-        hasProcessing = true;
+        _hasProcessing = true;
 
         try {
           const result = await checkVideoTaskStatus(job);

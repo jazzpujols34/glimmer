@@ -3,7 +3,7 @@ import type { Metadata } from 'next';
 export const runtime = 'edge';
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
-  const { id } = await params;
+  const { id: _id } = await params;
 
   return {
     title: '您的回憶影片已完成',

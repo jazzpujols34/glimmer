@@ -50,6 +50,7 @@ export default function ProjectDetailPage({
 
   useEffect(() => {
     loadProject();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- loadProject reads `id` but is intentionally not memoized; we only want to re-fetch when id changes
   }, [id]);
 
   // Load other projects for the move dropdown
@@ -119,7 +120,7 @@ export default function ProjectDetailPage({
     try {
       const res = await fetch(`/api/projects/${id}/cleanup`, { method: 'DELETE' });
       if (!res.ok) throw new Error('刪除失敗');
-      const data = await res.json();
+      await res.json();
       loadProject();
     } catch (err) {
       setActionError(err instanceof Error ? err.message : '刪除失敗');

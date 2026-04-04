@@ -388,6 +388,7 @@ export function CardEditor({ label, card, onChange, showToggle, enabled = true, 
   const cardTextRef = useRef(card.text);
   useEffect(() => {
     if (card.text !== cardTextRef.current && !card.textBoxes) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Syncing textBoxes when card prop changes externally (parent reset)
       setTextBoxes(initTextBoxes(card));
       cardTextRef.current = card.text;
     }
@@ -588,6 +589,7 @@ export function CardEditor({ label, card, onChange, showToggle, enabled = true, 
                         : 'border-transparent hover:border-muted-foreground/50'
                     }`}
                   >
+                    {/* eslint-disable-next-line @next/next/no-img-element -- Static background thumbnail in picker grid, next/image unnecessary */}
                     <img
                       src={`/backgrounds/${bg.filename}`}
                       alt={bg.label}

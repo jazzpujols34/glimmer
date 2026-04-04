@@ -13,12 +13,10 @@ import {
   buildEditorOutroCard,
   buildEditorTransitions,
 } from '@/lib/templates';
-import type { QuickTemplate } from '@/lib/templates';
 import type { OccasionType } from '@/types';
 import {
   ArrowLeft,
   GripVertical,
-  Play,
   Trash2,
   Wand2,
   Film,
@@ -42,7 +40,7 @@ import { OCCASION_LABELS_SHORT as OCCASION_LABELS } from '@/lib/constants';
 
 function ShowcaseContent() {
   const searchParams = useSearchParams();
-  const router = useRouter();
+  const _router = useRouter();
   const clipsParam = searchParams.get('clips');
 
   const [clips, setClips] = useState<ClipData[]>([]);

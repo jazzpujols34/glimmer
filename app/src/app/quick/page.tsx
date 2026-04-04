@@ -12,7 +12,6 @@ import { PhotoUploader } from '@/components/PhotoUploader';
 import { LanguageToggle } from '@/components/LanguageToggle';
 import { useTranslation } from '@/lib/i18n';
 import {
-  QUICK_TEMPLATES,
   getTemplatesByOccasion,
   type QuickTemplate,
 } from '@/lib/templates';
@@ -38,7 +37,7 @@ export default function QuickPage() {
 
 function QuickPageInner() {
   const router = useRouter();
-  const t = useTranslation();
+  const _t = useTranslation();
 
   // Form state
   const [email, setEmail] = useState(() => {
@@ -55,9 +54,9 @@ function QuickPageInner() {
   // UI state
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
-  const [verificationSent, setVerificationSent] = useState(false);
+  const [_verificationSent, setVerificationSent] = useState(false);
   const [creditBalance, setCreditBalance] = useState<CreditBalance | null>(null);
-  const [creditLoading, setCreditLoading] = useState(false);
+  const [_creditLoading, setCreditLoading] = useState(false);
 
   const isValidEmail = checkEmail(email);
   const availableTemplates = getTemplatesByOccasion(occasion);

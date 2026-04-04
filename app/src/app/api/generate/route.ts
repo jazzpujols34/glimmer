@@ -8,8 +8,8 @@ import { checkCredits, consumeCredit, isAdmin } from '@/lib/credits';
 import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
 import { captureError } from '@/lib/errors';
 import { logger } from '@/lib/logger';
-import { isValidEmail, isValidOccasion, validateSettings, validateName, validatePhoto, MAX_PHOTO_SIZE } from '@/lib/validation';
-import { errorResponse, successResponse, errors } from '@/lib/api-response';
+import { isValidEmail, isValidOccasion, validateSettings, validateName, validatePhoto } from '@/lib/validation';
+import { successResponse, errors } from '@/lib/api-response';
 import type { OccasionType } from '@/types';
 
 export async function POST(request: NextRequest) {
@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
         logger.warn('Failed to parse settings, using defaults');
       }
     }
-    let settings = validateSettings(parsedSettings);
+    const settings = validateSettings(parsedSettings);
 
     // Extract photos from FormData
     const photos: Buffer[] = [];

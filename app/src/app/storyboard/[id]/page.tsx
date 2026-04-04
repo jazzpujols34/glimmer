@@ -37,6 +37,7 @@ function useStoryboardHistory(
   // Update present when initial changes (e.g., after fetch)
   useEffect(() => {
     if (initial && !history.present) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Syncing initial prop into local state on first load only (not cascading)
       setHistory({ past: [], present: initial, future: [] });
     }
   }, [initial, history.present]);
@@ -279,7 +280,7 @@ function StoryboardEditorPageContent() {
         updatingSlots.current.delete(slotIndex);
       }
     },
-    [storyboard, storyboardId, setStoryboard, setStoryboardDirect]
+    [storyboard, storyboardId, setStoryboard, setStoryboardDirect, markSaved, markError]
   );
 
   const handleUpdateTransition = useCallback(
@@ -326,7 +327,7 @@ function StoryboardEditorPageContent() {
         updatingTransitions.current.delete(transitionIndex);
       }
     },
-    [storyboard, storyboardId, setStoryboard, setStoryboardDirect]
+    [storyboard, storyboardId, setStoryboard, setStoryboardDirect, markSaved, markError]
   );
 
   const handleReorderSlots = useCallback(
@@ -383,7 +384,7 @@ function StoryboardEditorPageContent() {
         isReordering.current = false;
       }
     },
-    [storyboard, storyboardId, setStoryboard, setStoryboardDirect]
+    [storyboard, storyboardId, setStoryboard, setStoryboardDirect, markSaved, markError]
   );
 
   const handleAddSlot = useCallback(
@@ -430,7 +431,7 @@ function StoryboardEditorPageContent() {
         markError();
       }
     },
-    [storyboard, storyboardId, setStoryboard, setStoryboardDirect]
+    [storyboard, storyboardId, setStoryboard, setStoryboardDirect, markSaved, markError]
   );
 
   const handleRemoveSlot = useCallback(
@@ -483,7 +484,7 @@ function StoryboardEditorPageContent() {
         }
       }
     },
-    [storyboard, storyboardId, setStoryboard, setStoryboardDirect]
+    [storyboard, storyboardId, setStoryboard, setStoryboardDirect, markSaved, markError]
   );
 
   const handleDelete = async () => {

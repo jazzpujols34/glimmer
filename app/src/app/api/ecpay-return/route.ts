@@ -6,7 +6,7 @@ import { NextRequest, NextResponse } from 'next/server';
  * ECPay redirects users here via POST after payment.
  * We redirect to the success page (GET) to show the UI.
  */
-export async function POST(request: NextRequest) {
+export async function POST(_request: NextRequest) {
   // ECPay sends payment result in form data, but we don't need to process it here
   // (the webhook /api/webhooks/ecpay handles the actual credit addition)
 

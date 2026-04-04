@@ -17,13 +17,13 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   const [locale, setLocaleState] = useState<Locale>('zh-TW');
   const [mounted, setMounted] = useState(false);
 
-  // Load saved locale on mount
+  // Load saved locale on mount — hydrating from localStorage/browser, runs once
+  /* eslint-disable react-hooks/set-state-in-effect -- Hydrating locale + mounted flag from external source (localStorage/browser lang) on mount */
   useEffect(() => {
     const saved = localStorage.getItem(STORAGE_KEY) as Locale | null;
     if (saved && (saved === 'zh-TW' || saved === 'en')) {
       setLocaleState(saved);
     } else {
-      // Detect browser language
       const browserLang = navigator.language;
       if (browserLang.startsWith('en')) {
         setLocaleState('en');
@@ -31,6 +31,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     }
     setMounted(true);
   }, []);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const setLocale = useCallback((newLocale: Locale) => {
     setLocaleState(newLocale);

@@ -72,6 +72,7 @@ export function useAccess(): AccessState {
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- checkAccess is a stable callback that fetches external data and sets state from the response
     checkAccess();
   }, [checkAccess]);
 

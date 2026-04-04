@@ -7,7 +7,7 @@
 
 import type { OccasionType } from '@/types';
 import type { StoryboardTransitionType, StoryboardMusic, StoryboardTitleCard } from '@/types';
-import type { TitleCard, Transition, TransitionType, MusicClip } from '@/types/editor';
+import type { TitleCard, Transition, TransitionType } from '@/types/editor';
 
 export interface QuickTemplate {
   id: string;
