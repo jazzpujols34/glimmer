@@ -53,14 +53,9 @@ export function MobileNav() {
             ))}
             <div className="pt-2 mt-2 border-t border-border space-y-2">
               <Button className="w-full" asChild>
-                <Link href="/quick" onClick={() => setIsOpen(false)}>
-                  <Sparkles className="w-4 h-4 mr-2" />
-                  快速生成
-                </Link>
-              </Button>
-              <Button variant="outline" className="w-full" asChild>
                 <Link href="/create" onClick={() => setIsOpen(false)}>
-                  進階製作
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  免費開始製作
                 </Link>
               </Button>
             </div>

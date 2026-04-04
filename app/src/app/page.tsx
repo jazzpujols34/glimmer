@@ -7,19 +7,6 @@ import { MobileNav } from '@/components/MobileNav';
 import { HeroDemoVideo } from '@/components/HeroDemoVideo';
 import { LanguageToggle } from '@/components/LanguageToggle';
 
-// Inline SVG to avoid lucide-react in server component
-function SparklesIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/>
-      <path d="M20 3v4"/>
-      <path d="M22 5h-4"/>
-      <path d="M4 17v2"/>
-      <path d="M5 18H3"/>
-    </svg>
-  );
-}
-
 export const metadata: Metadata = {
   title: '拾光 Glimmer — AI 回憶影片服務 | AI Memorial Video Service',
   description:
@@ -41,11 +28,6 @@ export default function LandingPage() {
       { '@type': 'Offer', price: '499', priceCurrency: 'TWD', name: '單支影片' },
       { '@type': 'Offer', price: '1999', priceCurrency: 'TWD', name: '5 支影片方案' },
     ],
-    aggregateRating: {
-      '@type': 'AggregateRating',
-      ratingValue: '4.8',
-      ratingCount: '50',
-    },
   };
 
   return (
@@ -77,15 +59,11 @@ export default function LandingPage() {
             <a href="#faq" className="text-muted-foreground hover:text-foreground transition-colors">
               常見問題
             </a>
-            <Link href="/quick" className="text-primary font-medium hover:text-primary/80 transition-colors flex items-center gap-1">
-              <SparklesIcon className="w-4 h-4" />
-              快速生成
-            </Link>
           </nav>
           <div className="flex items-center gap-2">
             <LanguageToggle />
             <Button size="sm" asChild className="hidden sm:inline-flex">
-              <Link href="/quick">快速生成</Link>
+              <Link href="/create">免費開始製作</Link>
             </Button>
             <MobileNav />
           </div>
@@ -182,11 +160,20 @@ export default function LandingPage() {
             />
             <ShowcaseCard
               icon={<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4.26 10.147a60.436 60.436 0 00-.491 6.347A48.627 48.627 0 0112 20.904a48.627 48.627 0 018.232-4.41 60.46 60.46 0 00-.491-6.347m-15.482 0a50.57 50.57 0 00-2.658-.813A59.905 59.905 0 0112 3.493a59.902 59.902 0 0110.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.697 50.697 0 0112 13.489a50.702 50.702 0 017.74-3.342" />}
-              title="其他場合"
-              subtitle="Graduation, Retirement & More"
-              description="畢業典禮、退休歡送、聚會回顧 — 任何值得紀念的時刻都能製作專屬影片。"
-              descEn="Graduations, retirements, reunions — any moment worth remembering."
+              title="畢業典禮"
+              subtitle="Graduation Ceremony"
+              description="從入學到畢業的成長足跡，製作一支專屬畢業回顧影片，在典禮上驚喜播放。"
+              descEn="Create a growth retrospective from freshman year to graduation day."
               stat="多種 AI 模型可選"
+              videoUrl="/showcase-video-graduation.mp4"
+            />
+            <ShowcaseCard
+              icon={<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />}
+              title="退休歡送"
+              subtitle="Retirement & Reunions"
+              description="退休歡送、同學會、家族聚會 — 任何值得紀念的時刻都能製作專屬影片。"
+              descEn="Retirements, reunions, family gatherings — any moment worth remembering."
+              stat="支援多張照片"
               videoUrl="/showcase-video-other.mp4"
             />
           </div>
@@ -238,7 +225,7 @@ export default function LandingPage() {
               </p>
               <div className="flex items-center gap-3 mt-6 pl-8">
                 <div>
-                  <p className="text-xs text-muted-foreground">— 拾光 Glimmer 創辦人 / Founder</p>
+                  <p className="text-xs text-muted-foreground">— Jazz Lien, 拾光 Glimmer 創辦人 / Founder</p>
                 </div>
               </div>
             </blockquote>
@@ -259,7 +246,7 @@ export default function LandingPage() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
                   </svg>
                 </div>
-                <p className="text-xs text-muted-foreground">寵物紀念影片使用者</p>
+                <p className="text-xs text-muted-foreground">Ming C., 寵物紀念</p>
               </div>
             </blockquote>
 
@@ -276,7 +263,7 @@ export default function LandingPage() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
                   </svg>
                 </div>
-                <p className="text-xs text-muted-foreground">追思影片使用者</p>
+                <p className="text-xs text-muted-foreground">Wei L., 追思紀念</p>
               </div>
             </blockquote>
           </div>
@@ -461,7 +448,8 @@ export default function LandingPage() {
             </p>
           </div>
 
-          <div className="max-w-4xl mx-auto overflow-x-auto">
+          {/* Desktop table */}
+          <div className="max-w-4xl mx-auto hidden sm:block">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border">
@@ -493,6 +481,50 @@ export default function LandingPage() {
                 <ComparisonRow label="配樂 + 字幕" labelEn="Music + subtitles" traditional="額外收費" diy="需手動操作" glimmer="✓ 內建" isCheck />
               </tbody>
             </table>
+          </div>
+
+          {/* Mobile stacked cards */}
+          <div className="sm:hidden space-y-4 max-w-md mx-auto">
+            <MobileComparisonCard
+              title="傳統影片製作"
+              titleEn="Traditional Production"
+              items={[
+                { label: '所需時間', value: '數天 ~ 數週' },
+                { label: '費用', value: 'NT$15,000+' },
+                { label: '技術門檻', value: '專業剪輯師' },
+                { label: 'AI 照片動畫', value: '—' },
+                { label: '場合感知 AI', value: '手動調整' },
+                { label: '瀏覽器編輯', value: '—' },
+                { label: '配樂 + 字幕', value: '額外收費' },
+              ]}
+            />
+            <MobileComparisonCard
+              title="DIY 剪輯軟體"
+              titleEn="DIY Editing Software"
+              items={[
+                { label: '所需時間', value: '數小時' },
+                { label: '費用', value: '免費 ~ $30/月' },
+                { label: '技術門檻', value: '中等學習曲線' },
+                { label: 'AI 照片動畫', value: '—' },
+                { label: '場合感知 AI', value: '手動調整' },
+                { label: '瀏覽器編輯', value: '需安裝軟體' },
+                { label: '配樂 + 字幕', value: '需手動操作' },
+              ]}
+            />
+            <MobileComparisonCard
+              title="拾光 Glimmer"
+              titleEn="AI-Powered"
+              isHighlighted
+              items={[
+                { label: '所需時間', value: '5 分鐘', isAdvantage: true },
+                { label: '費用', value: '免費 1 支 / NT$400 起', isAdvantage: true },
+                { label: '技術門檻', value: '零門檻', isAdvantage: true },
+                { label: 'AI 照片動畫', value: '✓', isAdvantage: true },
+                { label: '場合感知 AI', value: '✓ 自動適配', isAdvantage: true },
+                { label: '瀏覽器編輯', value: '✓', isAdvantage: true },
+                { label: '配樂 + 字幕', value: '✓ 內建', isAdvantage: true },
+              ]}
+            />
           </div>
 
           <div className="text-center mt-12">
@@ -1012,6 +1044,35 @@ function ComparisonRow({
         {glimmer}
       </td>
     </tr>
+  );
+}
+
+function MobileComparisonCard({
+  title,
+  titleEn,
+  isHighlighted,
+  items,
+}: {
+  title: string;
+  titleEn: string;
+  isHighlighted?: boolean;
+  items: { label: string; value: string; isAdvantage?: boolean }[];
+}) {
+  return (
+    <div className={`rounded-xl border p-5 space-y-3 ${isHighlighted ? 'border-primary bg-primary/5 ring-1 ring-primary/20' : 'border-border/50'}`}>
+      <div className="text-center">
+        <h4 className={`font-semibold ${isHighlighted ? 'text-primary' : ''}`}>{title}</h4>
+        <p className={`text-xs ${isHighlighted ? 'text-primary/80' : 'text-muted-foreground'}`}>{titleEn}</p>
+      </div>
+      <div className="space-y-2">
+        {items.map((item) => (
+          <div key={item.label} className="flex items-center justify-between text-sm">
+            <span className="text-muted-foreground">{item.label}</span>
+            <span className={`font-medium ${item.isAdvantage ? 'text-primary' : ''}`}>{item.value}</span>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 
