@@ -1,11 +1,45 @@
 import type { Metadata } from 'next';
+import dynamic from 'next/dynamic';
 import Link from 'next/link';
+import { Suspense } from 'react';
 import { Button } from '@/components/ui/button';
 import { Logo } from '@/components/Logo';
 import { Card, CardContent } from '@/components/ui/card';
 import { MobileNav } from '@/components/MobileNav';
 import { HeroDemoVideo } from '@/components/HeroDemoVideo';
 import { LanguageToggle } from '@/components/LanguageToggle';
+
+// Interactive showcase cards (client component)
+const ShowcaseCardInteractive = dynamic(
+  () => import('@/components/ShowcaseCardInteractive').then((m) => m.ShowcaseCardInteractive),
+  { ssr: true }
+);
+
+// Contact form (client component, below fold)
+const ContactForm = dynamic(
+  () => import('@/components/ContactForm').then((m) => m.ContactForm),
+  { ssr: false, loading: () => <div className="max-w-lg mx-auto h-80 rounded-2xl border border-border/50 bg-card/80 animate-pulse" /> }
+);
+
+// Lazy-loaded below-fold sections for faster initial paint
+const ComparisonSection = dynamic(
+  () => import('@/components/landing/ComparisonSection').then((m) => m.ComparisonSection),
+  { ssr: true, loading: () => <SectionSkeleton /> }
+);
+
+const FaqSection = dynamic(
+  () => import('@/components/landing/FaqSection').then((m) => m.FaqSection),
+  { ssr: false, loading: () => <SectionSkeleton /> }
+);
+
+// Skeleton placeholder for lazy-loaded sections
+function SectionSkeleton() {
+  return <div className="container mx-auto px-4 py-20 animate-pulse space-y-8">
+    <div className="h-8 bg-muted/40 rounded w-48 mx-auto" />
+    <div className="h-4 bg-muted/30 rounded w-64 mx-auto" />
+    <div className="h-40 bg-muted/20 rounded max-w-4xl mx-auto" />
+  </div>;
+}
 
 export const metadata: Metadata = {
   title: '拾光 Glimmer — AI 回憶影片服務 | AI Memorial Video Service',
@@ -122,7 +156,7 @@ export default function LandingPage() {
           </div>
 
           <div className="grid md:grid-cols-2 gap-8 max-w-5xl mx-auto">
-            <ShowcaseCard
+            <ShowcaseCardInteractive
               icon={<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />}
               title="追思紀念"
               subtitle="Memorial & Remembrance"
@@ -131,7 +165,7 @@ export default function LandingPage() {
               stat="已服務 50+ 家庭"
               videoUrl="/showcase-video-1.mp4"
             />
-            <ShowcaseCard
+            <ShowcaseCardInteractive
               icon={<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5.5A2.5 2.5 0 109.5 8H12zm-7 4h14M5 12a2 2 0 110-4h14a2 2 0 110 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7" />}
               title="壽宴慶生"
               subtitle="Birthday Celebration"
@@ -140,7 +174,7 @@ export default function LandingPage() {
               stat="平均製作 3 分鐘"
               videoUrl="/showcase-video-birthday.mp4"
             />
-            <ShowcaseCard
+            <ShowcaseCardInteractive
               icon={<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />}
               title="婚禮紀念"
               subtitle="Wedding Anniversary"
@@ -149,7 +183,7 @@ export default function LandingPage() {
               stat="支援 1080p 高清"
               videoUrl="/showcase-video-wedding.mp4"
             />
-            <ShowcaseCard
+            <ShowcaseCardInteractive
               icon={<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M6.633 10.5c.806 0 1.533-.446 2.031-1.08a9.041 9.041 0 012.861-2.4c.723-.384 1.35-.956 1.653-1.715a4.498 4.498 0 00.322-1.672V3.25a.75.75 0 01.75-.75 2.25 2.25 0 012.25 2.25c0 1.152-.26 2.243-.723 3.218-.266.558.107 1.282.725 1.282h3.126c1.026 0 1.945.694 2.054 1.715.045.422.068.85.068 1.285a11.95 11.95 0 01-2.649 7.521c-.388.482-.987.729-1.605.729H13.48c-.483 0-.964-.078-1.423-.23l-3.114-1.04a4.501 4.501 0 00-1.423-.23H3.75" />}
               title="寵物紀念"
               subtitle="Pet Memorial"
@@ -158,7 +192,7 @@ export default function LandingPage() {
               stat="貓狗及各類寵物"
               videoUrl="/showcase-video-pets.mp4"
             />
-            <ShowcaseCard
+            <ShowcaseCardInteractive
               icon={<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4.26 10.147a60.436 60.436 0 00-.491 6.347A48.627 48.627 0 0112 20.904a48.627 48.627 0 018.232-4.41 60.46 60.46 0 00-.491-6.347m-15.482 0a50.57 50.57 0 00-2.658-.813A59.905 59.905 0 0112 3.493a59.902 59.902 0 0110.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.697 50.697 0 0112 13.489a50.702 50.702 0 017.74-3.342" />}
               title="畢業典禮"
               subtitle="Graduation Ceremony"
@@ -167,7 +201,7 @@ export default function LandingPage() {
               stat="多種 AI 模型可選"
               videoUrl="/showcase-video-graduation.mp4"
             />
-            <ShowcaseCard
+            <ShowcaseCardInteractive
               icon={<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />}
               title="退休歡送"
               subtitle="Retirement & Reunions"
@@ -436,104 +470,10 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Why Us — Comparison Section */}
-      <section id="why-us" className="border-t border-border bg-card/50 scroll-mt-20">
-        <div className="container mx-auto px-4 py-20 md:py-28">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">
-              與傳統方案比較
-            </h2>
-            <p className="text-muted-foreground text-lg">
-              See how Glimmer compares
-            </p>
-          </div>
-
-          {/* Desktop table */}
-          <div className="max-w-4xl mx-auto hidden sm:block">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border">
-                  <th className="text-left p-4 font-medium text-muted-foreground" />
-                  <th className="p-4 font-medium text-muted-foreground text-center">
-                    傳統影片製作
-                    <br />
-                    <span className="text-xs font-normal">Traditional Production</span>
-                  </th>
-                  <th className="p-4 font-medium text-muted-foreground text-center">
-                    DIY 剪輯軟體
-                    <br />
-                    <span className="text-xs font-normal">DIY Editing Software</span>
-                  </th>
-                  <th className="p-4 font-semibold text-primary text-center border-x border-primary/20 bg-primary/5 rounded-t-lg">
-                    拾光 Glimmer
-                    <br />
-                    <span className="text-xs font-normal text-primary/80">AI-Powered</span>
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                <ComparisonRow label="所需時間" labelEn="Time needed" traditional="數天 ~ 數週" diy="數小時" glimmer="5 分鐘" />
-                <ComparisonRow label="費用" labelEn="Cost" traditional="NT$15,000+" diy="免費 ~ $30/月" glimmer="免費 1 支 / NT$400 起" />
-                <ComparisonRow label="技術門檻" labelEn="Skill required" traditional="專業剪輯師" diy="中等學習曲線" glimmer="零門檻" />
-                <ComparisonRow label="AI 照片動畫" labelEn="AI photo animation" traditional="—" diy="—" glimmer="✓" isCheck />
-                <ComparisonRow label="場合感知 AI" labelEn="Occasion-aware AI" traditional="手動調整" diy="手動調整" glimmer="✓ 自動適配" isCheck />
-                <ComparisonRow label="瀏覽器編輯" labelEn="Browser-based editor" traditional="—" diy="需安裝軟體" glimmer="✓" isCheck />
-                <ComparisonRow label="配樂 + 字幕" labelEn="Music + subtitles" traditional="額外收費" diy="需手動操作" glimmer="✓ 內建" isCheck />
-              </tbody>
-            </table>
-          </div>
-
-          {/* Mobile stacked cards */}
-          <div className="sm:hidden space-y-4 max-w-md mx-auto">
-            <MobileComparisonCard
-              title="傳統影片製作"
-              titleEn="Traditional Production"
-              items={[
-                { label: '所需時間', value: '數天 ~ 數週' },
-                { label: '費用', value: 'NT$15,000+' },
-                { label: '技術門檻', value: '專業剪輯師' },
-                { label: 'AI 照片動畫', value: '—' },
-                { label: '場合感知 AI', value: '手動調整' },
-                { label: '瀏覽器編輯', value: '—' },
-                { label: '配樂 + 字幕', value: '額外收費' },
-              ]}
-            />
-            <MobileComparisonCard
-              title="DIY 剪輯軟體"
-              titleEn="DIY Editing Software"
-              items={[
-                { label: '所需時間', value: '數小時' },
-                { label: '費用', value: '免費 ~ $30/月' },
-                { label: '技術門檻', value: '中等學習曲線' },
-                { label: 'AI 照片動畫', value: '—' },
-                { label: '場合感知 AI', value: '手動調整' },
-                { label: '瀏覽器編輯', value: '需安裝軟體' },
-                { label: '配樂 + 字幕', value: '需手動操作' },
-              ]}
-            />
-            <MobileComparisonCard
-              title="拾光 Glimmer"
-              titleEn="AI-Powered"
-              isHighlighted
-              items={[
-                { label: '所需時間', value: '5 分鐘', isAdvantage: true },
-                { label: '費用', value: '免費 1 支 / NT$400 起', isAdvantage: true },
-                { label: '技術門檻', value: '零門檻', isAdvantage: true },
-                { label: 'AI 照片動畫', value: '✓', isAdvantage: true },
-                { label: '場合感知 AI', value: '✓ 自動適配', isAdvantage: true },
-                { label: '瀏覽器編輯', value: '✓', isAdvantage: true },
-                { label: '配樂 + 字幕', value: '✓ 內建', isAdvantage: true },
-              ]}
-            />
-          </div>
-
-          <div className="text-center mt-12">
-            <Button size="lg" asChild>
-              <Link href="/create">免費體驗 Try Free</Link>
-            </Button>
-          </div>
-        </div>
-      </section>
+      {/* Why Us — Comparison Section (lazy-loaded) */}
+      <Suspense fallback={<SectionSkeleton />}>
+        <ComparisonSection />
+      </Suspense>
 
       {/* Pricing Section */}
       <section id="pricing" className="border-t border-border scroll-mt-20">
@@ -742,95 +682,32 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* FAQ Section */}
-      <section id="faq" className="border-t border-border bg-card/30 scroll-mt-20">
-        <div className="container mx-auto px-4 py-20 md:py-28">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">
-              常見問題
-            </h2>
-            <p className="text-muted-foreground text-lg">
-              Frequently Asked Questions
-            </p>
-          </div>
-
-          <div className="max-w-3xl mx-auto space-y-4">
-            <FaqItem
-              q="「生成」和「影片」有什麼不同？"
-              qEn="What's the difference between a 'generation' and a 'video'?"
-              a="一次「生成」會產出一段 5-12 秒的 AI 動態片段。一支完整的「影片」（90-180 秒）是由多個生成片段加上音樂、字幕剪輯而成。DIY 用戶可用編輯器自行組合，或選擇全程代製服務由我們為您完成。"
-              aEn="One 'generation' creates a 5-12 second AI clip. A complete 'video' (90-180 sec) is made by combining multiple clips with music and subtitles. DIY users can edit themselves, or choose our full-service option."
-            />
-            <FaqItem
-              q="免費體驗包含什麼？"
-              qEn="What's included in the free trial?"
-              a="每個 Email 可獲得 10 次免費 AI 生成、完整編輯器、無限次匯出。足夠製作 1-2 支短影片來體驗效果。"
-              aEn="Each email gets 10 free AI generations, full editor access, and unlimited exports. Enough to create 1-2 short videos to try the experience."
-            />
-            <FaqItem
-              q="需要多久才能生成一段片段？"
-              qEn="How long does one generation take?"
-              a="每次生成大約 2-5 分鐘。生成過程中可以離開頁面，稍後在影片庫查看結果。"
-              aEn="Each generation takes about 2-5 minutes. You can leave the page and check results in the gallery later."
-            />
-            <FaqItem
-              q="全程代製服務如何運作？"
-              qEn="How does the full-service option work?"
-              a="您只需提供照片和場合說明，我們的團隊會為您完成所有生成、剪輯、配樂工作，交付一支可直接使用的完整影片。適合沒時間或不熟悉技術的用戶。"
-              aEn="Just send us photos and occasion details. Our team handles all generation, editing, and music. We deliver a ready-to-use video. Perfect for those who prefer a hands-off approach."
-            />
-            <FaqItem
-              q="支援哪些照片格式？"
-              qEn="What photo formats are supported?"
-              a="支援 JPG、PNG、WebP 等常見格式。建議使用解析度較高的照片以獲得最佳效果。"
-              aEn="JPG, PNG, WebP and other common formats. Higher resolution photos produce better results."
-            />
-            <FaqItem
-              q="生成次數會過期嗎？"
-              qEn="Do generations expire?"
-              a="不會！購買的生成次數永不過期，可以隨時使用。免費的 10 次也不會過期。"
-              aEn="No! Purchased generations never expire. The 10 free generations don't expire either."
-            />
-            <FaqItem
-              q="影片下載連結會過期嗎？"
-              qEn="Do video download links expire?"
-              a="AI 生成的片段連結會在 24 小時後過期，請及時下載。但使用編輯器匯出的完整影片會直接下載到您的裝置，不受影響。"
-              aEn="AI-generated clip links expire after 24 hours — download promptly. However, videos exported from the editor download directly to your device."
-            />
-            <FaqItem
-              q="需要安裝軟體嗎？"
-              qEn="Do I need to install any software?"
-              a="完全不需要。拾光是一個網頁應用程式，用瀏覽器打開就能使用，包括影片編輯和匯出功能。"
-              aEn="Not at all. Glimmer is a web app — open your browser and start creating, including video editing and export."
-            />
-          </div>
-        </div>
-      </section>
+      {/* FAQ Section (lazy-loaded) */}
+      <Suspense fallback={<SectionSkeleton />}>
+        <FaqSection />
+      </Suspense>
 
       {/* Contact Section */}
       <section id="contact" className="border-t border-border scroll-mt-20">
         <div className="container mx-auto px-4 py-20 md:py-28">
-          <div className="max-w-2xl mx-auto text-center space-y-8">
-            <h2 className="text-3xl md:text-4xl font-bold">
-              聯絡我們
-            </h2>
-            <p className="text-muted-foreground text-lg">
-              Have questions? We&apos;d love to hear from you.
-            </p>
-            <p className="text-muted-foreground">
-              如有任何問題或合作提案，歡迎透過以下方式與我們聯繫。
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button variant="outline" size="lg" asChild>
-                <a href="mailto:glimmer.hello@gmail.com">
-                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                  </svg>
-                  glimmer.hello@gmail.com
-                </a>
-              </Button>
+          <div className="max-w-2xl mx-auto space-y-8">
+            <div className="text-center space-y-4">
+              <h2 className="text-3xl md:text-4xl font-bold">
+                聯絡我們
+              </h2>
+              <p className="text-muted-foreground text-lg">
+                Have questions? We&apos;d love to hear from you.
+              </p>
+              <p className="text-muted-foreground">
+                如有任何問題或合作提案，歡迎填寫以下表單與我們聯繫。
+              </p>
             </div>
-            <div className="pt-8">
+
+            <Suspense fallback={<SectionSkeleton />}>
+              <ContactForm />
+            </Suspense>
+
+            <div className="text-center pt-4">
               <Button size="lg" asChild className="text-lg px-8 py-6">
                 <Link href="/create">
                   立即體驗
@@ -874,132 +751,6 @@ export default function LandingPage() {
   );
 }
 
-function ShowcaseCard({
-  icon,
-  title,
-  subtitle,
-  description,
-  descEn,
-  stat,
-  videoUrl,
-  isPortrait,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  subtitle: string;
-  description: string;
-  descEn: string;
-  stat: string;
-  videoUrl?: string;
-  isPortrait?: boolean;
-}) {
-  // Portrait videos: side-by-side layout (video + description)
-  // Landscape videos: stacked layout (video on top, description below)
-  if (videoUrl && isPortrait) {
-    return (
-      <div className="group space-y-4">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-            <svg className="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              {icon}
-            </svg>
-          </div>
-          <div>
-            <h3 className="font-semibold">{title}</h3>
-            <p className="text-xs text-muted-foreground">{subtitle}</p>
-          </div>
-        </div>
-        <div className="flex gap-4">
-          {/* Description on the left */}
-          <div className="flex-1 flex flex-col justify-center">
-            <p className="text-sm text-foreground/80 leading-relaxed mb-2">{description}</p>
-            <p className="text-xs text-muted-foreground">{descEn}</p>
-          </div>
-          {/* Portrait video on the right */}
-          <div className="w-32 flex-shrink-0">
-            <div className="aspect-[9/16] rounded-xl bg-black border border-border/50 overflow-hidden group-hover:border-primary/30 transition-colors relative">
-              <video
-                src={videoUrl}
-                className="w-full h-full object-cover"
-                muted
-                loop
-                playsInline
-                autoPlay
-                preload="metadata"
-              />
-              <div className="absolute bottom-2 right-2">
-                <span className="inline-flex items-center gap-1 text-[10px] font-medium text-white bg-black/60 backdrop-blur px-2 py-0.5 rounded-full">
-                  <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  {stat}
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Landscape video or no video: standard layout
-  return (
-    <div className="group space-y-4">
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-          <svg className="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            {icon}
-          </svg>
-        </div>
-        <div>
-          <h3 className="font-semibold">{title}</h3>
-          <p className="text-xs text-muted-foreground">{subtitle}</p>
-        </div>
-      </div>
-      <div className="aspect-video rounded-xl bg-gradient-to-br from-muted/80 to-muted/40 border border-border/50 overflow-hidden group-hover:border-primary/30 transition-colors relative">
-        {videoUrl ? (
-          <video
-            src={videoUrl}
-            className="w-full h-full object-cover"
-            muted
-            loop
-            playsInline
-            autoPlay
-            preload="metadata"
-          />
-        ) : (
-          <div className="w-full h-full flex flex-col items-center justify-center gap-4 p-6 text-center">
-            <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
-              <svg className="w-8 h-8 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-            <p className="text-sm text-foreground/80 leading-relaxed">{description}</p>
-            <p className="text-xs text-muted-foreground">{descEn}</p>
-          </div>
-        )}
-        {/* Overlay with stat badge */}
-        <div className="absolute bottom-3 right-3">
-          <span className="inline-flex items-center gap-1.5 text-xs font-medium text-primary bg-background/90 backdrop-blur px-3 py-1 rounded-full border border-border/50">
-            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-            </svg>
-            {stat}
-          </span>
-        </div>
-      </div>
-      {/* Description below video when video is present */}
-      {videoUrl && (
-        <div className="px-1">
-          <p className="text-sm text-foreground/80 leading-relaxed mb-1">{description}</p>
-          <p className="text-xs text-muted-foreground">{descEn}</p>
-        </div>
-      )}
-    </div>
-  );
-}
-
 function PricingItem({ children, highlight }: { children: React.ReactNode; highlight?: boolean }) {
   return (
     <li className="flex items-center gap-2">
@@ -1016,97 +767,3 @@ function PricingItem({ children, highlight }: { children: React.ReactNode; highl
   );
 }
 
-function ComparisonRow({
-  label,
-  labelEn,
-  traditional,
-  diy,
-  glimmer,
-  isCheck,
-}: {
-  label: string;
-  labelEn: string;
-  traditional: string;
-  diy: string;
-  glimmer: string;
-  isCheck?: boolean;
-}) {
-  return (
-    <tr className="border-b border-border/50">
-      <td className="p-4 font-medium">
-        {label}
-        <br />
-        <span className="text-xs text-muted-foreground font-normal">{labelEn}</span>
-      </td>
-      <td className="p-4 text-center text-muted-foreground">{traditional}</td>
-      <td className="p-4 text-center text-muted-foreground">{diy}</td>
-      <td className={`p-4 text-center border-x border-primary/20 bg-primary/5 font-semibold ${isCheck ? 'text-primary' : 'text-primary'}`}>
-        {glimmer}
-      </td>
-    </tr>
-  );
-}
-
-function MobileComparisonCard({
-  title,
-  titleEn,
-  isHighlighted,
-  items,
-}: {
-  title: string;
-  titleEn: string;
-  isHighlighted?: boolean;
-  items: { label: string; value: string; isAdvantage?: boolean }[];
-}) {
-  return (
-    <div className={`rounded-xl border p-5 space-y-3 ${isHighlighted ? 'border-primary bg-primary/5 ring-1 ring-primary/20' : 'border-border/50'}`}>
-      <div className="text-center">
-        <h4 className={`font-semibold ${isHighlighted ? 'text-primary' : ''}`}>{title}</h4>
-        <p className={`text-xs ${isHighlighted ? 'text-primary/80' : 'text-muted-foreground'}`}>{titleEn}</p>
-      </div>
-      <div className="space-y-2">
-        {items.map((item) => (
-          <div key={item.label} className="flex items-center justify-between text-sm">
-            <span className="text-muted-foreground">{item.label}</span>
-            <span className={`font-medium ${item.isAdvantage ? 'text-primary' : ''}`}>{item.value}</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function FaqItem({
-  q,
-  qEn,
-  a,
-  aEn,
-}: {
-  q: string;
-  qEn: string;
-  a: string;
-  aEn: string;
-}) {
-  return (
-    <details className="group rounded-lg border border-border/50 hover:border-primary/30 transition-colors">
-      <summary className="flex items-center justify-between cursor-pointer p-5 font-medium">
-        <div>
-          <span>{q}</span>
-          <span className="block text-xs text-muted-foreground font-normal mt-0.5">{qEn}</span>
-        </div>
-        <svg
-          className="w-5 h-5 text-muted-foreground flex-shrink-0 ml-4 transition-transform group-open:rotate-180"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-        </svg>
-      </summary>
-      <div className="px-5 pb-5 space-y-2">
-        <p className="text-sm text-muted-foreground leading-relaxed">{a}</p>
-        <p className="text-xs text-muted-foreground/70 italic">{aEn}</p>
-      </div>
-    </details>
-  );
-}
