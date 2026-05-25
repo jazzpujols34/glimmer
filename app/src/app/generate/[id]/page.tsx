@@ -112,7 +112,7 @@ export default function GeneratePage({ params }: PageProps) {
               // Error state — warm tone, blame the system, never the user's content
               <div className="space-y-6 text-center">
                 <div className="w-20 h-20 mx-auto rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
-                  <Image className="w-10 h-10 text-amber-600 dark:text-amber-400" alt="" />
+                  <Image className="w-10 h-10 text-amber-600 dark:text-amber-400" aria-hidden="true" />
                 </div>
                 <div className="space-y-3">
                   <h2 className="text-2xl font-semibold">這張照片暫時無法使用</h2>

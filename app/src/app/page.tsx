@@ -8,6 +8,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { MobileNav } from '@/components/MobileNav';
 import { HeroDemoVideo } from '@/components/HeroDemoVideo';
 import { LanguageToggle } from '@/components/LanguageToggle';
+import { ContactForm, FaqSection } from '@/components/landing/LazyClientSections';
 
 // Interactive showcase cards (client component)
 const ShowcaseCardInteractive = dynamic(
@@ -15,21 +16,10 @@ const ShowcaseCardInteractive = dynamic(
   { ssr: true }
 );
 
-// Contact form (client component, below fold)
-const ContactForm = dynamic(
-  () => import('@/components/ContactForm').then((m) => m.ContactForm),
-  { ssr: false, loading: () => <div className="max-w-lg mx-auto h-80 rounded-2xl border border-border/50 bg-card/80 animate-pulse" /> }
-);
-
 // Lazy-loaded below-fold sections for faster initial paint
 const ComparisonSection = dynamic(
   () => import('@/components/landing/ComparisonSection').then((m) => m.ComparisonSection),
   { ssr: true, loading: () => <SectionSkeleton /> }
-);
-
-const FaqSection = dynamic(
-  () => import('@/components/landing/FaqSection').then((m) => m.FaqSection),
-  { ssr: false, loading: () => <SectionSkeleton /> }
 );
 
 // Skeleton placeholder for lazy-loaded sections
