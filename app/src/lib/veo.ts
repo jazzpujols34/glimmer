@@ -124,7 +124,9 @@ async function createBytePlusTasks(options: CreateTaskOptions, prompt: string): 
       const res = await fetch('https://ark.ap-southeast.bytepluses.com/api/v3/contents/generations/tasks', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-        body: JSON.stringify({ model: modelId, content: contentArray }),
+        // generate_audio:false halves cost (audio rate $2.4 vs silent $1.2 per M
+        // tokens) — glimmer's editor overlays user-chosen music, AI audio is wasted
+        body: JSON.stringify({ model: modelId, content: contentArray, generate_audio: false }),
       });
       if (!res.ok) {
         const body = await res.text();
