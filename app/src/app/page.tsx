@@ -48,7 +48,7 @@ export default function LandingPage() {
     description:
       '上傳老照片，AI 自動生成電影級回憶影片。Upload photos, AI creates cinematic memorial videos.',
     offers: [
-      { '@type': 'Offer', price: '0', priceCurrency: 'TWD', name: '免費體驗 1 支影片' },
+      { '@type': 'Offer', price: '0', priceCurrency: 'TWD', name: '免費體驗 3 次生成' },
       { '@type': 'Offer', price: '499', priceCurrency: 'TWD', name: '單支影片' },
       { '@type': 'Offer', price: '1999', priceCurrency: 'TWD', name: '5 支影片方案' },
     ],
@@ -504,10 +504,10 @@ export default function LandingPage() {
                       <div className="mt-2">
                         <span className="text-2xl font-bold">NT$0</span>
                       </div>
-                      <p className="text-xs text-muted-foreground mt-1">10 次 AI 生成</p>
+                      <p className="text-xs text-muted-foreground mt-1">3 次 AI 生成</p>
                     </div>
                     <ul className="space-y-1.5 text-sm">
-                      <PricingItem>10 次 AI 片段生成</PricingItem>
+                      <PricingItem>3 次 AI 片段生成</PricingItem>
                       <PricingItem>完整編輯器</PricingItem>
                       <PricingItem>無限次匯出</PricingItem>
                     </ul>

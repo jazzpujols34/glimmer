@@ -1,6 +1,6 @@
 import { GoogleGenAI } from '@google/genai';
 import { buildPrompt } from './prompts';
-import { captureError } from './errors';
+import { captureError, ProviderUnavailableError, isProviderUnavailable } from './errors';
 import type { GenerationSettings, GenerationJob, OccasionType, ModelType } from '@/types';
 
 // === Public interfaces ===
@@ -126,7 +126,13 @@ async function createBytePlusTasks(options: CreateTaskOptions, prompt: string): 
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
         body: JSON.stringify({ model: modelId, content: contentArray }),
       });
-      if (!res.ok) throw new Error(`BytePlus create failed: ${res.status} ${await res.text()}`);
+      if (!res.ok) {
+        const body = await res.text();
+        if (isProviderUnavailable(body)) {
+          throw new ProviderUnavailableError(`BytePlus unavailable: ${body}`, 'byteplus');
+        }
+        throw new Error(`BytePlus create failed: ${res.status} ${body}`);
+      }
       const data = await res.json();
       const taskId = data.id || data.task_id;
       if (!taskId) throw new Error('No task ID from BytePlus');

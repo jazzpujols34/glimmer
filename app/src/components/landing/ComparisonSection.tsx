@@ -39,7 +39,7 @@ export function ComparisonSection() {
             </thead>
             <tbody>
               <ComparisonRow label="所需時間" labelEn="Time needed" traditional="數天 ~ 數週" diy="數小時" glimmer="5 分鐘" />
-              <ComparisonRow label="費用" labelEn="Cost" traditional="NT$15,000+" diy="免費 ~ $30/月" glimmer="免費 1 支 / NT$400 起" />
+              <ComparisonRow label="費用" labelEn="Cost" traditional="NT$15,000+" diy="免費 ~ $30/月" glimmer="免費 3 次 / NT$400 起" />
               <ComparisonRow label="技術門檻" labelEn="Skill required" traditional="專業剪輯師" diy="中等學習曲線" glimmer="零門檻" />
               <ComparisonRow label="AI 照片動畫" labelEn="AI photo animation" traditional="—" diy="—" glimmer="✓" isCheck />
               <ComparisonRow label="場合感知 AI" labelEn="Occasion-aware AI" traditional="手動調整" diy="手動調整" glimmer="✓ 自動適配" isCheck />

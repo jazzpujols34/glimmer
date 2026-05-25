@@ -6,7 +6,7 @@ import { createJob, updateJob, addJobToProject, getProject } from '@/lib/storage
 import { createVideoTask } from '@/lib/veo';
 import { checkCredits, consumeCredit, isAdmin } from '@/lib/credits';
 import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
-import { captureError } from '@/lib/errors';
+import { captureError, ProviderUnavailableError } from '@/lib/errors';
 import { logger } from '@/lib/logger';
 import { isValidEmail, isValidOccasion, validateSettings, validateName, validatePhoto } from '@/lib/validation';
 import { successResponse, errors } from '@/lib/api-response';
@@ -172,6 +172,9 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     captureError(error, { route: '/api/generate' });
+    if (error instanceof ProviderUnavailableError) {
+      return errors.serviceUnavailable();
+    }
     return errors.serverError();
   }
 }

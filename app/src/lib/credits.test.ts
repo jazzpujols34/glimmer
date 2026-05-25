@@ -38,13 +38,13 @@ describe('isValidEmail', () => {
 });
 
 describe('checkCredits', () => {
-  it('returns 10 free generations for new user', async () => {
+  it('returns FREE_GENERATIONS free generations for new user', async () => {
     const balance = await checkCredits('new@example.com');
     expect(balance.paidTotal).toBe(0);
     expect(balance.paidUsed).toBe(0);
     expect(balance.freeUsed).toBe(0);
     expect(balance.freeTotal).toBe(FREE_GENERATIONS);
-    expect(balance.remaining).toBe(FREE_GENERATIONS); // 10 free generations
+    expect(balance.remaining).toBe(FREE_GENERATIONS);
     expect(balance.verified).toBe(false);
   });
 
@@ -69,7 +69,7 @@ describe('checkCredits', () => {
     });
     const balance = await checkCredits('paid@example.com');
     expect(balance.paidTotal).toBe(20);
-    expect(balance.remaining).toBe(30); // 20 paid + 10 free
+    expect(balance.remaining).toBe(20 + FREE_GENERATIONS);
   });
 });
 
@@ -84,19 +84,18 @@ describe('consumeCredit', () => {
     await consumeCredit('user@example.com', 'job_1');
     const balance = await checkCredits('user@example.com');
     expect(balance.freeUsed).toBe(1);
-    expect(balance.remaining).toBe(FREE_GENERATIONS - 1); // 9 remaining
+    expect(balance.remaining).toBe(FREE_GENERATIONS - 1);
   });
 
-  it('uses all 10 free generations before failing', async () => {
-    // Use all 10 free generations
+  it('uses all free generations before failing', async () => {
     for (let i = 0; i < FREE_GENERATIONS; i++) {
       const result = await consumeCredit('user@example.com', `job_${i}`);
       expect(result.success).toBe(true);
       expect(result.usedFree).toBe(true);
     }
 
-    // 11th should fail (no paid credits)
-    const result = await consumeCredit('user@example.com', 'job_11');
+    // Next request should fail (no paid credits)
+    const result = await consumeCredit('user@example.com', 'job_extra');
     expect(result.success).toBe(false);
     expect(result.usedFree).toBe(false);
   });
@@ -153,7 +152,7 @@ describe('addCredits', () => {
     });
     const balance = await checkCredits('user@example.com');
     expect(balance.paidTotal).toBe(70);
-    expect(balance.remaining).toBe(80); // 70 paid + 10 free
+    expect(balance.remaining).toBe(70 + FREE_GENERATIONS);
   });
 });
 

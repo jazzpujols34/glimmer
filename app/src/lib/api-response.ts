@@ -16,7 +16,8 @@ export type ErrorCode =
   | 'RATE_LIMITED'
   | 'UNAUTHORIZED'
   | 'SERVER_ERROR'
-  | 'PROVIDER_ERROR';
+  | 'PROVIDER_ERROR'
+  | 'PROVIDER_UNAVAILABLE';
 
 export interface ErrorResponse {
   error: string;
@@ -82,6 +83,13 @@ export const errors = {
 
   serverError: () =>
     errorResponse('發生錯誤，請稍後再試', 500, 'SERVER_ERROR'),
+
+  serviceUnavailable: () =>
+    errorResponse(
+      '影片生成服務暫時無法使用，工程團隊已收到通知，請稍後再試',
+      503,
+      'PROVIDER_UNAVAILABLE'
+    ),
 
   invalidInput: (message: string) =>
     errorResponse(message, 400, 'INVALID_INPUT'),

@@ -23,8 +23,8 @@ export function FaqSection() {
           <FaqItem
             q="免費體驗包含什麼？"
             qEn="What's included in the free trial?"
-            a="每個 Email 可獲得 10 次免費 AI 生成、完整編輯器、無限次匯出。足夠製作 1-2 支短影片來體驗效果。"
-            aEn="Each email gets 10 free AI generations, full editor access, and unlimited exports. Enough to create 1-2 short videos to try the experience."
+            a="每個 Email 可獲得 3 次免費 AI 生成、完整編輯器、無限次匯出。足夠試做幾段不同照片，確認效果再決定購買。"
+            aEn="Each email gets 3 free AI generations, full editor access, and unlimited exports. Enough to try a few photo variations and decide before purchasing."
           />
           <FaqItem
             q="需要多久才能生成一段片段？"
@@ -47,8 +47,8 @@ export function FaqSection() {
           <FaqItem
             q="生成次數會過期嗎？"
             qEn="Do generations expire?"
-            a="不會！購買的生成次數永不過期，可以隨時使用。免費的 10 次也不會過期。"
-            aEn="No! Purchased generations never expire. The 10 free generations don't expire either."
+            a="不會！購買的生成次數永不過期，可以隨時使用。免費的 3 次也不會過期。"
+            aEn="No! Purchased generations never expire. The 3 free generations don't expire either."
           />
           <FaqItem
             q="影片下載連結會過期嗎？"

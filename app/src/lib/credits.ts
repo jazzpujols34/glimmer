@@ -3,7 +3,7 @@
  * "Generation" = one AI video clip (5-12 sec)
  * "Video" = final edited product (made from multiple generations)
  *
- * Free tier: 10 generations per email
+ * Free tier: 3 generations per email
  * Paid: buy generation packs, never expire
  */
 

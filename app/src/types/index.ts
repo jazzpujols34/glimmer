@@ -86,7 +86,7 @@ export interface ApiResponse<T> {
 // "Generation" = one AI video clip (5-12 sec)
 // "Video" = final edited product (90-180 sec, made from multiple generations)
 
-export const FREE_GENERATIONS = 10; // Free tier gets 10 generations
+export const FREE_GENERATIONS = 3; // Free tier gets 3 generations
 
 export interface CreditBalance {
   email: string;

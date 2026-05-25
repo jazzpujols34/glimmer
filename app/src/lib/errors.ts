@@ -5,6 +5,33 @@
 
 import { logger } from '@/lib/logger';
 
+/**
+ * Thrown when an upstream video provider is unavailable (closed endpoint,
+ * billing suspended, service outage). Surfaces a user-friendly 503 instead
+ * of the generic 500 SERVER_ERROR.
+ */
+export class ProviderUnavailableError extends Error {
+  constructor(message: string, public provider: string) {
+    super(message);
+    this.name = 'ProviderUnavailableError';
+  }
+}
+
+// Substrings in upstream error bodies that indicate the service itself is
+// down (endpoint closed, billing exhausted, etc), as opposed to a bug or
+// content-filter rejection. Match against response body text.
+export const PROVIDER_UNAVAILABLE_SIGNALS = [
+  'InvalidEndpoint.ClosedEndpoint',
+  'InvalidEndpoint.NotFound',
+  'InsufficientBalance',
+  'AccountSuspended',
+  'ServiceUnavailable',
+];
+
+export function isProviderUnavailable(body: string): boolean {
+  return PROVIDER_UNAVAILABLE_SIGNALS.some((s) => body.includes(s));
+}
+
 export interface ErrorContext {
   route?: string;
   jobId?: string;
