@@ -62,10 +62,23 @@ app/                          # Next.js application
 scripts/
 ├── batch-generate.mjs        # Batch video generation from photo folder
 ├── batch-status.mjs          # Check batch job status
+├── orphan-preview.html       # Local tool: preview R2 videos by jobId (when KV expired). Open directly in browser.
 ├── compound/                 # Compound review scripts
 ├── generate-demo-pets.sh     # Demo pet photo generator
 └── archive/                  # Retired scripts (launchd setup/teardown)
 ```
+
+## Maintenance tools
+
+**Recovering orphaned R2 videos** (when KV record expired but R2 file still exists):
+```bash
+# 1. List R2 keys
+cd app && npx wrangler r2 object list glimmer-videos --prefix videos/ --remote
+
+# 2. Open preview tool, paste keys, view previews
+open scripts/orphan-preview.html
+```
+The proxy-video endpoint has a fallback that serves directly from R2 if the KV record is missing, so URLs of the form `glimmer.video/api/proxy-video?jobId=<jobId>&index=<N>` work permanently for any R2-archived video — useful for sending lost videos back to customers without rebuilding state.
 
 ## Architecture
 

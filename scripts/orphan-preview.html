@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Glimmer R2 Orphan Preview</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: #0a0a0a;
+    color: #e5e5e5;
+    margin: 0;
+    padding: 24px;
+    max-width: 1600px;
+    margin-inline: auto;
+  }
+  h1 { margin: 0 0 8px; font-size: 22px; }
+  p.lede { color: #888; margin: 0 0 24px; font-size: 14px; line-height: 1.5; }
+  .controls {
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    gap: 12px;
+    margin-bottom: 24px;
+    align-items: end;
+  }
+  label { font-size: 12px; color: #aaa; display: block; margin-bottom: 4px; }
+  textarea {
+    width: 100%;
+    height: 140px;
+    background: #1a1a1a;
+    color: #e5e5e5;
+    border: 1px solid #2a2a2a;
+    border-radius: 6px;
+    padding: 10px;
+    font-family: ui-monospace, "SF Mono", Monaco, monospace;
+    font-size: 12px;
+    resize: vertical;
+  }
+  input[type=number] {
+    width: 80px;
+    background: #1a1a1a;
+    color: #e5e5e5;
+    border: 1px solid #2a2a2a;
+    border-radius: 6px;
+    padding: 8px;
+    font-family: inherit;
+    font-size: 14px;
+  }
+  button {
+    background: #2563eb;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  button:hover { background: #1d4ed8; }
+  button.secondary { background: #404040; }
+  button.secondary:hover { background: #525252; }
+  .stats { color: #888; font-size: 13px; margin-bottom: 16px; }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 16px;
+  }
+  .card {
+    background: #1a1a1a;
+    border: 1px solid #2a2a2a;
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .card.missing { opacity: 0.3; }
+  video {
+    width: 100%;
+    aspect-ratio: 16/9;
+    object-fit: cover;
+    background: #000;
+    display: block;
+  }
+  .meta {
+    padding: 8px 12px;
+    font-family: ui-monospace, "SF Mono", Monaco, monospace;
+    font-size: 11px;
+  }
+  .meta .jobid {
+    color: #888;
+    word-break: break-all;
+    margin-bottom: 4px;
+  }
+  .meta .url {
+    color: #60a5fa;
+    text-decoration: none;
+    word-break: break-all;
+    cursor: pointer;
+  }
+  .meta .url:hover { color: #93c5fd; }
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #2563eb;
+    color: white;
+    padding: 10px 18px;
+    border-radius: 6px;
+    font-size: 13px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+  }
+  .toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+  <h1>Glimmer R2 Orphan Preview</h1>
+  <p class="lede">
+    Paste R2 keys or jobIds (one per line). The tool auto-extracts <code>job_xxx</code> patterns,
+    tries indices 0..N for each, and renders previews via the proxy endpoint.
+    Click a URL to copy it.
+  </p>
+
+  <div class="controls">
+    <div>
+      <label for="input">Paste R2 keys, jobIds, or full paths (one per line)</label>
+      <textarea id="input" placeholder="videos/job_1772210255805_tizlnekmu/0.mp4
+videos/job_1772210255805_tizlnekmu/1.mp4
+job_1779701204480_8s6wpg7b3
+..."></textarea>
+    </div>
+    <div>
+      <label for="maxIndex">Max index per job</label>
+      <input type="number" id="maxIndex" value="4" min="1" max="10">
+    </div>
+    <button id="load">Load Previews</button>
+  </div>
+
+  <div class="stats" id="stats"></div>
+  <div class="grid" id="grid"></div>
+  <div class="toast" id="toast">Copied</div>
+
+<script>
+const BASE = 'https://glimmer.video';
+
+document.getElementById('load').addEventListener('click', loadPreviews);
+
+function loadPreviews() {
+  const raw = document.getElementById('input').value;
+  const maxIndex = parseInt(document.getElementById('maxIndex').value, 10) || 4;
+
+  // Extract unique jobIds (pattern: job_<digits>_<alnum>)
+  const matches = raw.match(/job_\d+_[a-zA-Z0-9]+/g) || [];
+  const uniqueJobIds = [...new Set(matches)];
+
+  const grid = document.getElementById('grid');
+  grid.innerHTML = '';
+  document.getElementById('stats').textContent =
+    `Found ${uniqueJobIds.length} unique jobIds. Rendering ${uniqueJobIds.length * maxIndex} preview slots...`;
+
+  uniqueJobIds.forEach(jobId => {
+    for (let i = 0; i < maxIndex; i++) {
+      const card = document.createElement('div');
+      card.className = 'card';
+      const url = `${BASE}/api/proxy-video?jobId=${jobId}&index=${i}`;
+      card.innerHTML = `
+        <video controls preload="metadata" src="${url}#t=0.1"></video>
+        <div class="meta">
+          <div class="jobid">${jobId} · index ${i}</div>
+          <a class="url" data-url="${url}">${url}</a>
+        </div>
+      `;
+      const video = card.querySelector('video');
+      video.addEventListener('error', () => card.classList.add('missing'));
+      card.querySelector('.url').addEventListener('click', e => {
+        e.preventDefault();
+        navigator.clipboard.writeText(e.target.dataset.url);
+        showToast();
+      });
+      grid.appendChild(card);
+    }
+  });
+
+  // Update stats after a moment to show success/missing
+  setTimeout(() => {
+    const total = grid.children.length;
+    const missing = grid.querySelectorAll('.card.missing').length;
+    document.getElementById('stats').textContent =
+      `${uniqueJobIds.length} unique jobIds · ${total - missing} videos loaded · ${missing} missing/not generated`;
+  }, 3000);
+}
+
+function showToast() {
+  const t = document.getElementById('toast');
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 1500);
+}
+</script>
+</body>
+</html>
