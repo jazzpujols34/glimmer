@@ -63,9 +63,7 @@ scripts/
 ├── batch-generate.mjs        # Batch video generation from photo folder
 ├── batch-status.mjs          # Check batch job status
 ├── orphan-preview.html       # Local tool: preview R2 videos by jobId (when KV expired). Open directly in browser.
-├── compound/                 # Compound review scripts
-├── generate-demo-pets.sh     # Demo pet photo generator
-└── archive/                  # Retired scripts (launchd setup/teardown)
+└── demo-photos/              # Default photos for batch-generate testing
 ```
 
 ## Maintenance tools
