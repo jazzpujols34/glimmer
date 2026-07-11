@@ -37,10 +37,8 @@ scripts/compound/prd.json
 # Claude Code
 .claude/
 
-# Demo videos (large files)
-demo-videos/*.mp4
-demo-videos/*.mov
-demo-videos/*.webm
+# Demo videos (large files, includes client demo bundles in subfolders)
+demo-videos/
 
 # Temporary media (large binary files)
 tmp-music/
