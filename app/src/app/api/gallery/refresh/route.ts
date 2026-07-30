@@ -1,6 +1,6 @@
 export const runtime = 'edge';
 
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { kvGet, kvListKeys } from '@/lib/kv';
 import { setJobComplete, setJobError, updateJob } from '@/lib/storage';
 import { checkVideoTaskStatus } from '@/lib/veo';
@@ -9,6 +9,9 @@ import { checkCredits } from '@/lib/credits';
 import { sendCompletionEmail } from '@/lib/email';
 import { captureError } from '@/lib/errors';
 import { logger } from '@/lib/logger';
+import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
+import { errors as apiErrors } from '@/lib/api-response';
+import { getRequesterEmail, ownsOrAdmin } from '@/lib/owner';
 import type { GenerationJob } from '@/types';
 
 /**
@@ -16,8 +19,23 @@ import type { GenerationJob } from '@/types';
  * Bulk-refresh all processing jobs by polling their external provider status.
  * This triggers the same logic as /api/status/[id] but for all pending jobs.
  */
-export async function POST() {
+export async function POST(request: NextRequest) {
   try {
+    // Rate limit: this route polls external providers for every processing job
+    const ip = getClientIP(request);
+    const rateCheck = await checkRateLimit(`gallery-refresh:${ip}`, 5, 300);
+    if (!rateCheck.allowed) {
+      const retryAfter = Math.max(1, rateCheck.resetAt - Math.floor(Date.now() / 1000));
+      return apiErrors.rateLimited(retryAfter);
+    }
+
+    const requesterEmail = getRequesterEmail(request);
+    if (!requesterEmail) {
+      return new URL(request.url).searchParams.get('email')
+        ? apiErrors.invalidEmail()
+        : apiErrors.missingField('email');
+    }
+
     // List all job keys
     const keys = await kvListKeys('job:');
 
@@ -33,8 +51,9 @@ export async function POST() {
 
       const job: GenerationJob = JSON.parse(data);
 
-      // Only check jobs that are still processing
+      // Only check jobs that are still processing, and only this user's own jobs (admins: all)
       if (job.status !== 'processing' || !job.provider) continue;
+      if (!ownsOrAdmin(job.email, requesterEmail)) continue;
 
       checked++;
 

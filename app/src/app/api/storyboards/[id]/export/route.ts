@@ -6,6 +6,8 @@ import { captureError } from '@/lib/errors';
 import { checkCredits } from '@/lib/credits';
 import { resolveVideoUrl } from '@/lib/video-url';
 import { logger } from '@/lib/logger';
+import { errors } from '@/lib/api-response';
+import { getRequesterEmail, ownsOrAdmin } from '@/lib/owner';
 
 const CLOUD_RUN_URL = process.env.EXPORT_SERVICE_URL;
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://glimmer.video';
@@ -25,13 +27,20 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const requesterEmail = getRequesterEmail(request);
+    if (!requesterEmail) {
+      return request.nextUrl.searchParams.get('email')
+        ? errors.invalidEmail()
+        : errors.missingField('email');
+    }
+
     const { id: storyboardId } = await params;
 
     logger.debug('storyboard-export', `Starting export for storyboard ${storyboardId}`);
 
     // Fetch storyboard
     const storyboard = await getStoryboard(storyboardId);
-    if (!storyboard) {
+    if (!storyboard || !ownsOrAdmin(storyboard.email, requesterEmail)) {
       return NextResponse.json(
         { error: '找不到故事板' },
         { status: 404 }

@@ -1,15 +1,35 @@
 export const runtime = 'edge';
 
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getCompletedJobs, updateJob } from '@/lib/storage';
 import { archiveVideos } from '@/lib/r2';
 import { captureError } from '@/lib/errors';
 import { getVideoUrl, getVideoUrls } from '@/lib/video-url';
 import { logger } from '@/lib/logger';
+import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
+import { errors } from '@/lib/api-response';
+import { getRequesterEmail } from '@/lib/owner';
+import { isAdmin } from '@/lib/credits';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const jobs = await getCompletedJobs();
+    // Rate limit: this route does a full KV scan + R2 archival retries on every call
+    const ip = getClientIP(request);
+    const rateCheck = await checkRateLimit(`gallery:${ip}`, 30, 60);
+    if (!rateCheck.allowed) {
+      const retryAfter = Math.max(1, rateCheck.resetAt - Math.floor(Date.now() / 1000));
+      return errors.rateLimited(retryAfter);
+    }
+
+    const requesterEmail = getRequesterEmail(request);
+    if (!requesterEmail) {
+      return new URL(request.url).searchParams.get('email')
+        ? errors.invalidEmail()
+        : errors.missingField('email');
+    }
+
+    // Admins see every job; everyone else only sees their own
+    const jobs = await getCompletedJobs(isAdmin(requesterEmail) ? undefined : requesterEmail);
 
     // Retry archival for any unarchived jobs (CDN URLs expire in 24h)
     for (const job of jobs) {

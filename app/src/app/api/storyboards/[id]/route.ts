@@ -10,6 +10,8 @@ import {
   removeSlotFromStoryboard,
 } from '@/lib/storage';
 import { captureError } from '@/lib/errors';
+import { errors } from '@/lib/api-response';
+import { getRequesterEmail, ownsOrAdmin } from '@/lib/owner';
 import type { StoryboardSlot, StoryboardTransitionType, StoryboardTitleCard, StoryboardMusic, StoryboardMusicTrack, StoryboardSubtitle } from '@/types';
 
 export const runtime = 'edge';
@@ -18,17 +20,29 @@ interface RouteParams {
   params: Promise<{ id: string }>;
 }
 
+const NOT_FOUND = () => NextResponse.json({ error: '找不到此故事板' }, { status: 404 });
+
+function requireRequesterEmail(request: Request) {
+  const requesterEmail = getRequesterEmail(request);
+  if (!requesterEmail) {
+    return new URL(request.url).searchParams.get('email')
+      ? errors.invalidEmail()
+      : errors.missingField('email');
+  }
+  return requesterEmail;
+}
+
 // GET /api/storyboards/[id] - Get a single storyboard
 export async function GET(request: Request, { params }: RouteParams) {
   try {
+    const requesterEmail = requireRequesterEmail(request);
+    if (typeof requesterEmail !== 'string') return requesterEmail;
+
     const { id } = await params;
     const storyboard = await getStoryboard(id);
 
-    if (!storyboard) {
-      return NextResponse.json(
-        { error: '找不到此故事板' },
-        { status: 404 }
-      );
+    if (!storyboard || !ownsOrAdmin(storyboard.email, requesterEmail)) {
+      return NOT_FOUND();
     }
 
     return NextResponse.json({ storyboard });
@@ -44,15 +58,15 @@ export async function GET(request: Request, { params }: RouteParams) {
 // PATCH /api/storyboards/[id] - Update a storyboard
 export async function PATCH(request: Request, { params }: RouteParams) {
   try {
+    const requesterEmail = requireRequesterEmail(request);
+    if (typeof requesterEmail !== 'string') return requesterEmail;
+
     const { id } = await params;
     const body = await request.json();
 
     const storyboard = await getStoryboard(id);
-    if (!storyboard) {
-      return NextResponse.json(
-        { error: '找不到此故事板' },
-        { status: 404 }
-      );
+    if (!storyboard || !ownsOrAdmin(storyboard.email, requesterEmail)) {
+      return NOT_FOUND();
     }
 
     // Handle different update types
@@ -214,14 +228,18 @@ export async function PATCH(request: Request, { params }: RouteParams) {
 // DELETE /api/storyboards/[id] - Delete a storyboard
 export async function DELETE(request: Request, { params }: RouteParams) {
   try {
-    const { id } = await params;
-    const deleted = await deleteStoryboard(id);
+    const requesterEmail = requireRequesterEmail(request);
+    if (typeof requesterEmail !== 'string') return requesterEmail;
 
+    const { id } = await params;
+    const storyboard = await getStoryboard(id);
+    if (!storyboard || !ownsOrAdmin(storyboard.email, requesterEmail)) {
+      return NOT_FOUND();
+    }
+
+    const deleted = await deleteStoryboard(id);
     if (!deleted) {
-      return NextResponse.json(
-        { error: '找不到此故事板' },
-        { status: 404 }
-      );
+      return NOT_FOUND();
     }
 
     return NextResponse.json({ success: true });

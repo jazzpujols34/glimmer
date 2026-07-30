@@ -5,6 +5,20 @@ import { getProject, updateProject, deleteProject, getProjectJobs, deleteJob } f
 import { r2Delete } from '@/lib/r2';
 import { captureError } from '@/lib/errors';
 import { getVideoUrl, getVideoUrls } from '@/lib/video-url';
+import { errors } from '@/lib/api-response';
+import { getRequesterEmail, ownsOrAdmin } from '@/lib/owner';
+
+const NOT_FOUND = () => NextResponse.json({ error: '找不到該專案' }, { status: 404 });
+
+function requireRequesterEmail(request: NextRequest) {
+  const requesterEmail = getRequesterEmail(request);
+  if (!requesterEmail) {
+    return request.nextUrl.searchParams.get('email')
+      ? errors.invalidEmail()
+      : errors.missingField('email');
+  }
+  return requesterEmail;
+}
 
 // GET /api/projects/[id] - Get project with its jobs
 export async function GET(
@@ -12,11 +26,14 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const requesterEmail = requireRequesterEmail(request);
+    if (typeof requesterEmail !== 'string') return requesterEmail;
+
     const { id } = await params;
     const project = await getProject(id);
 
-    if (!project) {
-      return NextResponse.json({ error: '找不到該專案' }, { status: 404 });
+    if (!project || !ownsOrAdmin(project.email, requesterEmail)) {
+      return NOT_FOUND();
     }
 
     const jobs = await getProjectJobs(id);
@@ -41,13 +58,16 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const requesterEmail = requireRequesterEmail(request);
+    if (typeof requesterEmail !== 'string') return requesterEmail;
+
     const { id } = await params;
     const body = await request.json();
     const { name, description, coverJobId } = body;
 
     const project = await getProject(id);
-    if (!project) {
-      return NextResponse.json({ error: '找不到該專案' }, { status: 404 });
+    if (!project || !ownsOrAdmin(project.email, requesterEmail)) {
+      return NOT_FOUND();
     }
 
     const updates: Partial<typeof project> = {};
@@ -81,13 +101,16 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const requesterEmail = requireRequesterEmail(request);
+    if (typeof requesterEmail !== 'string') return requesterEmail;
+
     const { id } = await params;
     const { searchParams } = request.nextUrl;
     const deleteJobs = searchParams.get('deleteJobs') === 'true';
 
     const project = await getProject(id);
-    if (!project) {
-      return NextResponse.json({ error: '找不到該專案' }, { status: 404 });
+    if (!project || !ownsOrAdmin(project.email, requesterEmail)) {
+      return NOT_FOUND();
     }
 
     // Optionally delete all jobs in the project

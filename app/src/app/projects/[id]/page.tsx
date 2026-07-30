@@ -20,8 +20,10 @@ import {
   FolderOpen,
   ChevronDown,
   ArrowUpFromLine,
+  Mail,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, withEmail } from '@/lib/utils';
+import { useAccess } from '@/hooks/useAccess';
 import type { Project, GenerationJob } from '@/types';
 
 export default function ProjectDetailPage({
@@ -30,6 +32,7 @@ export default function ProjectDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
+  const { email, loading: accessLoading } = useAccess();
   const [project, setProject] = useState<Project | null>(null);
   const [jobs, setJobs] = useState<GenerationJob[]>([]);
   const [loading, setLoading] = useState(true);
@@ -49,15 +52,21 @@ export default function ProjectDetailPage({
   const [actionError, setActionError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (accessLoading) return;
+    if (!email) {
+      setLoading(false);
+      return;
+    }
     loadProject();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- loadProject reads `id` but is intentionally not memoized; we only want to re-fetch when id changes
-  }, [id]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- loadProject reads `id`/`email` but is intentionally not memoized; we only want to re-fetch when id or email changes
+  }, [id, email, accessLoading]);
 
   // Load other projects for the move dropdown
   useEffect(() => {
+    if (!email) return;
     async function loadOtherProjects() {
       try {
-        const res = await fetch('/api/projects');
+        const res = await fetch(withEmail('/api/projects', email));
         if (res.ok) {
           const data = await res.json();
           setOtherProjects((data.projects || []).filter((p: Project) => p.id !== id));
@@ -65,11 +74,11 @@ export default function ProjectDetailPage({
       } catch { /* ignore */ }
     }
     loadOtherProjects();
-  }, [id]);
+  }, [id, email]);
 
   async function loadProject() {
     try {
-      const res = await fetch(`/api/projects/${id}`);
+      const res = await fetch(withEmail(`/api/projects/${id}`, email));
       if (!res.ok) {
         if (res.status === 404) throw new Error('找不到該專案');
         throw new Error('載入失敗');
@@ -87,7 +96,7 @@ export default function ProjectDetailPage({
   async function handleToggleFavorite(jobId: string, e?: React.MouseEvent) {
     e?.stopPropagation();
     try {
-      const res = await fetch(`/api/gallery/${jobId}`, {
+      const res = await fetch(withEmail(`/api/gallery/${jobId}`, email), {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({}),
@@ -118,7 +127,7 @@ export default function ProjectDetailPage({
 
     setCleaning(true);
     try {
-      const res = await fetch(`/api/projects/${id}/cleanup`, { method: 'DELETE' });
+      const res = await fetch(withEmail(`/api/projects/${id}/cleanup`, email), { method: 'DELETE' });
       if (!res.ok) throw new Error('刪除失敗');
       await res.json();
       loadProject();
@@ -134,7 +143,7 @@ export default function ProjectDetailPage({
 
     setDeleting(jobId);
     try {
-      const res = await fetch(`/api/gallery/${jobId}`, { method: 'DELETE' });
+      const res = await fetch(withEmail(`/api/gallery/${jobId}`, email), { method: 'DELETE' });
       if (!res.ok) throw new Error('刪除失敗');
       setJobs((prev) => prev.filter((j) => j.id !== jobId));
       if (selectedJob?.id === jobId) setSelectedJob(null);
@@ -165,7 +174,7 @@ export default function ProjectDetailPage({
     if (selectedJobs.size === 0) return;
     setBatchMoving(true);
     try {
-      const res = await fetch('/api/gallery/batch', {
+      const res = await fetch(withEmail('/api/gallery/batch', email), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -193,7 +202,7 @@ export default function ProjectDetailPage({
     if (!confirm(`確定要刪除選取的 ${selectedJobs.size} 支影片嗎？此操作無法復原。`)) return;
     setBatchDeleting(true);
     try {
-      const res = await fetch('/api/gallery/batch', {
+      const res = await fetch(withEmail('/api/gallery/batch', email), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -217,7 +226,26 @@ export default function ProjectDetailPage({
   const favoriteCount = jobs.filter((j) => j.favorite).length;
   const nonFavoriteCount = jobs.length - favoriteCount;
 
-  if (loading) {
+  if (!accessLoading && !email) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Card className="max-w-md">
+          <CardContent className="p-8 text-center">
+            <Mail className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
+            <h2 className="text-xl font-semibold mb-2">請先輸入 Email</h2>
+            <p className="text-muted-foreground mb-4">
+              輸入您生成影片時使用的 Email，即可查看此專案
+            </p>
+            <Button asChild>
+              <Link href="/create">前往生成影片</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (loading || accessLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />

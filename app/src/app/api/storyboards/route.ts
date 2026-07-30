@@ -1,17 +1,31 @@
 import { NextResponse } from 'next/server';
 import { createStoryboard, getAllStoryboards } from '@/lib/storage';
 import { captureError } from '@/lib/errors';
+import { errors } from '@/lib/api-response';
+import { getRequesterEmail } from '@/lib/owner';
+import { isAdmin } from '@/lib/credits';
 import type { AspectRatio } from '@/types';
 
 export const runtime = 'edge';
 
+function requireRequesterEmail(request: Request) {
+  const requesterEmail = getRequesterEmail(request);
+  if (!requesterEmail) {
+    return new URL(request.url).searchParams.get('email')
+      ? errors.invalidEmail()
+      : errors.missingField('email');
+  }
+  return requesterEmail;
+}
+
 // GET /api/storyboards - List all storyboards
 export async function GET(request: Request) {
   try {
-    const { searchParams } = new URL(request.url);
-    const email = searchParams.get('email') || undefined;
+    const requesterEmail = requireRequesterEmail(request);
+    if (typeof requesterEmail !== 'string') return requesterEmail;
 
-    const storyboards = await getAllStoryboards(email);
+    // Admins see every storyboard; everyone else only sees their own
+    const storyboards = await getAllStoryboards(isAdmin(requesterEmail) ? undefined : requesterEmail);
     return NextResponse.json({ storyboards });
   } catch (error) {
     captureError(error, { route: '/api/storyboards' });
@@ -25,8 +39,11 @@ export async function GET(request: Request) {
 // POST /api/storyboards - Create a new storyboard
 export async function POST(request: Request) {
   try {
+    const requesterEmail = requireRequesterEmail(request);
+    if (typeof requesterEmail !== 'string') return requesterEmail;
+
     const body = await request.json();
-    const { name, slotCount, aspectRatio, email } = body;
+    const { name, slotCount, aspectRatio } = body;
 
     // Validation
     if (!name || typeof name !== 'string' || name.trim().length === 0) {
@@ -55,7 +72,7 @@ export async function POST(request: Request) {
       name.trim(),
       slotCount,
       aspectRatio || '16:9',
-      email
+      requesterEmail
     );
 
     return NextResponse.json({ storyboard }, { status: 201 });

@@ -2,9 +2,9 @@ export const runtime = 'edge';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { captureError } from '@/lib/errors';
-import { checkCredits } from '@/lib/credits';
 import { resolveVideoUrl } from '@/lib/video-url';
 import { logger } from '@/lib/logger';
+import { shouldApplyWatermark } from '@/lib/watermark';
 
 /**
  * Server-side video export via Cloud Run.
@@ -66,7 +66,7 @@ interface ExportRequest {
   musicClips: MusicExportData[];
   titleCard?: TitleCardExportData;
   outroCard?: TitleCardExportData;
-  email?: string;  // For watermark decision based on user tier
+  watermark?: boolean;  // Server-computed watermark decision from /api/gallery/[id] (never client email)
 }
 
 const CLOUD_RUN_URL = process.env.EXPORT_SERVICE_URL;
@@ -75,7 +75,7 @@ const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://glimmer.video';
 export async function POST(request: NextRequest) {
   try {
     const body: ExportRequest = await request.json();
-    const { jobId, clips, transitions, subtitles, musicClips, titleCard, outroCard, email } = body;
+    const { jobId, clips, transitions, subtitles, musicClips, titleCard, outroCard, watermark } = body;
 
     if (!jobId || !clips || clips.length === 0) {
       return NextResponse.json(
@@ -86,16 +86,10 @@ export async function POST(request: NextRequest) {
 
     logger.debug('export-server', `Starting export for job ${jobId}, ${clips.length} clips`);
 
-    // Determine if watermark should be applied (free tier users only)
-    let applyWatermark = true;  // Default: apply watermark
-    if (email) {
-      const credits = await checkCredits(email);
-      // No watermark for: admins, or users who have ever purchased credits
-      if (credits.isAdmin || credits.paidTotal > 0) {
-        applyWatermark = false;
-      }
-    }
-    logger.debug('export-server', `Watermark: ${applyWatermark} (email: ${email || 'none'})`);
+    // Watermark decision is computed server-side by /api/gallery/[id] and passed through —
+    // default to applying the watermark when unset (e.g. showcase exports with no source job)
+    const applyWatermark = shouldApplyWatermark(watermark);
+    logger.debug('export-server', `Watermark: ${applyWatermark}`);
 
     if (!CLOUD_RUN_URL) {
       return NextResponse.json(

@@ -6,6 +6,7 @@ import { Progress } from '@/components/ui/progress';
 import { Download, Loader2, CheckCircle, X, AlertTriangle } from 'lucide-react';
 import type { Storyboard } from '@/types';
 import { logger } from '@/lib/logger';
+import { withEmail } from '@/lib/utils';
 
 interface StoryboardExportModalProps {
   storyboard: Storyboard;
@@ -34,7 +35,8 @@ export function StoryboardExportModal({ storyboard, onClose }: StoryboardExportM
       setStatusText('正在準備匯出...');
 
       // Start export
-      const response = await fetch(`/api/storyboards/${storyboard.id}/export`, {
+      const email = localStorage.getItem('glimmer_email');
+      const response = await fetch(withEmail(`/api/storyboards/${storyboard.id}/export`, email), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       });

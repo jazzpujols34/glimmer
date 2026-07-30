@@ -47,15 +47,19 @@ export async function getJob(id: string): Promise<GenerationJob | undefined> {
 }
 
 
-export async function getCompletedJobs(): Promise<GenerationJob[]> {
+export async function getCompletedJobs(email?: string): Promise<GenerationJob[]> {
   const keys = await kvListKeys(KEY_PREFIX);
+  const normalizedEmail = email?.toLowerCase().trim();
   const jobs: GenerationJob[] = [];
   for (const key of keys) {
     const data = await kvGet(key);
     if (data) {
       const job: GenerationJob = JSON.parse(data);
       if (job.status === 'complete' && (job.videoUrl || job.videoUrls?.length)) {
-        jobs.push(job);
+        // If email filter provided, only return jobs owned by that user
+        if (!normalizedEmail || job.email?.toLowerCase().trim() === normalizedEmail) {
+          jobs.push(job);
+        }
       }
     }
   }

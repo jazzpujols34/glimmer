@@ -25,7 +25,7 @@ interface JobData {
   videoUrl: string;
   videoUrls?: string[];
   createdAt: string;
-  email?: string;
+  watermark?: boolean;
   settings?: {
     model: string;
     aspectRatio: string;
@@ -50,12 +50,20 @@ function EditorLoader({ jobId }: { jobId: string }) {
   const dispatch = useEditorDispatch();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [needsEmail, setNeedsEmail] = useState(false);
   const [savedSession, setSavedSession] = useState<SavedEditorState | null>(null);
   const [showRestore, setShowRestore] = useState(false);
   const blobUrlsRef = useRef<string[]>([]);
 
   // Check for saved session on mount
   useEffect(() => {
+    const email = typeof window !== 'undefined' ? localStorage.getItem('glimmer_email') : null;
+    if (!email) {
+      setNeedsEmail(true);
+      setLoading(false);
+      return;
+    }
+
     loadEditorState(jobId).then(saved => {
       if (saved && saved.clips.length > 0) {
         setSavedSession(saved);
@@ -63,18 +71,18 @@ function EditorLoader({ jobId }: { jobId: string }) {
         setLoading(false);
       } else {
         // No saved session — load fresh
-        loadFresh();
+        loadFresh(email);
       }
     }).catch(() => {
-      loadFresh();
+      loadFresh(email);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [jobId]);
 
-  async function loadFresh() {
+  async function loadFresh(email: string) {
     try {
       // Fetch job metadata
-      const res = await fetch(`/api/gallery/${jobId}`);
+      const res = await fetch(`/api/gallery/${jobId}?email=${encodeURIComponent(email)}`);
       if (!res.ok) {
         const data = await res.json();
         throw new Error(data.error || '載入失敗');
@@ -113,7 +121,7 @@ function EditorLoader({ jobId }: { jobId: string }) {
           jobId: job.id,
           jobName: job.name || '未命名影片',
           clips,
-          email: job.email,
+          watermark: job.watermark,
         },
       });
 
@@ -131,6 +139,25 @@ function EditorLoader({ jobId }: { jobId: string }) {
     if (!savedSession) return;
     setLoading(true);
     setShowRestore(false);
+
+    // Watermark decision is never persisted client-side (privacy fix) — it must always
+    // come fresh from the server. If the fetch fails or the job can't be found, leave
+    // it unset so /api/export-server's fail-safe applies the watermark (never default
+    // to "no watermark", which would give away a free unwatermarked export). This must
+    // not block or fail the restore itself.
+    let watermark: boolean | undefined;
+    try {
+      const email = localStorage.getItem('glimmer_email');
+      if (email) {
+        const res = await fetch(`/api/gallery/${jobId}?email=${encodeURIComponent(email)}`);
+        if (res.ok) {
+          const job: JobData = await res.json();
+          watermark = job.watermark;
+        }
+      }
+    } catch (err) {
+      logger.warn('[Restore] Failed to fetch watermark decision, watermark stays unset (fail-safe applies it):', err);
+    }
 
     try {
       // Re-create blobUrls for video clips by fetching from their actual sourceUrl
@@ -204,6 +231,7 @@ function EditorLoader({ jobId }: { jobId: string }) {
       const restoredState: EditorState = {
         jobId: savedSession.jobId,
         jobName: savedSession.jobName,
+        watermark,
         clips: restoredClips,
         transitions: savedSession.transitions,
         subtitles: savedSession.subtitles,
@@ -227,7 +255,8 @@ function EditorLoader({ jobId }: { jobId: string }) {
     } catch (err) {
       logger.error('Failed to restore session:', err);
       // Fall back to fresh load
-      await loadFresh();
+      const email = localStorage.getItem('glimmer_email');
+      if (email) await loadFresh(email);
     }
   }
 
@@ -236,7 +265,8 @@ function EditorLoader({ jobId }: { jobId: string }) {
     setSavedSession(null);
     setShowRestore(false);
     setLoading(true);
-    loadFresh();
+    const email = localStorage.getItem('glimmer_email');
+    if (email) loadFresh(email);
   }
 
   // Cleanup: revoke all blob URLs on unmount and tab close
@@ -254,6 +284,20 @@ function EditorLoader({ jobId }: { jobId: string }) {
       cleanup();
     };
   }, []);
+
+  if (needsEmail) {
+    return (
+      <div className="h-screen flex flex-col items-center justify-center gap-4">
+        <p className="text-muted-foreground">請先輸入 Email 才能編輯影片</p>
+        <Button variant="outline" asChild>
+          <Link href="/gallery">
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            返回影片庫
+          </Link>
+        </Button>
+      </div>
+    );
+  }
 
   if (showRestore && savedSession) {
     const savedDate = new Date(savedSession.savedAt);

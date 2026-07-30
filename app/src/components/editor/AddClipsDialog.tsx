@@ -6,7 +6,7 @@ import { useEditor, useEditorDispatch } from './EditorContext';
 import { generateId } from '@/lib/editor/timeline-utils';
 import type { TimelineClip } from '@/types/editor';
 import { Plus, Check, Loader2, Film, X, Upload } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, withEmail } from '@/lib/utils';
 import { logger } from '@/lib/logger';
 
 interface GalleryJob {
@@ -48,7 +48,14 @@ export function AddClipsDialog({ open, onClose }: AddClipsDialogProps) {
     setTab('gallery');
     setLoading(true);
 
-    fetch('/api/gallery')
+    const email = localStorage.getItem('glimmer_email');
+    if (!email) {
+      setJobs([]);
+      setLoading(false);
+      return;
+    }
+
+    fetch(withEmail('/api/gallery', email))
       .then(res => res.json())
       .then(data => setJobs(data.jobs || []))
       .catch(() => setJobs([]))

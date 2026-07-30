@@ -6,7 +6,8 @@ import { Logo } from '@/components/Logo';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { AccessGate } from '@/components/AccessGate';
-import { ArrowLeft, Plus, FolderOpen, Calendar, Film, Pencil, Check, X } from 'lucide-react';
+import { withEmail } from '@/lib/utils';
+import { ArrowLeft, Plus, FolderOpen, Calendar, Film, Pencil, Check, X, Mail } from 'lucide-react';
 import type { Project } from '@/types';
 
 export default function ProjectsPage() {
@@ -26,14 +27,21 @@ function ProjectsPageContent() {
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
   const [actionError, setActionError] = useState<string | null>(null);
+  const [noEmail, setNoEmail] = useState(false);
 
   useEffect(() => {
     loadProjects();
   }, []);
 
   async function loadProjects() {
+    const email = localStorage.getItem('glimmer_email');
+    if (!email) {
+      setNoEmail(true);
+      setLoading(false);
+      return;
+    }
     try {
-      const res = await fetch('/api/projects');
+      const res = await fetch(withEmail('/api/projects', email));
       if (!res.ok) throw new Error('載入失敗');
       const data = await res.json();
       setProjects(data.projects || []);
@@ -50,7 +58,8 @@ function ProjectsPageContent() {
 
     setCreating(true);
     try {
-      const res = await fetch('/api/projects', {
+      const email = localStorage.getItem('glimmer_email');
+      const res = await fetch(withEmail('/api/projects', email), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: newProjectName.trim() }),
@@ -70,7 +79,8 @@ function ProjectsPageContent() {
     const trimmed = renameValue.trim();
     if (!trimmed) return;
     try {
-      const res = await fetch(`/api/projects/${projectId}`, {
+      const email = localStorage.getItem('glimmer_email');
+      const res = await fetch(withEmail(`/api/projects/${projectId}`, email), {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: trimmed }),
@@ -163,6 +173,19 @@ function ProjectsPageContent() {
                 </Card>
               ))}
             </div>
+          ) : noEmail ? (
+            <Card>
+              <CardContent className="p-8 text-center">
+                <Mail className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
+                <h2 className="text-xl font-semibold mb-2">請先輸入 Email</h2>
+                <p className="text-muted-foreground mb-4">
+                  輸入您生成影片時使用的 Email，即可查看您的專案
+                </p>
+                <Button asChild>
+                  <Link href="/create">前往生成影片</Link>
+                </Button>
+              </CardContent>
+            </Card>
           ) : error ? (
             <Card>
               <CardContent className="p-8 text-center">

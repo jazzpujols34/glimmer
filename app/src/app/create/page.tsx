@@ -19,6 +19,7 @@ import { defaultSettings } from '@/types';
 import { FolderOpen, ChevronDown, Layers } from 'lucide-react';
 import { trackGenerationStart, trackPurchaseStart } from '@/lib/analytics';
 import { isValidEmail as checkEmail } from '@/lib/validation';
+import { withEmail } from '@/lib/utils';
 
 const occasionKeys: { value: OccasionType; labelKey: TranslationKey; descKey: TranslationKey }[] = [
   { value: 'memorial', labelKey: 'occasion.memorial', descKey: 'occasion.memorialDesc' },
@@ -142,9 +143,10 @@ function CreatePageInner() {
 
   // Load projects list
   useEffect(() => {
+    if (!checkEmail(email)) return;
     async function loadProjects() {
       try {
-        const res = await fetch('/api/projects');
+        const res = await fetch(withEmail('/api/projects', email));
         if (res.ok) {
           const data = await res.json();
           setProjects(data.projects || []);
@@ -152,7 +154,7 @@ function CreatePageInner() {
       } catch { /* ignore */ }
     }
     loadProjects();
-  }, []);
+  }, [email]);
 
   // Handle projectId from URL and verification callback
   useEffect(() => {

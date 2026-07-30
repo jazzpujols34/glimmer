@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Logo } from '@/components/Logo';
 import { AccessGate } from '@/components/AccessGate';
+import { withEmail } from '@/lib/utils';
 import type { AspectRatio } from '@/types';
 import { trackStoryboardCreate } from '@/lib/analytics';
 
@@ -44,7 +45,8 @@ function NewStoryboardPageContent() {
     setIsCreating(true);
 
     try {
-      const res = await fetch('/api/storyboards', {
+      const email = localStorage.getItem('glimmer_email');
+      const res = await fetch(withEmail('/api/storyboards', email), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: name.trim(), slotCount, aspectRatio }),

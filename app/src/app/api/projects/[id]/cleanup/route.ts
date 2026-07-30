@@ -4,6 +4,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getProject, getProjectJobs, deleteJob, updateProject } from '@/lib/storage';
 import { r2Delete } from '@/lib/r2';
 import { captureError } from '@/lib/errors';
+import { errors } from '@/lib/api-response';
+import { getRequesterEmail, ownsOrAdmin } from '@/lib/owner';
 
 // DELETE /api/projects/[id]/cleanup - Delete all non-favorite jobs in project
 export async function DELETE(
@@ -11,10 +13,17 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const requesterEmail = getRequesterEmail(request);
+    if (!requesterEmail) {
+      return request.nextUrl.searchParams.get('email')
+        ? errors.invalidEmail()
+        : errors.missingField('email');
+    }
+
     const { id } = await params;
 
     const project = await getProject(id);
-    if (!project) {
+    if (!project || !ownsOrAdmin(project.email, requesterEmail)) {
       return NextResponse.json({ error: '找不到該專案' }, { status: 404 });
     }
 

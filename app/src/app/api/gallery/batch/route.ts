@@ -3,10 +3,19 @@ export const runtime = 'edge';
 import { NextRequest, NextResponse } from 'next/server';
 import { getJob, deleteJob, getProject, addJobToProject, removeJobFromProject } from '@/lib/storage';
 import { captureError } from '@/lib/errors';
+import { errors } from '@/lib/api-response';
+import { getRequesterEmail, ownsOrAdmin } from '@/lib/owner';
 
 // POST /api/gallery/batch - Batch move or delete jobs
 export async function POST(request: NextRequest) {
   try {
+    const requesterEmail = getRequesterEmail(request);
+    if (!requesterEmail) {
+      return new URL(request.url).searchParams.get('email')
+        ? errors.invalidEmail()
+        : errors.missingField('email');
+    }
+
     const body = await request.json();
     const { action, jobIds, projectId } = body;
 
@@ -29,9 +38,10 @@ export async function POST(request: NextRequest) {
       }
 
       let moved = 0;
+      let skipped = 0;
       for (const jobId of jobIds) {
         const job = await getJob(jobId);
-        if (!job) continue;
+        if (!job || !ownsOrAdmin(job.email, requesterEmail)) { skipped++; continue; }
 
         const oldProjectId = job.projectId;
 
@@ -51,14 +61,15 @@ export async function POST(request: NextRequest) {
         moved++;
       }
 
-      return NextResponse.json({ success: true, moved });
+      return NextResponse.json({ success: true, moved, skipped });
     }
 
     if (action === 'delete') {
       let deleted = 0;
+      let skipped = 0;
       for (const jobId of jobIds) {
         const job = await getJob(jobId);
-        if (!job) continue;
+        if (!job || !ownsOrAdmin(job.email, requesterEmail)) { skipped++; continue; }
 
         // Remove from project if in one
         if (job.projectId) {
@@ -69,7 +80,7 @@ export async function POST(request: NextRequest) {
         deleted++;
       }
 
-      return NextResponse.json({ success: true, deleted });
+      return NextResponse.json({ success: true, deleted, skipped });
     }
 
     return NextResponse.json({ error: '無效的操作' }, { status: 400 });

@@ -4,20 +4,46 @@ import { NextRequest, NextResponse } from 'next/server';
 import { deleteJob, getJob, updateJob, addJobToProject, removeJobFromProject, getProject } from '@/lib/storage';
 import { captureError } from '@/lib/errors';
 import { getVideoUrl, getVideoUrls } from '@/lib/video-url';
+import { errors } from '@/lib/api-response';
+import { getRequesterEmail, ownsOrAdmin } from '@/lib/owner';
+import { checkCredits } from '@/lib/credits';
+
+const NOT_FOUND = () => NextResponse.json({ error: '找不到該影片' }, { status: 404 });
+
+function requireRequesterEmail(request: Request) {
+  const requesterEmail = getRequesterEmail(request);
+  if (!requesterEmail) {
+    return new URL(request.url).searchParams.get('email')
+      ? errors.invalidEmail()
+      : errors.missingField('email');
+  }
+  return requesterEmail;
+}
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const requesterEmail = requireRequesterEmail(request);
+    if (typeof requesterEmail !== 'string') return requesterEmail;
+
     const { id } = await params;
     const job = await getJob(id);
-    if (!job) {
-      return NextResponse.json({ error: '找不到該影片' }, { status: 404 });
+    if (!job || !ownsOrAdmin(job.email, requesterEmail)) {
+      return NOT_FOUND();
     }
     if (job.status !== 'complete') {
       return NextResponse.json({ error: '影片尚未完成' }, { status: 400 });
     }
+
+    // Server-computed watermark decision — never expose the owner's email via a jobId
+    let watermark = true;
+    if (job.email) {
+      const credits = await checkCredits(job.email);
+      if (credits.isAdmin || credits.paidTotal > 0) watermark = false;
+    }
+
     return NextResponse.json({
       id: job.id,
       name: job.name,
@@ -28,7 +54,7 @@ export async function GET(
       settings: job.settings,
       favorite: job.favorite,
       projectId: job.projectId,
-      email: job.email,  // For watermark decision in exports
+      watermark,
     });
   } catch (error) {
     captureError(error, { route: '/api/gallery/[id]' });
@@ -42,12 +68,15 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const requesterEmail = requireRequesterEmail(request);
+    if (typeof requesterEmail !== 'string') return requesterEmail;
+
     const { id } = await params;
     const body = await request.json();
 
     const job = await getJob(id);
-    if (!job) {
-      return NextResponse.json({ error: '找不到該影片' }, { status: 404 });
+    if (!job || !ownsOrAdmin(job.email, requesterEmail)) {
+      return NOT_FOUND();
     }
 
     const updates: { favorite?: boolean; projectId?: string } = {};
@@ -104,13 +133,16 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const requesterEmail = requireRequesterEmail(request);
+    if (typeof requesterEmail !== 'string') return requesterEmail;
+
     const { id } = await params;
     const url = new URL(request.url);
     const videoIndexParam = url.searchParams.get('videoIndex');
 
     const job = await getJob(id);
-    if (!job) {
-      return NextResponse.json({ error: '找不到該影片' }, { status: 404 });
+    if (!job || !ownsOrAdmin(job.email, requesterEmail)) {
+      return NOT_FOUND();
     }
 
     // keepOnly — keep a single clip, delete all others (atomic operation)

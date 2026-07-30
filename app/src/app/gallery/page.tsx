@@ -9,8 +9,8 @@ import { LanguageToggle } from '@/components/LanguageToggle';
 import { useTranslation } from '@/lib/i18n';
 import { useAccess } from '@/hooks/useAccess';
 import { OCCASION_LABELS } from '@/lib/constants';
-import { Play, Download, Calendar, Film, ArrowLeft, Trash2, Scissors, AlertCircle, X, Star, FolderOpen, ChevronDown, Clock, Lock, CheckSquare, Square, Wand2, RefreshCw, LayoutGrid, Pencil, Plus } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { Play, Download, Calendar, Film, ArrowLeft, Trash2, Scissors, AlertCircle, X, Star, FolderOpen, ChevronDown, Clock, Lock, CheckSquare, Square, Wand2, RefreshCw, LayoutGrid, Pencil, Plus, Mail } from 'lucide-react';
+import { cn, withEmail } from '@/lib/utils';
 import { trackGalleryView } from '@/lib/analytics';
 import { logger } from '@/lib/logger';
 import type { Project, Storyboard } from '@/types';
@@ -37,7 +37,7 @@ interface GalleryJob {
 
 export default function GalleryPage() {
   const t = useTranslation();
-  const { hasPaidAccess, email } = useAccess();
+  const { hasPaidAccess, email, loading: accessLoading } = useAccess();
   const [jobs, setJobs] = useState<GalleryJob[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -121,7 +121,7 @@ export default function GalleryPage() {
     if (selectedJobs.size === 0) return;
     setBatchMoving(true);
     try {
-      const res = await fetch('/api/gallery/batch', {
+      const res = await fetch(withEmail('/api/gallery/batch', email), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -141,7 +141,7 @@ export default function GalleryPage() {
       clearSelection();
       setMoveDropdownOpen(false);
       // Reload projects to update counts
-      const projectsRes = await fetch('/api/projects');
+      const projectsRes = await fetch(withEmail('/api/projects', email));
       if (projectsRes.ok) {
         const projectsData = await projectsRes.json();
         setProjects(projectsData.projects || []);
@@ -158,7 +158,7 @@ export default function GalleryPage() {
     if (!confirm(`確定要刪除選取的 ${selectedJobs.size} 支影片嗎？此操作無法復原。`)) return;
     setBatchDeleting(true);
     try {
-      const res = await fetch('/api/gallery/batch', {
+      const res = await fetch(withEmail('/api/gallery/batch', email), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -194,9 +194,15 @@ export default function GalleryPage() {
   }, [selectedJob, closeModal]);
 
   useEffect(() => {
+    if (accessLoading) return;
+    if (!email) {
+      setLoading(false);
+      return;
+    }
+
     async function loadGallery() {
       try {
-        const res = await fetch('/api/gallery');
+        const res = await fetch(withEmail('/api/gallery', email));
         if (!res.ok) {
           const data = await res.json().catch(() => ({}));
           throw new Error(data.error || '載入失敗');
@@ -213,7 +219,7 @@ export default function GalleryPage() {
     }
 
     loadGallery();
-  }, []);
+  }, [email, accessLoading]);
 
   // Load user's storyboards
   useEffect(() => {
@@ -235,13 +241,13 @@ export default function GalleryPage() {
     setRefreshing(true);
     setRefreshResult(null);
     try {
-      const res = await fetch('/api/gallery/refresh', { method: 'POST' });
+      const res = await fetch(withEmail('/api/gallery/refresh', email), { method: 'POST' });
       const data = await res.json();
       if (res.ok) {
         setRefreshResult({ updated: data.updated, checked: data.checked });
         // Reload gallery if any jobs were updated
         if (data.updated > 0) {
-          const galleryRes = await fetch('/api/gallery');
+          const galleryRes = await fetch(withEmail('/api/gallery', email));
           if (galleryRes.ok) {
             const galleryData = await galleryRes.json();
             setJobs(galleryData.jobs || []);
@@ -259,9 +265,10 @@ export default function GalleryPage() {
 
   // Load projects for the dropdown
   useEffect(() => {
+    if (!email) return;
     async function loadProjects() {
       try {
-        const res = await fetch('/api/projects');
+        const res = await fetch(withEmail('/api/projects', email));
         if (res.ok) {
           const data = await res.json();
           setProjects(data.projects || []);
@@ -269,7 +276,7 @@ export default function GalleryPage() {
       } catch { /* ignore */ }
     }
     loadProjects();
-  }, []);
+  }, [email]);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -303,7 +310,7 @@ export default function GalleryPage() {
 
     setDeleting(jobId);
     try {
-      const res = await fetch(`/api/gallery/${jobId}`, { method: 'DELETE' });
+      const res = await fetch(withEmail(`/api/gallery/${jobId}`, email), { method: 'DELETE' });
       if (!res.ok) {
         const data = await res.json();
         throw new Error(data.error || '刪除失敗');
@@ -324,7 +331,7 @@ export default function GalleryPage() {
 
     setDeleting(`${jobId}-${videoIndex}`);
     try {
-      const res = await fetch(`/api/gallery/${jobId}?videoIndex=${videoIndex}`, { method: 'DELETE' });
+      const res = await fetch(withEmail(`/api/gallery/${jobId}?videoIndex=${videoIndex}`, email), { method: 'DELETE' });
       const data = await res.json();
       if (!res.ok) {
         throw new Error(data.error || '刪除失敗');
@@ -368,7 +375,7 @@ export default function GalleryPage() {
     setDeleting(`${jobId}-keep`);
     try {
       // Single atomic API call — server keeps only the specified index
-      const res = await fetch(`/api/gallery/${jobId}?keepOnly=${keepIndex}`, { method: 'DELETE' });
+      const res = await fetch(withEmail(`/api/gallery/${jobId}?keepOnly=${keepIndex}`, email), { method: 'DELETE' });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || '刪除失敗');
 
@@ -394,7 +401,7 @@ export default function GalleryPage() {
   const handleToggleFavorite = async (jobId: string, e?: React.MouseEvent) => {
     e?.stopPropagation();
     try {
-      const res = await fetch(`/api/gallery/${jobId}`, {
+      const res = await fetch(withEmail(`/api/gallery/${jobId}`, email), {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({}), // Toggle
@@ -417,7 +424,7 @@ export default function GalleryPage() {
   const handleMoveToProject = async (jobId: string, projectId: string | null) => {
     setMovingToProject(true);
     try {
-      const res = await fetch(`/api/gallery/${jobId}`, {
+      const res = await fetch(withEmail(`/api/gallery/${jobId}`, email), {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ projectId }),
@@ -694,7 +701,24 @@ export default function GalleryPage() {
               ? galleryJobs.filter(j => j.favorite)
               : galleryJobs;
 
-            if (loading) {
+            if (!accessLoading && !email) {
+              return (
+                <Card className="max-w-md mx-auto">
+                  <CardContent className="p-8 text-center">
+                    <Mail className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
+                    <h2 className="text-xl font-semibold mb-2">請先輸入 Email</h2>
+                    <p className="text-muted-foreground mb-4">
+                      輸入您生成影片時使用的 Email，即可查看您的影片庫
+                    </p>
+                    <Button asChild>
+                      <Link href="/create">前往生成影片</Link>
+                    </Button>
+                  </CardContent>
+                </Card>
+              );
+            }
+
+            if (loading || accessLoading) {
               return (
                 <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                   {[1, 2, 3].map((i) => (

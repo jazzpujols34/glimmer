@@ -24,10 +24,12 @@ import {
   Check,
   ArrowUp,
   ArrowDown,
+  Mail,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, withEmail } from '@/lib/utils';
 import { resolveVideoUrl } from '@/lib/video-url';
 import { logger } from '@/lib/logger';
+import { useAccess } from '@/hooks/useAccess';
 
 interface ClipData {
   jobId: string;
@@ -42,6 +44,7 @@ function ShowcaseContent() {
   const searchParams = useSearchParams();
   const _router = useRouter();
   const clipsParam = searchParams.get('clips');
+  const { email, loading: accessLoading } = useAccess();
 
   const [clips, setClips] = useState<ClipData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -54,6 +57,12 @@ function ShowcaseContent() {
 
   // Parse clip keys and fetch video URLs
   useEffect(() => {
+    if (accessLoading) return;
+    if (!email) {
+      setLoading(false);
+      return;
+    }
+
     async function loadClips() {
       if (!clipsParam) {
         setLoading(false);
@@ -68,7 +77,7 @@ function ShowcaseContent() {
         const videoIndex = parseInt(videoIndexStr, 10);
 
         try {
-          const res = await fetch(`/api/gallery/${jobId}`);
+          const res = await fetch(withEmail(`/api/gallery/${jobId}`, email));
           if (res.ok) {
             const job = await res.json();
             // API returns job directly, not wrapped in { job: ... }
@@ -93,7 +102,7 @@ function ShowcaseContent() {
     }
 
     loadClips();
-  }, [clipsParam]);
+  }, [clipsParam, email, accessLoading]);
 
   const moveClip = (index: number, direction: 'up' | 'down') => {
     const newIndex = direction === 'up' ? index - 1 : index + 1;
@@ -220,7 +229,24 @@ function ShowcaseContent() {
     ? QUICK_TEMPLATES.find(t => t.id === selectedTemplate)
     : null;
 
-  if (loading) {
+  if (!accessLoading && !email) {
+    return (
+      <Card className="max-w-md mx-auto">
+        <CardContent className="p-8 text-center">
+          <Mail className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
+          <h2 className="text-xl font-semibold mb-2">請先輸入 Email</h2>
+          <p className="text-muted-foreground mb-4">
+            輸入您生成影片時使用的 Email，即可製作展示影片
+          </p>
+          <Button asChild>
+            <Link href="/create">前往生成影片</Link>
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (loading || accessLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />

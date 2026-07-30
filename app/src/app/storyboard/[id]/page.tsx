@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Logo } from '@/components/Logo';
 import { AccessGate } from '@/components/AccessGate';
+import { withEmail } from '@/lib/utils';
 import { StoryboardGrid } from '@/components/storyboard/StoryboardGrid';
 import { StoryboardExportModal } from '@/components/storyboard/StoryboardExportModal';
 import { StoryboardPreviewModal } from '@/components/storyboard/StoryboardPreviewModal';
@@ -114,6 +115,8 @@ function StoryboardEditorPageContent() {
   const params = useParams();
   const router = useRouter();
   const storyboardId = params.id as string;
+  // AccessGate guarantees this is set before this component ever mounts
+  const email = typeof window !== 'undefined' ? localStorage.getItem('glimmer_email') : null;
 
   const [initialStoryboard, setInitialStoryboard] = useState<Storyboard | null>(null);
   const [galleryJobs, setGalleryJobs] = useState<GenerationJob[]>([]);
@@ -148,7 +151,7 @@ function StoryboardEditorPageContent() {
   const syncToServer = useCallback(async (s: Storyboard) => {
     setSaveStatus('saving');
     try {
-      await fetch(`/api/storyboards/${storyboardId}`, {
+      await fetch(withEmail(`/api/storyboards/${storyboardId}`, email), {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'fullUpdate', storyboard: s }),
@@ -158,7 +161,7 @@ function StoryboardEditorPageContent() {
       logger.error('Error syncing to server:', err);
       markError();
     }
-  }, [storyboardId, markSaved, markError]);
+  }, [storyboardId, email, markSaved, markError]);
 
   // Use history hook for undo/redo
   const {
@@ -203,8 +206,8 @@ function StoryboardEditorPageContent() {
     const fetchData = async () => {
       try {
         const [storyboardRes, galleryRes] = await Promise.all([
-          fetch(`/api/storyboards/${storyboardId}`),
-          fetch('/api/gallery'),
+          fetch(withEmail(`/api/storyboards/${storyboardId}`, email)),
+          fetch(withEmail('/api/gallery', email)),
         ]);
 
         if (!storyboardRes.ok) {
@@ -226,7 +229,7 @@ function StoryboardEditorPageContent() {
     };
 
     fetchData();
-  }, [storyboardId]);
+  }, [storyboardId, email]);
 
   const handleUpdateSlot = useCallback(
     async (slotIndex: number, slotUpdate: Partial<StoryboardSlot>) => {
@@ -249,7 +252,7 @@ function StoryboardEditorPageContent() {
       updatingSlots.current.add(slotIndex);
       setSaveStatus('saving');
       try {
-        const res = await fetch(`/api/storyboards/${storyboardId}`, {
+        const res = await fetch(withEmail(`/api/storyboards/${storyboardId}`, email), {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -271,7 +274,7 @@ function StoryboardEditorPageContent() {
         logger.error('Error updating slot:', err);
         markError();
         // Revert on error - refetch
-        const res = await fetch(`/api/storyboards/${storyboardId}`);
+        const res = await fetch(withEmail(`/api/storyboards/${storyboardId}`, email));
         if (res.ok) {
           const data = await res.json();
           setStoryboardDirect(data.storyboard);
@@ -280,7 +283,7 @@ function StoryboardEditorPageContent() {
         updatingSlots.current.delete(slotIndex);
       }
     },
-    [storyboard, storyboardId, setStoryboard, setStoryboardDirect, markSaved, markError]
+    [storyboard, storyboardId, email, setStoryboard, setStoryboardDirect, markSaved, markError]
   );
 
   const handleUpdateTransition = useCallback(
@@ -303,7 +306,7 @@ function StoryboardEditorPageContent() {
       updatingTransitions.current.add(transitionIndex);
       setSaveStatus('saving');
       try {
-        const res = await fetch(`/api/storyboards/${storyboardId}`, {
+        const res = await fetch(withEmail(`/api/storyboards/${storyboardId}`, email), {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -327,7 +330,7 @@ function StoryboardEditorPageContent() {
         updatingTransitions.current.delete(transitionIndex);
       }
     },
-    [storyboard, storyboardId, setStoryboard, setStoryboardDirect, markSaved, markError]
+    [storyboard, storyboardId, email, setStoryboard, setStoryboardDirect, markSaved, markError]
   );
 
   const handleReorderSlots = useCallback(
@@ -354,7 +357,7 @@ function StoryboardEditorPageContent() {
       isReordering.current = true;
       setSaveStatus('saving');
       try {
-        const res = await fetch(`/api/storyboards/${storyboardId}`, {
+        const res = await fetch(withEmail(`/api/storyboards/${storyboardId}`, email), {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -375,7 +378,7 @@ function StoryboardEditorPageContent() {
         logger.error('Error reordering slots:', err);
         markError();
         // Revert on error - refetch
-        const res = await fetch(`/api/storyboards/${storyboardId}`);
+        const res = await fetch(withEmail(`/api/storyboards/${storyboardId}`, email));
         if (res.ok) {
           const data = await res.json();
           setStoryboardDirect(data.storyboard);
@@ -384,7 +387,7 @@ function StoryboardEditorPageContent() {
         isReordering.current = false;
       }
     },
-    [storyboard, storyboardId, setStoryboard, setStoryboardDirect, markSaved, markError]
+    [storyboard, storyboardId, email, setStoryboard, setStoryboardDirect, markSaved, markError]
   );
 
   const handleAddSlot = useCallback(
@@ -416,7 +419,7 @@ function StoryboardEditorPageContent() {
 
       setSaveStatus('saving');
       try {
-        const res = await fetch(`/api/storyboards/${storyboardId}`, {
+        const res = await fetch(withEmail(`/api/storyboards/${storyboardId}`, email), {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'addSlot', position }),
@@ -431,7 +434,7 @@ function StoryboardEditorPageContent() {
         markError();
       }
     },
-    [storyboard, storyboardId, setStoryboard, setStoryboardDirect, markSaved, markError]
+    [storyboard, storyboardId, email, setStoryboard, setStoryboardDirect, markSaved, markError]
   );
 
   const handleRemoveSlot = useCallback(
@@ -463,7 +466,7 @@ function StoryboardEditorPageContent() {
 
       setSaveStatus('saving');
       try {
-        const res = await fetch(`/api/storyboards/${storyboardId}`, {
+        const res = await fetch(withEmail(`/api/storyboards/${storyboardId}`, email), {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'removeSlot', slotIndex }),
@@ -477,21 +480,21 @@ function StoryboardEditorPageContent() {
         logger.error('Error removing slot:', err);
         markError();
         // Revert on error
-        const res = await fetch(`/api/storyboards/${storyboardId}`);
+        const res = await fetch(withEmail(`/api/storyboards/${storyboardId}`, email));
         if (res.ok) {
           const data = await res.json();
           setStoryboardDirect(data.storyboard);
         }
       }
     },
-    [storyboard, storyboardId, setStoryboard, setStoryboardDirect, markSaved, markError]
+    [storyboard, storyboardId, email, setStoryboard, setStoryboardDirect, markSaved, markError]
   );
 
   const handleDelete = async () => {
     if (!confirm('確定要刪除此故事板嗎？')) return;
 
     try {
-      const res = await fetch(`/api/storyboards/${storyboardId}`, {
+      const res = await fetch(withEmail(`/api/storyboards/${storyboardId}`, email), {
         method: 'DELETE',
       });
 
@@ -523,14 +526,14 @@ function StoryboardEditorPageContent() {
     setSaveStatus('saving');
     try {
       // Update title card
-      await fetch(`/api/storyboards/${storyboardId}`, {
+      await fetch(withEmail(`/api/storyboards/${storyboardId}`, email), {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'updateTitleCard', titleCard }),
       });
 
       // Update outro card
-      const res = await fetch(`/api/storyboards/${storyboardId}`, {
+      const res = await fetch(withEmail(`/api/storyboards/${storyboardId}`, email), {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'updateOutroCard', outroCard }),
@@ -559,7 +562,7 @@ function StoryboardEditorPageContent() {
 
     setSaveStatus('saving');
     try {
-      const res = await fetch(`/api/storyboards/${storyboardId}`, {
+      const res = await fetch(withEmail(`/api/storyboards/${storyboardId}`, email), {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'updateMusicTracks', musicTracks: tracks }),
@@ -587,7 +590,7 @@ function StoryboardEditorPageContent() {
 
     setSaveStatus('saving');
     try {
-      const res = await fetch(`/api/storyboards/${storyboardId}`, {
+      const res = await fetch(withEmail(`/api/storyboards/${storyboardId}`, email), {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'updateSubtitles', subtitles }),
