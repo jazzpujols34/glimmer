@@ -102,6 +102,7 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; icon: typeof
 
 export default function AdminPage() {
   const [email, setEmail] = useState('');
+  const [adminSecret, setAdminSecret] = useState('');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [loading, setLoading] = useState(false);
@@ -121,21 +122,35 @@ export default function AdminPage() {
   const [grantSuccess, setGrantSuccess] = useState('');
 
   useEffect(() => {
-    const saved = localStorage.getItem('glimmer_admin_email');
-    if (saved) {
-      setEmail(saved);
-      fetchStats(saved);
+    const savedEmail = localStorage.getItem('glimmer_admin_email');
+    const savedSecret = localStorage.getItem('glimmer_admin_secret');
+    if (savedEmail && savedSecret) {
+      setEmail(savedEmail);
+      setAdminSecret(savedSecret);
+      fetchStats(savedEmail, savedSecret);
     }
+    // Mount-only bootstrap: restore saved credentials from localStorage and fetch once.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const fetchStats = async (adminEmail: string) => {
+  // 401 = auth rejected (bad email, bad secret, or secret rotated server-side).
+  // Clear the stored secret and drop back to the login screen to re-prompt.
+  const handleUnauthorized = (message: string) => {
+    localStorage.removeItem('glimmer_admin_secret');
+    setAdminSecret('');
+    setIsAuthenticated(false);
+    setError(message);
+  };
+
+  const fetchStats = async (adminEmail: string, secret: string) => {
     setLoading(true);
     setError('');
     try {
-      const res = await fetch(`/api/admin/stats?email=${encodeURIComponent(adminEmail)}`);
+      const res = await fetch(`/api/admin/stats?email=${encodeURIComponent(adminEmail)}`, {
+        headers: { 'x-admin-secret': secret },
+      });
       if (res.status === 401) {
-        setError('此 Email 沒有管理員權限');
-        setIsAuthenticated(false);
+        handleUnauthorized('驗證失敗，請確認 Email 與管理密鑰');
         return;
       }
       if (!res.ok) throw new Error('Failed to fetch stats');
@@ -143,6 +158,7 @@ export default function AdminPage() {
       setStats(data);
       setIsAuthenticated(true);
       localStorage.setItem('glimmer_admin_email', adminEmail);
+      localStorage.setItem('glimmer_admin_secret', secret);
     } catch {
       setError('載入統計資料失敗');
     } finally {
@@ -152,13 +168,13 @@ export default function AdminPage() {
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    if (email.trim()) {
-      fetchStats(email.trim());
+    if (email.trim() && adminSecret.trim()) {
+      fetchStats(email.trim(), adminSecret.trim());
     }
   };
 
   const handleRefresh = () => {
-    if (email) fetchStats(email);
+    if (email && adminSecret) fetchStats(email, adminSecret);
   };
 
   const searchUser = async (userEmail: string) => {
@@ -169,10 +185,11 @@ export default function AdminPage() {
     setGrantSuccess('');
     try {
       const res = await fetch(
-        `/api/admin/users?email=${encodeURIComponent(userEmail.trim())}&adminEmail=${encodeURIComponent(email)}`
+        `/api/admin/users?email=${encodeURIComponent(userEmail.trim())}&adminEmail=${encodeURIComponent(email)}`,
+        { headers: { 'x-admin-secret': adminSecret } }
       );
       if (res.status === 401) {
-        setUserError('沒有權限');
+        handleUnauthorized('驗證失敗，請確認 Email 與管理密鑰');
         return;
       }
       if (res.status === 400) {
@@ -208,7 +225,7 @@ export default function AdminPage() {
     try {
       const res = await fetch('/api/admin/users', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-admin-secret': adminSecret },
         body: JSON.stringify({
           adminEmail: email,
           userEmail: userData.email,
@@ -216,6 +233,10 @@ export default function AdminPage() {
           reason: grantReason || '管理員贈送',
         }),
       });
+      if (res.status === 401) {
+        handleUnauthorized('驗證失敗，請確認 Email 與管理密鑰');
+        return;
+      }
       if (!res.ok) throw new Error('Failed to grant credits');
       const result = await res.json();
       setGrantSuccess(`成功贈送 ${credits} 點 (新餘額: ${result.newRemaining})`);
@@ -261,10 +282,16 @@ export default function AdminPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                 />
+                <Input
+                  type="password"
+                  placeholder="管理密鑰"
+                  value={adminSecret}
+                  onChange={(e) => setAdminSecret(e.target.value)}
+                />
                 {error && (
                   <p className="text-sm text-destructive">{error}</p>
                 )}
-                <Button type="submit" className="w-full" disabled={loading}>
+                <Button type="submit" className="w-full" disabled={loading || !email.trim() || !adminSecret.trim()}>
                   {loading ? '驗證中...' : '登入'}
                 </Button>
               </form>
@@ -295,6 +322,8 @@ export default function AdminPage() {
               size="sm"
               onClick={() => {
                 localStorage.removeItem('glimmer_admin_email');
+                localStorage.removeItem('glimmer_admin_secret');
+                setAdminSecret('');
                 setIsAuthenticated(false);
                 setStats(null);
               }}

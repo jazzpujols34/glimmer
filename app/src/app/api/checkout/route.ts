@@ -7,14 +7,7 @@ import { createPaymentFormData } from '@/lib/ecpay';
 import { isValidEmail } from '@/lib/validation';
 import { successResponse, errors } from '@/lib/api-response';
 import { logger } from '@/lib/logger';
-
-// Credit pack definitions
-const CREDIT_PACKS: Record<string, { credits: number; priceTWD: number; label: string }> = {
-  single: { credits: 1, priceTWD: 499, label: '單次生成' },
-  pack5: { credits: 5, priceTWD: 1999, label: '5次生成組合包' },
-  pack20: { credits: 20, priceTWD: 299, label: '20次生成組合包' },
-  pack50: { credits: 50, priceTWD: 599, label: '50次生成組合包' },
-};
+import { getPack } from '@/lib/packs';
 
 export async function POST(request: NextRequest) {
   try {
@@ -33,7 +26,7 @@ export async function POST(request: NextRequest) {
       return errors.invalidEmail();
     }
 
-    const pack = CREDIT_PACKS[packId];
+    const pack = getPack(packId);
     if (!pack) {
       return errors.invalidInput('無效的方案');
     }
@@ -49,14 +42,15 @@ export async function POST(request: NextRequest) {
       amount: pack.priceTWD,
       description: '拾光 Glimmer AI 影片生成',
       email: email.toLowerCase().trim(),
+      packId: pack.id,
       itemName: `${pack.label} (${pack.credits} 次生成)`,
       returnUrl: `${appUrl}/api/ecpay-return`,
       notifyUrl: `${appUrl}/api/webhooks/ecpay`,
       clientBackUrl: `${appUrl}/create`,
     });
 
-    // Store order info for webhook validation (optional, for extra security)
-    // We use CustomField1 to pass email, and parse orderId format to get credits
+    // CustomField1 carries email, CustomField2 carries packId — both signed
+    // into CheckMacValue, read back by the webhook to resolve credits.
 
     // Return form data for client to POST to ECPay
     return successResponse({

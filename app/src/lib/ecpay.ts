@@ -99,6 +99,7 @@ export interface CreatePaymentParams {
   amount: number;
   description: string;
   email: string;
+  packId: string;
   itemName: string;
   returnUrl: string;
   notifyUrl: string;
@@ -142,6 +143,7 @@ export async function createPaymentFormData(params: CreatePaymentParams): Promis
     ChoosePayment: 'ALL',  // Allow all payment methods
     EncryptType: '1',  // Use SHA256
     CustomField1: params.email,  // Store email for webhook
+    CustomField2: params.packId,  // Store packId for webhook (credit resolution)
   };
 
   if (params.clientBackUrl) {
@@ -172,6 +174,7 @@ export interface ECPayCallbackData {
   paymentType: string;
   checkMacValue: string;
   email: string;
+  packId: string;
   isValid: boolean;
 }
 
@@ -195,6 +198,7 @@ export async function parseCallback(formData: FormData): Promise<ECPayCallbackDa
     paymentType: params.PaymentType || '',
     checkMacValue: params.CheckMacValue || '',
     email: params.CustomField1 || '',
+    packId: params.CustomField2 || '',
     isValid,
   };
 }

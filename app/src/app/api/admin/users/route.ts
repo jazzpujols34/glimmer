@@ -4,7 +4,8 @@ import { NextRequest } from 'next/server';
 import { kvListKeys, kvGet, kvPut } from '@/lib/kv';
 import { getCreditRecord, checkCredits, isAdmin } from '@/lib/credits';
 import { captureError } from '@/lib/errors';
-import { successResponse, errorResponse, errors } from '@/lib/api-response';
+import { successResponse, errors } from '@/lib/api-response';
+import { requireAdmin } from '@/lib/admin-auth';
 import type { GenerationJob, CreditRecord } from '@/types';
 
 /**
@@ -15,9 +16,8 @@ export async function GET(request: NextRequest) {
   const adminEmail = request.nextUrl.searchParams.get('adminEmail');
   const userEmail = request.nextUrl.searchParams.get('email');
 
-  if (!adminEmail || !isAdmin(adminEmail)) {
-    return errorResponse('Unauthorized', 401, 'UNAUTHORIZED');
-  }
+  const denied = requireAdmin(request, adminEmail);
+  if (denied) return denied;
 
   if (!userEmail) {
     return errors.missingField('email');
@@ -73,9 +73,8 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { adminEmail, userEmail, credits, reason } = body;
 
-    if (!adminEmail || !isAdmin(adminEmail)) {
-      return errorResponse('Unauthorized', 401, 'UNAUTHORIZED');
-    }
+    const denied = requireAdmin(request, adminEmail);
+    if (denied) return denied;
 
     if (!userEmail || typeof credits !== 'number' || credits <= 0) {
       return errors.invalidInput('Invalid request: userEmail and credits required');

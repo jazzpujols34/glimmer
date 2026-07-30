@@ -5,14 +5,7 @@ import { parseCallback } from '@/lib/ecpay';
 import { addCredits, getCreditRecord } from '@/lib/credits';
 import { captureError } from '@/lib/errors';
 import { logger } from '@/lib/logger';
-
-// Credit pack definitions (must match checkout route)
-const CREDIT_PACKS: Record<number, number> = {
-  499: 1,    // single: NT$499 = 1 credit
-  1999: 5,   // pack5: NT$1999 = 5 credits
-  299: 20,   // pack20: NT$299 = 20 credits
-  599: 50,   // pack50: NT$599 = 50 credits
-};
+import { getPack, creditsForAmount } from '@/lib/packs';
 
 export async function POST(request: NextRequest) {
   try {
@@ -47,8 +40,15 @@ export async function POST(request: NextRequest) {
       return new NextResponse('0|No email', { status: 400 });
     }
 
-    // Determine credits from amount
-    const credits = CREDIT_PACKS[callbackData.tradeAmt];
+    // Determine credits: prefer the signed packId (CustomField2), verified
+    // against the amount actually paid so a mismatched/stale packId can never
+    // over-credit. Falls back to the amount map for orders created before
+    // packId was signed (and for the historical orders predating this change).
+    const pack = callbackData.packId ? getPack(callbackData.packId) : undefined;
+    const credits = pack && pack.priceTWD === callbackData.tradeAmt
+      ? pack.credits
+      : creditsForAmount(callbackData.tradeAmt);
+
     if (!credits) {
       logger.error('Unknown amount:', callbackData.tradeAmt);
       return new NextResponse('0|Unknown amount', { status: 400 });

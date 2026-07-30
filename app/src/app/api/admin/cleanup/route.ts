@@ -3,7 +3,7 @@ export const runtime = 'edge';
 import { NextRequest, NextResponse } from 'next/server';
 import { kvListKeys, kvGet, kvDelete } from '@/lib/kv';
 import { captureError } from '@/lib/errors';
-import { isAdmin } from '@/lib/credits';
+import { requireAdmin } from '@/lib/admin-auth';
 import type { GenerationJob } from '@/types';
 
 /**
@@ -32,9 +32,8 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { adminEmail, dryRun = false } = body;
 
-    if (!adminEmail || !isAdmin(adminEmail)) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const denied = requireAdmin(request, adminEmail);
+    if (denied) return denied;
 
     const jobKeys = await kvListKeys('job:');
     const expiredJobs: { id: string; name?: string; videoUrl?: string; createdAt: string }[] = [];

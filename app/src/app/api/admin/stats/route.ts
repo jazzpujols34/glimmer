@@ -3,16 +3,15 @@ export const runtime = 'edge';
 import { NextRequest } from 'next/server';
 import { kvListKeys, kvGet } from '@/lib/kv';
 import { captureError } from '@/lib/errors';
-import { successResponse, errorResponse, errors } from '@/lib/api-response';
-import { isAdmin } from '@/lib/credits';
+import { successResponse, errors } from '@/lib/api-response';
+import { requireAdmin } from '@/lib/admin-auth';
 import type { GenerationJob, CreditRecord } from '@/types';
 
 export async function GET(request: NextRequest) {
-  // Check admin auth via query param
+  // Check admin auth via query param + server-side shared secret
   const email = request.nextUrl.searchParams.get('email');
-  if (!email || !isAdmin(email)) {
-    return errorResponse('Unauthorized', 401, 'UNAUTHORIZED');
-  }
+  const denied = requireAdmin(request, email);
+  if (denied) return denied;
 
   try {
     // Get all jobs
