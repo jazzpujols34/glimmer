@@ -138,9 +138,9 @@ Options: `--clips 1-4` (default 3), `--model byteplus|veo-3.1|kling-ai`, `--occa
 
 ## Business Model
 
-Pay-per-video credits (not subscriptions). Email-only identity (no passwords/OAuth).
-- Free: 1 video per email, full quality, no watermark
-- Single: NT$499 (1 credit), 5-pack: NT$1,999 (NT$400/ea)
+Pay-per-generation credits (not subscriptions). Email-only identity (no passwords/OAuth).
+- Free: 3 generations per email (`FREE_GENERATIONS` in `src/types/index.ts`), full quality, no watermark
+- Credit packs: 20 次 NT$299, 50 次 NT$599 — single source of truth in `src/lib/packs.ts`
 - Enterprise: 請洽業務 (contact sales)
 - Payment: ECPay (Taiwan-native), Stripe as fallback
 
@@ -179,6 +179,14 @@ Pay-per-video credits (not subscriptions). Email-only identity (no passwords/OAu
 - Category-aware: `getSystemPrompt(occasion)` selects person vs pet base prompt. Keep occasion layer separate.
 
 ## Recent Learnings
+
+- **[2026-07-30] Per-user routes MUST take an explicit owner**: `/api/gallery` was declared `export async function GET()` — no request object, so no identity — and `getCompletedJobs()` did a bare `kvListKeys('job:')`. It served every user's completed videos to anonymous visitors. `/api/projects` and `/api/storyboards` had a subtler version: `searchParams.get('email') || undefined` combined with `if (!email || project.email === email)`, so **omitting the param disabled the filter**. An opt-in filter is not access control. Every per-user route now goes through `getRequesterEmail()` + `ownsOrAdmin()` from `src/lib/owner.ts`: missing/invalid email → 400, non-owner → **404** (never 403 — don't confirm another user's resource exists), resource with no `email` field → admin-only. Admins bypass via `isAdmin()`. Deliberately NOT changed: `/api/proxy-video`, `/api/proxy-r2`, `/api/export-download` keep their unguessable-id bearer model (the RUNBOOK's "send a lost video back to a customer" flow depends on it) — scoping the *listings* is what stops ids being enumerable. Also still open by design: `/api/status/[id]`. Known limitation: the requester email is client-supplied and spoofable; this closes anonymous enumeration, not a determined attacker. A signed identity token is the real fix and would force existing verified users to re-verify.
+
+- **[2026-07-30] Never hand a jobId → email**: `/api/gallery/[id]` used to return `email: job.email` so the client could decide on an export watermark. That turned any jobId into a customer-email lookup. It now returns a server-computed `watermark: boolean`, and `EditorState` stores that boolean instead of the email (so no email lands in the IndexedDB autosave). The fail-safe direction is load-bearing: `/api/export-server` treats a **missing** `watermark` as "apply it", so a lost value never yields a free unwatermarked export.
+
+- **[2026-07-30] BytePlus image roles and duration floor**: `seedance-1-5-pro` requires a `role` on **every** image content item when more than one image is sent — tagging only the second image `last_frame` and leaving the first bare fails the whole request with `role must be specified for image contents`. Two-image (first-last-frame) requests must send `first_frame` + `last_frame`; single-image requests must send **no** `role` key at all (that is the proven-working shape). Verified accepted durations are **4–12s inclusive** — 2, 3 and 15 are rejected — so the clamp floor is 4, not 2. Cheap way to probe provider constraints without paying for generations: send a deliberately malformed image, so a *valid* parameter set fails at image validation instead of billing a video.
+
+- **[2026-07-30] Credit Pack SSOT**: Credit packs (id, credits, priceTWD, label) are defined ONCE in `src/lib/packs.ts` — never re-declare a pack table in a route. `checkout/route.ts` and `webhooks/ecpay/route.ts` both import from it. The webhook resolves credits by signed `packId` (ECPay `CustomField2`, verified against the paid amount) first, falling back to the legacy amount→credits map (`creditsForAmount`) for pre-deploy orders. Removed two dead/unreachable packs (`single` NT$499/1 credit, `pack5` NT$1,999/5 credits) that were stale pricing from an earlier business model and had no UI button — anyone who discovered them via direct API call got a strictly worse price than the real NT$299/20-credit pack.
 
 - **[2026-03-21] Provider Error Objects**: BytePlus (and potentially other providers) return errors as `{code, message}` objects, not strings. Always use `normalizeError()` from `@/lib/errors` — never assume `error` is a string. React crashes when rendering objects as text nodes.
 

@@ -181,6 +181,7 @@ CF Pages → glimmer → Settings → Environment variables → Production:
 | `EXPORT_SERVICE_URL` | yes | Cloud Run FFmpeg service |
 | `NEXT_PUBLIC_BASE_URL` | yes | `https://glimmer.video` |
 | `ADMIN_EMAILS` | optional | Comma-separated, gets unlimited credits + admin UI access |
+| `ADMIN_SECRET` | **yes** | Second factor for every `/api/admin/*` route, sent as the `x-admin-secret` header. **Fails closed** — if this is unset or empty, the entire admin API returns 401 and the `/admin` dashboard cannot load. Set it before or immediately after deploying. Generate with `python3 -c "import secrets; print(secrets.token_urlsafe(32))"`. Rotating it logs the dashboard out; re-enter the new value at `/admin`. |
 | `GOOGLE_API_KEY` | currently unused | For Veo fallback when restored |
 | `GOOGLE_CLOUD_PROJECT` | currently unused | For Veo fallback |
 | `KLING_ACCESS_KEY` | currently unused | For Kling fallback |

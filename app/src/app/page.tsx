@@ -9,6 +9,7 @@ import { MobileNav } from '@/components/MobileNav';
 import { HeroDemoVideo } from '@/components/HeroDemoVideo';
 import { LanguageToggle } from '@/components/LanguageToggle';
 import { ContactForm, FaqSection } from '@/components/landing/LazyClientSections';
+import { CREDIT_PACKS } from '@/lib/packs';
 
 // Interactive showcase cards (client component)
 const ShowcaseCardInteractive = dynamic(
@@ -49,8 +50,12 @@ export default function LandingPage() {
       '上傳老照片，AI 自動生成電影級回憶影片。Upload photos, AI creates cinematic memorial videos.',
     offers: [
       { '@type': 'Offer', price: '0', priceCurrency: 'TWD', name: '免費體驗 3 次生成' },
-      { '@type': 'Offer', price: '499', priceCurrency: 'TWD', name: '單支影片' },
-      { '@type': 'Offer', price: '1999', priceCurrency: 'TWD', name: '5 支影片方案' },
+      ...Object.values(CREDIT_PACKS).map((pack) => ({
+        '@type': 'Offer',
+        price: String(pack.priceTWD),
+        priceCurrency: 'TWD',
+        name: pack.label,
+      })),
     ],
   };
 
@@ -152,7 +157,7 @@ export default function LandingPage() {
               subtitle="Memorial & Remembrance"
               description="將泛黃老照片化為動態回憶，在告別式上播放，讓至親的身影再次動起來。"
               descEn="Transform faded photos into moving memories for funeral services."
-              stat="已服務 50+ 家庭"
+              stat="支援直式與橫式"
               videoUrl="/showcase-video-1.mp4"
             />
             <ShowcaseCardInteractive
@@ -189,7 +194,6 @@ export default function LandingPage() {
               description="從入學到畢業的成長足跡，製作一支專屬畢業回顧影片，在典禮上驚喜播放。"
               descEn="Create a growth retrospective from freshman year to graduation day."
               stat="多種 AI 模型可選"
-              videoUrl="/showcase-video-graduation.mp4"
             />
             <ShowcaseCardInteractive
               icon={<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />}
