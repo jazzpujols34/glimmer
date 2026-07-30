@@ -5,6 +5,9 @@ import { captureError } from '@/lib/errors';
 import { resolveVideoUrl } from '@/lib/video-url';
 import { logger } from '@/lib/logger';
 import { shouldApplyWatermark } from '@/lib/watermark';
+import { isAllowedExportUrl, isSsrfSafeExportUrl } from '@/lib/url-allowlist';
+import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
+import { errors } from '@/lib/api-response';
 
 /**
  * Server-side video export via Cloud Run.
@@ -72,8 +75,25 @@ interface ExportRequest {
 const CLOUD_RUN_URL = process.env.EXPORT_SERVICE_URL;
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://glimmer.video';
 
+/** Best-effort host extraction for logging a rejected URL without risking a throw. */
+function safeHost(url: string): string {
+  try {
+    return new URL(url).host;
+  } catch {
+    return url.slice(0, 100);
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
+    // Rate limit: 10 exports per 5 minutes per IP — each call starts a Cloud Run FFmpeg job
+    const ip = getClientIP(request);
+    const rateCheck = await checkRateLimit(`export-server:${ip}`, 10, 300);
+    if (!rateCheck.allowed) {
+      const retryAfter = Math.max(1, rateCheck.resetAt - Math.floor(Date.now() / 1000));
+      return errors.rateLimited(retryAfter);
+    }
+
     const body: ExportRequest = await request.json();
     const { jobId, clips, transitions, subtitles, musicClips, titleCard, outroCard, watermark } = body;
 
@@ -132,6 +152,20 @@ export async function POST(request: NextRequest) {
         : `${BASE_URL}/api/proxy-video?jobId=${encodeURIComponent(jobId)}&index=${idx}`;
 
       if (!videoUrl) {
+        return NextResponse.json(
+          {
+            error: `片段 ${idx + 1} 的影片連結無效。`,
+            code: 'INVALID_VIDEO_URL'
+          },
+          { status: 400 }
+        );
+      }
+
+      // SSRF guard: only fetch/forward URLs on the allowlist (our own origin,
+      // known provider CDNs, or EXPORT_URL_ALLOWED_HOSTS). Reject everything
+      // else before it is ever fetched or handed to Cloud Run.
+      if (!isAllowedExportUrl(videoUrl)) {
+        logger.error(`[export-server] Rejected disallowed host for clip ${idx}: ${safeHost(videoUrl)}`);
         return NextResponse.json(
           {
             error: `片段 ${idx + 1} 的影片連結無效。`,
@@ -204,6 +238,23 @@ export async function POST(request: NextRequest) {
         fadeOutDuration: mc.fadeOutDuration ?? 0,
       };
     });
+
+    // SSRF guard: "uploaded" music src is client-supplied and used as-is (not
+    // even routed through resolveVideoUrl) — forwarded straight to Cloud Run,
+    // which fetches it. Same risk as clip URLs.
+    for (let idx = 0; idx < musicDataForService.length; idx++) {
+      const musicUrl = musicDataForService[idx].url;
+      if (!isSsrfSafeExportUrl(musicUrl)) {
+        logger.error(`[export-server] Rejected disallowed host for music ${idx}: ${safeHost(musicUrl)}`);
+        return NextResponse.json(
+          {
+            error: `音樂 ${idx + 1} 的連結無效。`,
+            code: 'INVALID_VIDEO_URL'
+          },
+          { status: 400 }
+        );
+      }
+    }
 
     // Build request for Cloud Run service
     const cloudRunRequest = {

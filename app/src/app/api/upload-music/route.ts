@@ -4,11 +4,21 @@ import { NextRequest, NextResponse } from 'next/server';
 import { r2Put } from '@/lib/r2';
 import { captureError } from '@/lib/errors';
 import { logger } from '@/lib/logger';
+import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
+import { errors } from '@/lib/api-response';
 
 const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
 
 export async function POST(request: NextRequest) {
   try {
+    // Rate limit: 20 uploads per 5 minutes per IP — up to 20MB per call
+    const ip = getClientIP(request);
+    const rateCheck = await checkRateLimit(`upload-music:${ip}`, 20, 300);
+    if (!rateCheck.allowed) {
+      const retryAfter = Math.max(1, rateCheck.resetAt - Math.floor(Date.now() / 1000));
+      return errors.rateLimited(retryAfter);
+    }
+
     const formData = await request.formData();
     const file = formData.get('file') as File | null;
     const storyboardId = formData.get('storyboardId') as string | null;

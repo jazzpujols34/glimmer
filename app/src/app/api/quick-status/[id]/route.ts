@@ -13,6 +13,8 @@ import { getTemplateById, buildTitleCard, buildOutroCard } from '@/lib/templates
 import { captureError } from '@/lib/errors';
 import { logger } from '@/lib/logger';
 import { checkCredits } from '@/lib/credits';
+import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
+import { errors } from '@/lib/api-response';
 import type { StoryboardSlot, StoryboardClip, StoryboardTransitionType } from '@/types';
 
 const CLOUD_RUN_URL = process.env.EXPORT_SERVICE_URL;
@@ -37,6 +39,14 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // Rate limit: 60 polls per minute per IP — frontend polls every 3s (20/min), 3x headroom
+    const ip = getClientIP(request);
+    const rateCheck = await checkRateLimit(`quick-status:${ip}`, 60, 60);
+    if (!rateCheck.allowed) {
+      const retryAfter = Math.max(1, rateCheck.resetAt - Math.floor(Date.now() / 1000));
+      return errors.rateLimited(retryAfter);
+    }
+
     const { id: quickId } = await params;
 
     const quickJob = await getQuickJob(quickId);

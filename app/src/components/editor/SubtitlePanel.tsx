@@ -50,6 +50,8 @@ export function SubtitlePanel() {
 
       const formData = new FormData();
       formData.append('audio', videoBlob, 'audio.mp4');
+      const email = localStorage.getItem('glimmer_email');
+      if (email) formData.append('email', email);
 
       const res = await fetch('/api/transcribe', { method: 'POST', body: formData });
 

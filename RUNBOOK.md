@@ -179,6 +179,7 @@ CF Pages → glimmer → Settings → Environment variables → Production:
 | `ECPAY_TEST_MODE` | recommended | `true` for testing, omit/false for live |
 | `RESEND_API_KEY` | yes | Email verification |
 | `EXPORT_SERVICE_URL` | yes | Cloud Run FFmpeg service |
+| `EXPORT_URL_ALLOWED_HOSTS` | optional | Comma-separated host suffixes, extends the SSRF allowlist in `src/lib/url-allowlist.ts` (own origin + BytePlus CDN hosts are always allowed) so a new provider CDN can be allowed without a code deploy |
 | `NEXT_PUBLIC_BASE_URL` | yes | `https://glimmer.video` |
 | `ADMIN_EMAILS` | optional | Comma-separated, gets unlimited credits + admin UI access |
 | `LEGACY_FLAT_RATE_EMAILS` | optional | Comma-separated. Since 2026-07-30 credits are charged proportional to resolution/duration/numResults (`src/lib/credit-cost.ts`) instead of a flat 1 credit per generation. Emails on this list are grandfathered to the old flat rate (1 credit per generation, whatever the settings) — set to honour pre-2026-07-30 purchases. Empty by default. |

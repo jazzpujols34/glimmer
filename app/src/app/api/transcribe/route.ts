@@ -4,17 +4,23 @@ import { NextResponse } from 'next/server';
 import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
 import { captureError } from '@/lib/errors';
 import { logger } from '@/lib/logger';
+import { isValidEmail } from '@/lib/validation';
+import { isEmailVerified, isAdmin } from '@/lib/credits';
+import { errors } from '@/lib/api-response';
 
 /**
  * POST /api/transcribe
  * Accepts an audio/video blob and returns timestamped subtitle segments.
- * Uses OpenAI Whisper API for speech-to-text.
+ * Uses OpenAI Whisper API (metered, billed to us) for speech-to-text.
+ * Requires a verified caller email — no credit charge, just identity, since
+ * this is the only route that spends money on an external API with no caller
+ * identity check at all.
  */
 export async function POST(request: Request) {
   try {
-    // Rate limit: 10 transcription requests per minute per IP
+    // Rate limit: 20 transcription requests per 5 minutes per IP
     const ip = getClientIP(request);
-    const rateCheck = await checkRateLimit(`transcribe:${ip}`, 10, 60);
+    const rateCheck = await checkRateLimit(`transcribe:${ip}`, 20, 300);
     if (!rateCheck.allowed) {
       const retryAfter = Math.max(1, rateCheck.resetAt - Math.floor(Date.now() / 1000));
       return NextResponse.json(
@@ -32,6 +38,15 @@ export async function POST(request: Request) {
     }
 
     const formData = await request.formData();
+
+    const email = formData.get('email') as string | null;
+    if (!email || !isValidEmail(email)) {
+      return errors.invalidEmail();
+    }
+    if (!isAdmin(email) && !(await isEmailVerified(email))) {
+      return errors.emailNotVerified();
+    }
+
     const audioFile = formData.get('audio');
     if (!audioFile || !(audioFile instanceof Blob)) {
       return NextResponse.json({ error: '缺少音訊檔案' }, { status: 400 });

@@ -2,11 +2,21 @@ export const runtime = 'edge';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { captureError } from '@/lib/errors';
+import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
+import { errors } from '@/lib/api-response';
 
 const CLOUD_RUN_URL = process.env.EXPORT_SERVICE_URL;
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://glimmer.video';
 
 export async function GET(request: NextRequest) {
+  // Rate limit: 60 polls per minute per IP — frontend polls every 3s (20/min), 3x headroom
+  const ip = getClientIP(request);
+  const rateCheck = await checkRateLimit(`export-status:${ip}`, 60, 60);
+  if (!rateCheck.allowed) {
+    const retryAfter = Math.max(1, rateCheck.resetAt - Math.floor(Date.now() / 1000));
+    return errors.rateLimited(retryAfter);
+  }
+
   const { searchParams } = new URL(request.url);
   const exportId = searchParams.get('exportId');
 

@@ -8,9 +8,20 @@ import { resolveVideoUrl } from '@/lib/video-url';
 import { logger } from '@/lib/logger';
 import { errors } from '@/lib/api-response';
 import { getRequesterEmail, ownsOrAdmin } from '@/lib/owner';
+import { isAllowedExportUrl } from '@/lib/url-allowlist';
+import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
 
 const CLOUD_RUN_URL = process.env.EXPORT_SERVICE_URL;
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://glimmer.video';
+
+/** Best-effort host extraction for logging a rejected URL without risking a throw. */
+function safeHost(url: string): string {
+  try {
+    return new URL(url).host;
+  } catch {
+    return url.slice(0, 100);
+  }
+}
 
 /**
  * Export storyboard to video via Cloud Run FFmpeg service.
@@ -27,6 +38,14 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // Rate limit: 10 exports per 5 minutes per IP — each call starts a Cloud Run FFmpeg job
+    const ip = getClientIP(request);
+    const rateCheck = await checkRateLimit(`sb-export:${ip}`, 10, 300);
+    if (!rateCheck.allowed) {
+      const retryAfter = Math.max(1, rateCheck.resetAt - Math.floor(Date.now() / 1000));
+      return errors.rateLimited(retryAfter);
+    }
+
     const requesterEmail = getRequesterEmail(request);
     if (!requesterEmail) {
       return request.nextUrl.searchParams.get('email')
@@ -124,6 +143,21 @@ export async function POST(
         if (!videoUrl) {
           logger.warn(`[storyboard-export] Slot ${slot.index} has invalid videoUrl`);
           continue;
+        }
+
+        // SSRF guard: only fetch/forward URLs on the allowlist (our own origin,
+        // known provider CDNs, or EXPORT_URL_ALLOWED_HOSTS). Unlike the missing-
+        // URL case above, a disallowed host aborts the whole export rather than
+        // silently skipping the slot.
+        if (!isAllowedExportUrl(videoUrl)) {
+          logger.error(`[storyboard-export] Rejected disallowed host for slot ${slot.index}: ${safeHost(videoUrl)}`);
+          return NextResponse.json(
+            {
+              error: `片段的影片連結無效。`,
+              code: 'INVALID_VIDEO_URL'
+            },
+            { status: 400 }
+          );
         }
 
         clips.push({

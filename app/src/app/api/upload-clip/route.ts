@@ -4,6 +4,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { r2Put } from '@/lib/r2';
 import { captureError } from '@/lib/errors';
 import { logger } from '@/lib/logger';
+import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
+import { errors } from '@/lib/api-response';
 
 /**
  * Upload a video clip to R2 storage for server-side export.
@@ -19,6 +21,14 @@ const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB limit
 export async function POST(request: NextRequest) {
   logger.debug('upload-clip', 'Request received');
   try {
+    // Rate limit: 30 uploads per 5 minutes per IP — writes up to 100MB per call to R2
+    const ip = getClientIP(request);
+    const rateCheck = await checkRateLimit(`upload-clip:${ip}`, 30, 300);
+    if (!rateCheck.allowed) {
+      const retryAfter = Math.max(1, rateCheck.resetAt - Math.floor(Date.now() / 1000));
+      return errors.rateLimited(retryAfter);
+    }
+
     const formData = await request.formData();
     const file = formData.get('file') as File | null;
     const jobId = formData.get('jobId') as string | null;
