@@ -178,6 +178,7 @@ CF Pages → glimmer → Settings → Environment variables → Production:
 | `ECPAY_HASH_IV` | yes | Payment processing |
 | `ECPAY_TEST_MODE` | recommended | `true` for testing, omit/false for live |
 | `RESEND_API_KEY` | yes | Email verification |
+| `OPENAI_API_KEY` | for subtitles | Whisper auto-subtitle in the editor. **Was never set in production** (found 2026-07-31) — until it is, `/api/transcribe` returns 503 and the editor's auto-subtitle button cannot work; manual subtitles are unaffected. Costs money per call, so the route requires a verified email. |
 | `EXPORT_SERVICE_URL` | yes | Cloud Run FFmpeg service |
 | `EXPORT_URL_ALLOWED_HOSTS` | optional | Comma-separated host suffixes, extends the SSRF allowlist in `src/lib/url-allowlist.ts` (own origin + BytePlus CDN hosts are always allowed) so a new provider CDN can be allowed without a code deploy |
 | `NEXT_PUBLIC_BASE_URL` | yes | `https://glimmer.video` |

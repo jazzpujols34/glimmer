@@ -31,9 +31,14 @@ export async function POST(request: Request) {
 
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
+      // Config problem on our side, not the user's — don't show them an env var
+      // name and a .env.local instruction. Surface it to Sentry so it's fixable.
+      captureError(new Error('OPENAI_API_KEY is not set — auto-subtitle disabled'), {
+        route: '/api/transcribe',
+      });
       return NextResponse.json(
-        { error: 'OPENAI_API_KEY 未設定。請在 .env.local 中加入此金鑰。' },
-        { status: 500 }
+        { error: '自動字幕功能暫時無法使用，請稍後再試或手動輸入字幕。' },
+        { status: 503 }
       );
     }
 
