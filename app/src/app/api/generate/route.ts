@@ -4,7 +4,8 @@ import { NextRequest } from 'next/server';
 import imageSize from 'image-size';
 import { createJob, updateJob, addJobToProject, getProject, setJobError } from '@/lib/storage';
 import { createVideoTask } from '@/lib/veo';
-import { checkCredits, consumeCredit, isAdmin } from '@/lib/credits';
+import { checkCredits, consumeCredits, isAdmin, isLegacyFlatRate } from '@/lib/credits';
+import { creditsForGeneration } from '@/lib/credit-cost';
 import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
 import { captureError, ProviderUnavailableError, normalizeError } from '@/lib/errors';
 import { logger } from '@/lib/logger';
@@ -110,8 +111,11 @@ export async function POST(request: NextRequest) {
     }
 
     // --- Credit check (fail fast before creating job) ---
-    if (balance.remaining <= 0) {
-      return errors.insufficientCredits();
+    // Cost is proportional to resolution/duration/numResults — see credit-cost.ts.
+    // Pre-2026-07-30 legacy customers keep the old flat 1-credit-per-generation rate.
+    const cost = isLegacyFlatRate(email) ? 1 : creditsForGeneration(settings);
+    if (balance.remaining < cost) {
+      return errors.insufficientCredits(cost, balance.remaining);
     }
 
     // Generate job ID
@@ -157,8 +161,8 @@ export async function POST(request: NextRequest) {
       veoOperationName: taskData.veoOperationName,
     });
 
-    // Deduct credit AFTER external task creation succeeds
-    const creditResult = await consumeCredit(email, jobId);
+    // Deduct credits AFTER external task creation succeeds
+    const creditResult = await consumeCredits(email, jobId, cost);
     if (!creditResult.success) {
       // Shouldn't happen (we checked above), but alert so we notice free videos
       captureError(new Error(`Credit deduction failed for ${email} on job ${jobId}`), {

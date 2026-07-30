@@ -69,8 +69,15 @@ export const errors = {
   emailNotVerified: () =>
     errorResponse('請先驗證您的 Email 地址', 403, 'EMAIL_NOT_VERIFIED'),
 
-  insufficientCredits: () =>
-    errorResponse('點數不足，請購買點數後再試', 402, 'INSUFFICIENT_CREDITS'),
+  insufficientCredits: (needed?: number, have?: number) =>
+    errorResponse(
+      needed !== undefined && have !== undefined
+        ? `點數不足：本次生成需要 ${needed} 點，您目前僅有 ${have} 點，請購買點數後再試`
+        : '點數不足，請購買點數後再試',
+      402,
+      'INSUFFICIENT_CREDITS',
+      needed !== undefined && have !== undefined ? { needed, have } : undefined
+    ),
 
   notFound: (resource: string) =>
     errorResponse(`找不到該${resource}`, 404, 'NOT_FOUND', { resource }),

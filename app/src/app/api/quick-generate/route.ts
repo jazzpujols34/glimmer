@@ -12,7 +12,8 @@ import {
   setJobError,
 } from '@/lib/storage';
 import { createVideoTask } from '@/lib/veo';
-import { checkCredits, consumeCredit, isAdmin } from '@/lib/credits';
+import { checkCredits, consumeCredits, isAdmin, isLegacyFlatRate } from '@/lib/credits';
+import { creditsForGeneration } from '@/lib/credit-cost';
 import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
 import { captureError, normalizeError } from '@/lib/errors';
 import { getTemplateById } from '@/lib/templates';
@@ -86,21 +87,26 @@ export async function POST(request: NextRequest) {
 
     const totalSegments = photos.length - 1;
 
-    // Email verification + credit check
-    const credits = await checkCredits(email);
-    if (!credits.verified && !isAdmin(email)) {
-      return errors.emailNotVerified();
-    }
-    if (credits.remaining < totalSegments) {
-      return errors.insufficientCredits();
-    }
-
     // Build generation settings
     const settings: GenerationSettings = {
       ...defaultSettings,
       taskType: 'first-last-frame',
       numResults: 1,
     };
+
+    // Quick-generate always forces numResults=1 per segment (above) — cost is
+    // still proportional to resolution/duration.
+    const perSegmentCost = isLegacyFlatRate(email) ? 1 : creditsForGeneration(settings);
+    const totalCost = totalSegments * perSegmentCost;
+
+    // Email verification + credit check
+    const credits = await checkCredits(email);
+    if (!credits.verified && !isAdmin(email)) {
+      return errors.emailNotVerified();
+    }
+    if (credits.remaining < totalCost) {
+      return errors.insufficientCredits(totalCost, credits.remaining);
+    }
 
     // Create project to group all segments
     const project = await createProject(`快速生成：${name}`, email);
@@ -137,7 +143,7 @@ export async function POST(request: NextRequest) {
 
       try {
         // Consume credit for this segment
-        const creditResult = await consumeCredit(email, `${batch.id}_${i}`);
+        const creditResult = await consumeCredits(email, `${batch.id}_${i}`, perSegmentCost);
         if (!creditResult.success) {
           logger.error(`[quick-generate] Credit consumption failed for segment ${i}`);
           segmentResults.push({ index: i, jobId: '', success: false });

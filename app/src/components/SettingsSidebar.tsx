@@ -14,6 +14,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Coins } from 'lucide-react';
+import { creditsForGeneration } from '@/lib/credit-cost';
 import type { GenerationSettings, TaskType, ModelType, AspectRatio, Resolution } from '@/types';
 
 interface SettingsSidebarProps {
@@ -272,6 +274,12 @@ function SettingsContent({ settings, onSettingsChange }: Omit<SettingsSidebarPro
             Kling AI 免費版固定為 720p
           </div>
         )}
+      </div>
+
+      {/* Credit cost preview — updates live as settings change */}
+      <div className="flex items-center gap-2 text-sm font-medium text-amber-600 dark:text-amber-400 p-2 rounded-md bg-amber-500/10">
+        <Coins className="w-4 h-4 shrink-0" />
+        <span>本次將扣除 {creditsForGeneration(settings)} 點</span>
       </div>
 
       {/* Seed */}

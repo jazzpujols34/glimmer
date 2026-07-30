@@ -3,7 +3,8 @@ export const runtime = 'edge';
 import { NextRequest } from 'next/server';
 import { createJob, updateJob, createProject, addJobToProject, createBatch, addSegmentToBatch, updateBatch, setJobError } from '@/lib/storage';
 import { createVideoTask } from '@/lib/veo';
-import { checkCredits, consumeCredit, isAdmin } from '@/lib/credits';
+import { checkCredits, consumeCredits, isAdmin, isLegacyFlatRate } from '@/lib/credits';
+import { creditsForGeneration } from '@/lib/credit-cost';
 import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
 import { captureError, normalizeError } from '@/lib/errors';
 import { isValidEmail, isValidOccasion, validateSettings, validateName, validatePhoto } from '@/lib/validation';
@@ -99,13 +100,18 @@ export async function POST(request: NextRequest) {
     // N photos = N-1 segments
     const totalSegments = photos.length - 1;
 
+    // Batch always forces numResults=1 per segment (see settings.numResults
+    // below) — cost is still proportional to resolution/duration.
+    const perSegmentCost = isLegacyFlatRate(email) ? 1 : creditsForGeneration({ ...settings, numResults: 1 });
+    const totalCost = totalSegments * perSegmentCost;
+
     // --- Email verification + credit check ---
     const balance = await checkCredits(email);
     if (!balance.verified && !isAdmin(email)) {
       return errors.emailNotVerified();
     }
-    if (balance.remaining < totalSegments) {
-      return errors.insufficientCredits();
+    if (balance.remaining < totalCost) {
+      return errors.insufficientCredits(totalCost, balance.remaining);
     }
 
     // --- Auto-create project for this batch ---
@@ -174,9 +180,9 @@ export async function POST(request: NextRequest) {
         });
 
         // Deduct credit for this segment
-        const creditResult = await consumeCredit(email, jobId);
+        const creditResult = await consumeCredits(email, jobId, perSegmentCost);
         if (creditResult.success) {
-          creditsUsed++;
+          creditsUsed += perSegmentCost;
         }
 
         // Add to project and batch

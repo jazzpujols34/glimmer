@@ -16,6 +16,7 @@ import { useTranslation, type TranslationKey } from '@/lib/i18n';
 import { useAccess } from '@/hooks/useAccess';
 import type { OccasionType, GenerationSettings, CreditBalance, Project } from '@/types';
 import { defaultSettings } from '@/types';
+import { creditsForGeneration } from '@/lib/credit-cost';
 import { FolderOpen, ChevronDown, Layers } from 'lucide-react';
 import { trackGenerationStart, trackPurchaseStart } from '@/lib/analytics';
 import { isValidEmail as checkEmail } from '@/lib/validation';
@@ -201,13 +202,14 @@ function CreatePageInner() {
       setError('請輸入主角姓名');
       return;
     }
-    // Check credits - batch mode needs N-1 credits
-    const creditsNeeded = batchMode && canEnableBatch ? batchSegments : 1;
+    // Credit cost is proportional to resolution x duration x results, so mirror the
+    // server's creditsForGeneration() here rather than assuming 1 per generation.
+    // Batch forces numResults=1 and charges per segment.
+    const creditsNeeded = batchMode && canEnableBatch
+      ? batchSegments * creditsForGeneration({ ...settings, numResults: 1 })
+      : creditsForGeneration(settings);
     if (creditBalance && creditBalance.remaining < creditsNeeded) {
-      setError(batchMode
-        ? `點數不足，批次生成需要 ${creditsNeeded} 點，您目前有 ${creditBalance.remaining} 點`
-        : '點數不足，請先購買點數'
-      );
+      setError(`點數不足，本次需要 ${creditsNeeded} 點，您目前有 ${creditBalance.remaining} 點`);
       return;
     }
     if (isFrameMode) {

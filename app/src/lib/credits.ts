@@ -25,6 +25,18 @@ export function isAdmin(email: string): boolean {
   return ADMIN_EMAILS.includes(email.toLowerCase().trim());
 }
 
+// Pre-2026-07-30 paying customers who bought credits under the old "1 credit
+// per generation regardless of settings" rule (set via LEGACY_FLAT_RATE_EMAILS
+// env var). Charged exactly 1 credit per generation, whatever the settings.
+export const LEGACY_FLAT_RATE_EMAILS = (process.env.LEGACY_FLAT_RATE_EMAILS || '')
+  .split(',')
+  .map(e => e.toLowerCase().trim())
+  .filter(Boolean);
+
+export function isLegacyFlatRate(email: string): boolean {
+  return LEGACY_FLAT_RATE_EMAILS.includes(email.toLowerCase().trim());
+}
+
 // --- Email helpers ---
 
 function normalize(email: string): string {
@@ -114,6 +126,54 @@ export async function checkCredits(email: string): Promise<CreditBalance> {
 }
 
 /**
+ * Use `amount` generations. Checks free tier first, then paid credits.
+ * If free + paid together can't cover `amount`, deducts nothing and returns
+ * success=false — never a partial charge.
+ *
+ * KV is not transactional (check-then-write), so two concurrent requests for
+ * the same email could both read a stale balance and both succeed, over-
+ * spending by a few credits. Benign race: worst case is a slightly under-
+ * charged customer, not data corruption. Not worth a locking scheme.
+ */
+export async function consumeCredits(
+  email: string,
+  jobId: string,
+  amount: number,
+): Promise<{ success: boolean; usedFree: number; usedPaid: number }> {
+  const norm = normalize(email);
+
+  // Admins: always succeed, no deduction
+  if (isAdmin(norm)) {
+    return { success: true, usedFree: 0, usedPaid: 0 };
+  }
+
+  const [free, record] = await Promise.all([getFreeRecord(norm), getCreditRecord(norm)]);
+
+  const freeRemaining = Math.max(0, FREE_GENERATIONS - free.used);
+  const paidRemaining = record.total - record.used;
+
+  if (freeRemaining + paidRemaining < amount) {
+    return { success: false, usedFree: 0, usedPaid: 0 };
+  }
+
+  const usedFree = Math.min(freeRemaining, amount);
+  const usedPaid = amount - usedFree;
+
+  if (usedFree > 0) {
+    free.used += usedFree;
+    free.jobs = [...(free.jobs || []), jobId];
+    await saveFreeRecord(norm, free);
+  }
+
+  if (usedPaid > 0) {
+    record.used += usedPaid;
+    await saveCreditRecord(norm, record);
+  }
+
+  return { success: true, usedFree, usedPaid };
+}
+
+/**
  * Use 1 generation. Checks free tier first, then paid credits.
  * Returns { success, usedFree } — success=false if no generations available.
  */
@@ -121,32 +181,8 @@ export async function consumeCredit(
   email: string,
   jobId: string,
 ): Promise<{ success: boolean; usedFree: boolean }> {
-  const norm = normalize(email);
-
-  // Admins: always succeed, no deduction
-  if (isAdmin(norm)) {
-    return { success: true, usedFree: false };
-  }
-
-  // Try free tier first
-  const free = await getFreeRecord(norm);
-  if (free.used < FREE_GENERATIONS) {
-    free.used += 1;
-    free.jobs = [...(free.jobs || []), jobId];
-    await saveFreeRecord(norm, free);
-    return { success: true, usedFree: true };
-  }
-
-  // Try paid credits
-  const record = await getCreditRecord(norm);
-  const remaining = record.total - record.used;
-  if (remaining <= 0) {
-    return { success: false, usedFree: false };
-  }
-
-  record.used += 1;
-  await saveCreditRecord(norm, record);
-  return { success: true, usedFree: false };
+  const result = await consumeCredits(email, jobId, 1);
+  return { success: result.success, usedFree: result.usedFree > 0 };
 }
 
 /**
