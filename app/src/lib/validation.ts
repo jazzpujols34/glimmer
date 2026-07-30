@@ -71,9 +71,9 @@ export function validateSettings(input: unknown): GenerationSettings {
     settings.numResults = Math.max(1, Math.min(4, Math.floor(parsed.numResults)));
   }
 
-  // Clamp videoLength to 2-12 seconds
+  // Clamp videoLength to 4-12 seconds (BytePlus seedance-1-5-pro rejects <4)
   if (typeof parsed.videoLength === 'number') {
-    settings.videoLength = Math.max(2, Math.min(12, Math.floor(parsed.videoLength)));
+    settings.videoLength = Math.max(4, Math.min(12, Math.floor(parsed.videoLength)));
   }
 
   // Sanitize prompt

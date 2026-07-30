@@ -9,11 +9,12 @@ import {
   createBatch,
   addSegmentToBatch,
   createQuickJob,
+  setJobError,
 } from '@/lib/storage';
 import { createVideoTask } from '@/lib/veo';
 import { checkCredits, consumeCredit, isAdmin } from '@/lib/credits';
 import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
-import { captureError } from '@/lib/errors';
+import { captureError, normalizeError } from '@/lib/errors';
 import { getTemplateById } from '@/lib/templates';
 import { isValidEmail, isValidOccasion, validateName, validatePhoto } from '@/lib/validation';
 import { successResponse, errors } from '@/lib/api-response';
@@ -132,6 +133,7 @@ export async function POST(request: NextRequest) {
     for (let i = 0; i < totalSegments; i++) {
       const firstFrame = photos[i];
       const lastFrame = photos[i + 1];
+      let jobId: string | undefined;
 
       try {
         // Consume credit for this segment
@@ -143,7 +145,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Create job
-        const jobId = `job_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        jobId = `job_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
         const _job = await createJob(jobId, {
           name: `${name} - 片段 ${i + 1}`,
           occasion: occasion as OccasionType,
@@ -177,6 +179,9 @@ export async function POST(request: NextRequest) {
         logger.debug('quick-generate', `Started segment ${i}, jobId ${jobId}`);
       } catch (err) {
         logger.error(`[quick-generate] Failed to start segment ${i}:`, err);
+        // Job may already exist in KV as 'queued' (createJob succeeded before
+        // a later step threw) — mark it errored so it doesn't stay a zombie.
+        if (jobId) await setJobError(jobId, normalizeError(err));
         segmentResults.push({ index: i, jobId: '', success: false });
       }
     }

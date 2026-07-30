@@ -2,11 +2,11 @@ export const runtime = 'edge';
 
 import { NextRequest } from 'next/server';
 import imageSize from 'image-size';
-import { createJob, updateJob, addJobToProject, getProject } from '@/lib/storage';
+import { createJob, updateJob, addJobToProject, getProject, setJobError } from '@/lib/storage';
 import { createVideoTask } from '@/lib/veo';
 import { checkCredits, consumeCredit, isAdmin } from '@/lib/credits';
 import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
-import { captureError, ProviderUnavailableError } from '@/lib/errors';
+import { captureError, ProviderUnavailableError, normalizeError } from '@/lib/errors';
 import { logger } from '@/lib/logger';
 import { isValidEmail, isValidOccasion, validateSettings, validateName, validatePhoto } from '@/lib/validation';
 import { successResponse, errors } from '@/lib/api-response';
@@ -133,12 +133,20 @@ export async function POST(request: NextRequest) {
     });
 
     // Create external video task — returns immediately with tracking data
-    const taskData = await createVideoTask({
-      photos,
-      name,
-      occasion: occasion as OccasionType,
-      settings,
-    });
+    let taskData;
+    try {
+      taskData = await createVideoTask({
+        photos,
+        name,
+        occasion: occasion as OccasionType,
+        settings,
+      });
+    } catch (err) {
+      // Job already exists in KV as 'queued' — mark it errored so it doesn't
+      // stay a zombie the UI shows stuck at 0%.
+      await setJobError(jobId, normalizeError(err));
+      throw err;
+    }
 
     // Save external task tracking data to KV
     await updateJob(jobId, {

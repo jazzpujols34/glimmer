@@ -78,11 +78,51 @@ export async function checkVideoTaskStatus(job: GenerationJob): Promise<TaskChec
 //  BytePlus Seedance
 // ════════════════════════════════════════════════════════════════
 
-interface BytePlusContentItem {
+export interface BytePlusContentItem {
   type: string;
   text?: string;
   image_url?: { url: string };
   role?: string;
+}
+
+/**
+ * Builds the `content` array for a BytePlus Seedance request.
+ * Pure function — no I/O — so it's independently unit-testable.
+ *
+ * Two-image (first-last-frame) requests MUST tag both images with a role
+ * (`first_frame` / `last_frame`) — BytePlus rejects a mixed one-role/one-role-less
+ * pair with `role must be specified for image contents`. Single-image requests
+ * MUST NOT have a role key — that shape is the proven-working production path.
+ */
+export function buildBytePlusContent(
+  photos: Buffer[],
+  prompt: string,
+  settings: GenerationSettings,
+): BytePlusContentItem[] {
+  const resolution = settings.resolution || '720p';
+  const duration = Math.min(Math.max(settings.videoLength, 4), 12);
+  const aspectRatio = settings.aspectRatio || '16:9';
+  const cameraFixed = settings.cameraFixed ?? false;
+  const fullPrompt = `${prompt} --resolution ${resolution} --duration ${duration} --ratio ${aspectRatio} --camerafixed ${cameraFixed}`;
+
+  const firstBase64 = photos[0].toString('base64');
+  const firstMime = detectMimeType(photos[0]);
+  const firstDataUrl = `data:${firstMime};base64,${firstBase64}`;
+
+  const contentArray: BytePlusContentItem[] = [{ type: 'text', text: fullPrompt }];
+
+  if (settings.taskType === 'first-last-frame' && photos.length >= 2) {
+    const lastBase64 = photos[1].toString('base64');
+    const lastMime = detectMimeType(photos[1]);
+    contentArray.push(
+      { type: 'image_url', image_url: { url: firstDataUrl }, role: 'first_frame' },
+      { type: 'image_url', image_url: { url: `data:${lastMime};base64,${lastBase64}` }, role: 'last_frame' },
+    );
+  } else {
+    contentArray.push({ type: 'image_url', image_url: { url: firstDataUrl } });
+  }
+
+  return contentArray;
 }
 
 async function createBytePlusTasks(options: CreateTaskOptions, prompt: string): Promise<ExternalTaskData> {
@@ -93,30 +133,7 @@ async function createBytePlusTasks(options: CreateTaskOptions, prompt: string): 
   if (!modelId) throw new Error('BYTEPLUS_MODEL_ID is not set');
 
   const numVideos = Math.min(Math.max(settings.numResults || 1, 1), 4);
-  const imageBase64 = photos[0].toString('base64');
-  const mimeType = detectMimeType(photos[0]);
-  const imageDataUrl = `data:${mimeType};base64,${imageBase64}`;
-
-  const resolution = settings.resolution || '720p';
-  const duration = Math.min(Math.max(settings.videoLength, 2), 12);
-  const aspectRatio = settings.aspectRatio || '16:9';
-  const cameraFixed = settings.cameraFixed ?? false;
-  const fullPrompt = `${prompt} --resolution ${resolution} --duration ${duration} --ratio ${aspectRatio} --camerafixed ${cameraFixed}`;
-
-  const contentArray: BytePlusContentItem[] = [
-    { type: 'text', text: fullPrompt },
-    { type: 'image_url', image_url: { url: imageDataUrl } },
-  ];
-
-  if (settings.taskType === 'first-last-frame' && photos.length >= 2) {
-    const lastBase64 = photos[1].toString('base64');
-    const lastMime = detectMimeType(photos[1]);
-    contentArray.push({
-      type: 'image_url',
-      image_url: { url: `data:${lastMime};base64,${lastBase64}` },
-      role: 'last_frame',
-    });
-  }
+  const contentArray = buildBytePlusContent(photos, prompt, settings);
 
   // Create all tasks in parallel (faster than sequential)
   const taskIds = await Promise.all(

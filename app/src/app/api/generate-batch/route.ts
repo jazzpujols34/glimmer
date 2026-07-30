@@ -1,11 +1,11 @@
 export const runtime = 'edge';
 
 import { NextRequest } from 'next/server';
-import { createJob, updateJob, createProject, addJobToProject, createBatch, addSegmentToBatch, updateBatch } from '@/lib/storage';
+import { createJob, updateJob, createProject, addJobToProject, createBatch, addSegmentToBatch, updateBatch, setJobError } from '@/lib/storage';
 import { createVideoTask } from '@/lib/veo';
 import { checkCredits, consumeCredit, isAdmin } from '@/lib/credits';
 import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
-import { captureError } from '@/lib/errors';
+import { captureError, normalizeError } from '@/lib/errors';
 import { isValidEmail, isValidOccasion, validateSettings, validateName, validatePhoto } from '@/lib/validation';
 import { successResponse, errors } from '@/lib/api-response';
 import { logger } from '@/lib/logger';
@@ -188,6 +188,9 @@ export async function POST(request: NextRequest) {
         logger.debug('generate-batch', `Segment ${i + 1}/${totalSegments} created: ${jobId}`);
       } catch (err) {
         logger.error(`[Batch] Failed to create segment ${i + 1}:`, err);
+        // Job may already exist in KV as 'queued' (createJob succeeded before
+        // a later step threw) — mark it errored so it doesn't stay a zombie.
+        await setJobError(jobId, normalizeError(err));
         segmentErrors.push({
           index: i,
           error: err instanceof Error ? err.message : 'Unknown error',

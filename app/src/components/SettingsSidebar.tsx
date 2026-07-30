@@ -29,7 +29,7 @@ const taskTypes: { value: TaskType; label: string; description: string }[] = [
 ];
 
 const models: { value: ModelType; label: string; description: string; disabled?: boolean }[] = [
-  { value: 'byteplus', label: 'BytePlus Seedance', description: '推薦，2-12秒影片' },
+  { value: 'byteplus', label: 'BytePlus Seedance', description: '推薦，4-12秒影片' },
   { value: 'veo-3.1', label: 'Veo 3.1', description: 'Google，8秒固定 (coming soon)', disabled: true },
   { value: 'veo-3.1-fast', label: 'Veo 3.1 Fast', description: 'Google 快速 (coming soon)', disabled: true },
   { value: 'kling-ai', label: 'Kling AI', description: '5或10秒 (coming soon)', disabled: true },
@@ -63,8 +63,8 @@ function SettingsContent({ settings, onSettingsChange }: Omit<SettingsSidebarPro
       // Veo: fixed 8s, can use 720p or 1080p
       updates.videoLength = 8;
     } else if (isBytePlusModel(newModel)) {
-      // BytePlus: 2-12s, 720p or 1080p
-      updates.videoLength = Math.min(Math.max(settings.videoLength, 2), 12);
+      // BytePlus: 4-12s, 720p or 1080p
+      updates.videoLength = Math.min(Math.max(settings.videoLength, 4), 12);
     } else if (isKlingModel(newModel)) {
       // Kling: 5s or 10s, locked to 720p
       updates.videoLength = settings.videoLength <= 5 ? 5 : 10;
@@ -210,17 +210,17 @@ function SettingsContent({ settings, onSettingsChange }: Omit<SettingsSidebarPro
             Veo 模型固定為 8 秒
           </div>
         ) : isBytePlus ? (
-          // BytePlus: 2-12 seconds slider
+          // BytePlus: 4-12 seconds slider
           <>
             <Slider
               value={[settings.videoLength]}
               onValueChange={([v]) => updateSetting('videoLength', v)}
-              min={2}
+              min={4}
               max={12}
               step={1}
             />
             <div className="flex justify-between text-xs text-muted-foreground">
-              <span>2秒</span>
+              <span>4秒</span>
               <span>12秒</span>
             </div>
           </>
