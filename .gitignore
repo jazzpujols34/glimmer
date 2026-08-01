@@ -50,3 +50,8 @@ scripts/batch-results.json
 
 # Prompt reference files
 prompts/
+
+# Python bytecode — cloud-run/ services are Python; running or importing them
+# locally drops __pycache__ into the tree with no rule to catch it.
+__pycache__/
+*.pyc
