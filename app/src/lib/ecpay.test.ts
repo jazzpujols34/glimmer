@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { createPaymentFormData, generateCheckMacValue, parseCallback } from './ecpay';
+import { createPaymentFormData, generateCheckMacValue, parseCallback, verifyCheckMacValue } from './ecpay';
 
 const ORIGINAL_ENV = { ...process.env };
 
@@ -109,5 +109,26 @@ describe('parseCallback', () => {
 
     const result = await parseCallback(formData);
     expect(result.packId).toBe('');
+  });
+});
+
+describe('verifyCheckMacValue', () => {
+  // Uses ECPay test credentials (ECPAY_TEST_MODE=true, set in beforeEach above).
+  const params: Record<string, string> = {
+    MerchantID: '3002607',
+    MerchantTradeNo: 'GLTESTMAC0001',
+    TradeAmt: '299',
+  };
+
+  it('accepts a correctly computed MAC', async () => {
+    const correctMac = await generateCheckMacValue(params, 'pwFHCqoQZGmho4w6', 'EkRm7iFT261dpevs');
+    expect(await verifyCheckMacValue(params, correctMac)).toBe(true);
+  });
+
+  it('rejects a MAC that differs by a single character (was `===`, now constant-time)', async () => {
+    const correctMac = await generateCheckMacValue(params, 'pwFHCqoQZGmho4w6', 'EkRm7iFT261dpevs');
+    const flippedChar = correctMac[0] === 'A' ? 'B' : 'A';
+    const tamperedMac = flippedChar + correctMac.slice(1);
+    expect(await verifyCheckMacValue(params, tamperedMac)).toBe(false);
   });
 });

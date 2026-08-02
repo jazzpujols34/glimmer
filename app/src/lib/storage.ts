@@ -117,7 +117,7 @@ export async function createProject(
   email?: string,
   description?: string,
 ): Promise<Project> {
-  const id = `project_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  const id = `project_${crypto.randomUUID()}`;
   const now = new Date().toISOString();
   const project: Project = {
     id,
@@ -230,7 +230,7 @@ export async function getProjectJobs(projectId: string): Promise<GenerationJob[]
 const STORYBOARD_PREFIX = 'storyboard:';
 
 function generateSlotId(): string {
-  return `slot_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+  return `slot_${crypto.randomUUID()}`;
 }
 
 function createEmptySlots(count: number): StoryboardSlot[] {
@@ -252,7 +252,7 @@ export async function createStoryboard(
   aspectRatio: AspectRatio = '16:9',
   email?: string,
 ): Promise<Storyboard> {
-  const id = `storyboard_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  const id = `storyboard_${crypto.randomUUID()}`;
   const now = new Date().toISOString();
 
   const storyboard: Storyboard = {
@@ -470,7 +470,7 @@ export async function createBatch(
   totalSegments: number,
   projectId: string,
 ): Promise<BatchJob> {
-  const id = `batch_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  const id = `batch_${crypto.randomUUID()}`;
   const now = new Date().toISOString();
 
   const batch: BatchJob = {
@@ -596,7 +596,7 @@ export async function createQuickJob(
   date?: string,
   message?: string,
 ): Promise<QuickJob> {
-  const id = `quick_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  const id = `quick_${crypto.randomUUID()}`;
   const now = new Date().toISOString();
 
   const quick: QuickJob = {

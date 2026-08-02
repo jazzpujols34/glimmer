@@ -8,6 +8,11 @@ import { isValidEmail } from '@/lib/validation';
 import { isEmailVerified, isAdmin } from '@/lib/credits';
 import { errors } from '@/lib/api-response';
 
+// Whisper's own hard upload limit — reject before spending a single API call
+// on a file that would be rejected anyway (or worse, one that streams a huge
+// upload through our edge function first).
+const MAX_AUDIO_BYTES = 25 * 1024 * 1024;
+
 /**
  * POST /api/transcribe
  * Accepts an audio/video blob and returns timestamped subtitle segments.
@@ -52,9 +57,27 @@ export async function POST(request: Request) {
       return errors.emailNotVerified();
     }
 
+    // Rate limit: 10 transcription requests per 5 minutes per email — caps a
+    // single verified identity's spend on this metered API independent of IP.
+    const emailRateCheck = await checkRateLimit(`transcribe:email:${email.toLowerCase().trim()}`, 10, 300);
+    if (!emailRateCheck.allowed) {
+      const retryAfter = Math.max(1, emailRateCheck.resetAt - Math.floor(Date.now() / 1000));
+      return NextResponse.json(
+        { error: '請求過於頻繁，請稍後再試' },
+        { status: 429, headers: { 'Retry-After': String(retryAfter) } }
+      );
+    }
+
     const audioFile = formData.get('audio');
     if (!audioFile || !(audioFile instanceof Blob)) {
       return NextResponse.json({ error: '缺少音訊檔案' }, { status: 400 });
+    }
+
+    if (audioFile.size > MAX_AUDIO_BYTES) {
+      return NextResponse.json(
+        { error: '音檔過大，請上傳 25MB 以下的檔案' },
+        { status: 413 }
+      );
     }
 
     // Call Whisper API with verbose_json to get word-level timestamps

@@ -3,6 +3,8 @@
  * Docs: https://developers.ecpay.com.tw/
  */
 
+import { constantTimeEqual } from './admin-auth';
+
 // ECPay API endpoints
 const ECPAY_PAYMENT_URL = 'https://payment.ecpay.com.tw/Cashier/AioCheckOut/V5';
 const ECPAY_TEST_PAYMENT_URL = 'https://payment-stage.ecpay.com.tw/Cashier/AioCheckOut/V5';
@@ -88,7 +90,7 @@ export async function verifyCheckMacValue(
   delete paramsWithoutMac.CheckMacValue;
 
   const calculatedMac = await generateCheckMacValue(paramsWithoutMac, hashKey, hashIV);
-  return calculatedMac === receivedMac;
+  return constantTimeEqual(calculatedMac, receivedMac);
 }
 
 /**

@@ -64,6 +64,10 @@ const nonStandardSettings: Partial<GenerationSettings> = {
   numResults: 4, // creditsForGeneration => 22
 };
 
+// Real PNG signature bytes — validatePhoto() now checks file content, not just
+// the client-supplied MIME type, so test fixtures need genuine magic bytes.
+const PNG_BYTES = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+
 /** Build a generate NextRequest-like object with 1 dummy photo. */
 function buildRequest(opts: {
   email: string;
@@ -78,7 +82,7 @@ function buildRequest(opts: {
   if (opts.settings) {
     formData.set('settings', JSON.stringify(opts.settings));
   }
-  formData.append('photo_0', new Blob(['a'], { type: 'image/png' }), 'a.png');
+  formData.append('photo_0', new Blob([PNG_BYTES], { type: 'image/png' }), 'a.png');
 
   const ip = opts.ip ?? nextIp();
   const headerEntries: Record<string, string> = { ...(opts.headers ?? { 'cf-connecting-ip': ip }) };

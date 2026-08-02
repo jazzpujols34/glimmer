@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
         if (isNaN(index)) continue;
 
         // --- Input validation: file size and type ---
-        const photoValidation = validatePhoto(value);
+        const photoValidation = await validatePhoto(value);
         if (!photoValidation.valid) {
           return errors.invalidInput(photoValidation.error!);
         }

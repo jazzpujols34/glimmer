@@ -5,6 +5,7 @@
 
 import type { GenerationSettings, OccasionType } from '@/types';
 import { defaultSettings } from '@/types';
+import { matchesFileSignature } from './file-signature';
 
 // Validation constants
 export const VALID_OCCASIONS = ['memorial', 'birthday', 'wedding', 'pet', 'other'] as const;
@@ -123,14 +124,18 @@ export function validateEmail(email: unknown): { valid: boolean; error?: string 
 }
 
 /**
- * Validate photo file.
+ * Validate photo file. `file.type` is client-supplied and spoofable, so the
+ * actual byte content is also checked against known image signatures.
  */
-export function validatePhoto(file: Blob): { valid: boolean; error?: string } {
+export async function validatePhoto(file: Blob): Promise<{ valid: boolean; error?: string }> {
   if (file.size > MAX_PHOTO_SIZE) {
     return { valid: false, error: `照片大小不得超過 ${MAX_PHOTO_SIZE / 1024 / 1024} MB` };
   }
   if (!file.type.startsWith('image/')) {
     return { valid: false, error: '僅接受圖片檔案 (Only image files are accepted)' };
+  }
+  if (!(await matchesFileSignature(file, 'image'))) {
+    return { valid: false, error: '檔案內容與圖片格式不符 (File content does not match an image format)' };
   }
   return { valid: true };
 }

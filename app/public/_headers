@@ -1,0 +1,14 @@
+# Cloudflare Pages static headers file — applied at the edge, costs no
+# Functions bundle size (see CLAUDE.md Recent Learnings 2026-08-02 re: the
+# 25 MiB Functions bundle limit).
+#
+# Content-Security-Policy is DELIBERATELY OMITTED here. The editor relies on
+# inline styles and blob: Web Workers (ffmpeg.wasm); a CSP tight enough to be
+# meaningful would very likely break those without careful per-directive
+# testing this pass didn't do. Revisit with a real audit of what the editor
+# actually needs before adding one.
+/*
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: geolocation=(), microphone=(), camera=()

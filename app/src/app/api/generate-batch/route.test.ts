@@ -61,6 +61,10 @@ const nonStandardSettings: Partial<GenerationSettings> = {
   videoLength: 12,
 };
 
+// Real PNG signature bytes — validatePhoto() now checks file content, not just
+// the client-supplied MIME type, so test fixtures need genuine magic bytes.
+const PNG_BYTES = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+
 /** Build a generate-batch NextRequest-like object with `photoCount` dummy photos. */
 function buildRequest(opts: {
   email: string;
@@ -77,7 +81,7 @@ function buildRequest(opts: {
   }
   const photoCount = opts.photoCount ?? 2;
   for (let i = 0; i < photoCount; i++) {
-    formData.append(`photo_${i}`, new Blob(['a'], { type: 'image/png' }), `${i}.png`);
+    formData.append(`photo_${i}`, new Blob([PNG_BYTES], { type: 'image/png' }), `${i}.png`);
   }
 
   const ip = opts.ip ?? nextIp();
@@ -189,8 +193,8 @@ describe('POST /api/generate-batch — per-IP monthly free-tier cap', () => {
         fd.set('name', '測試');
         fd.set('occasion', 'memorial');
         fd.set('settings', JSON.stringify(standardSettings));
-        fd.append('photo_0', new Blob(['a'], { type: 'image/png' }), '0.png');
-        fd.append('photo_1', new Blob(['a'], { type: 'image/png' }), '1.png');
+        fd.append('photo_0', new Blob([PNG_BYTES], { type: 'image/png' }), '0.png');
+        fd.append('photo_1', new Blob([PNG_BYTES], { type: 'image/png' }), '1.png');
         return fd;
       },
       headers: new Headers(),

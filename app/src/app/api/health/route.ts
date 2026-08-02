@@ -3,6 +3,7 @@ export const runtime = 'edge';
 import { NextRequest, NextResponse } from 'next/server';
 import { kvGet, kvPut, kvDelete } from '@/lib/kv';
 import { captureError } from '@/lib/errors';
+import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
 
 // Hit a public Seedance task ID to verify BytePlus auth works without
 // consuming any credits. 404 = auth OK, 401/403 = auth broken.
@@ -16,6 +17,17 @@ interface CheckResult {
 }
 
 export async function GET(request: NextRequest) {
+  // Rate limit: 6 per minute per IP — each hit makes a real BytePlus outbound call
+  const ip = getClientIP(request);
+  const rateCheck = await checkRateLimit(`health:${ip}`, 6, 60);
+  if (!rateCheck.allowed) {
+    const retryAfter = Math.max(1, rateCheck.resetAt - Math.floor(Date.now() / 1000));
+    return NextResponse.json(
+      { error: 'Too many requests' },
+      { status: 429, headers: { 'Retry-After': String(retryAfter) } }
+    );
+  }
+
   // Sentry capture verification: GET /api/health?fail=1 → throws
   if (new URL(request.url).searchParams.get('fail') === '1') {
     const err = new Error('Sentry capture test from /api/health?fail=1');

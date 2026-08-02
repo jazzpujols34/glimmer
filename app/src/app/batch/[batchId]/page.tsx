@@ -87,8 +87,13 @@ function BatchPageInner() {
 
   const fetchStatus = useCallback(async () => {
     try {
+      // Owner's email, if known — batch-status/quick-status omit the memorial
+      // name (PII) for anonymous pollers, so send it to see the full payload.
+      const email = typeof window !== 'undefined' ? localStorage.getItem('glimmer_email') : null;
+      const emailParam = email ? `?email=${encodeURIComponent(email)}` : '';
+
       // Fetch batch status
-      const res = await fetch(`/api/batch-status/${batchId}`);
+      const res = await fetch(`/api/batch-status/${batchId}${emailParam}`);
       if (!res.ok) {
         const data = await res.json();
         throw new Error(data.error || 'Failed to fetch batch status');
@@ -98,7 +103,7 @@ function BatchPageInner() {
 
       // If this is a quick job, also fetch quick status for export progress
       if (quickId) {
-        const quickRes = await fetch(`/api/quick-status/${quickId}`);
+        const quickRes = await fetch(`/api/quick-status/${quickId}${emailParam}`);
         if (quickRes.ok) {
           const quickData: QuickStatusResponse = await quickRes.json();
           setQuick(quickData);
