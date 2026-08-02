@@ -143,7 +143,7 @@ describe('POST /api/quick-generate — daily provider-spend circuit breaker', ()
 });
 
 describe('POST /api/quick-generate — per-IP monthly free-tier cap', () => {
-  it('rejects a quick-generate request from an IP that already hit the monthly free cap', async () => {
+  it('rejects a quick-generate request from an IP that already hit the monthly free cap, when the user has no paid credits', async () => {
     const email = 'quick-ip-capped@example.com';
     await setEmailVerified(email);
     const ip = '10.9.0.1';
@@ -160,6 +160,28 @@ describe('POST /api/quick-generate — per-IP monthly free-tier cap', () => {
 
     const balance = await checkCredits(email);
     expect(balance.freeUsed).toBe(0);
+  });
+
+  it('allows a quick-generate request from a capped IP when paid credits cover the total cost', async () => {
+    const email = 'quick-ip-capped-but-paid@example.com';
+    await setEmailVerified(email);
+    mockCreateVideoTask.mockResolvedValue({ provider: 'byteplus', externalTaskIds: ['task_1'] });
+    await addCredits(email, 5, { id: 'p-cap-bypass', credits: 5, amountTWD: 299, createdAt: new Date().toISOString() });
+    const ip = '10.9.0.4';
+    for (let i = 0; i < FREE_IP_MONTHLY_CAP; i++) {
+      await recordFreeIpUsage(ip);
+    }
+
+    const res = await POST(buildRequest(email, {}, { ip }));
+    expect(res.status).toBe(200);
+
+    // consumeCredits still draws free-first for amount === 1.
+    const balance = await checkCredits(email);
+    expect(balance.freeUsed).toBe(1);
+    expect(balance.paidUsed).toBe(0);
+
+    const monthKey = new Date().toISOString().slice(0, 7);
+    expect(mockStore.get(`freeip:${monthKey}:${ip}`)).toBe(String(FREE_IP_MONTHLY_CAP + 1));
   });
 
   it('does not gate once the email\'s free tier is already exhausted, even if the IP is capped', async () => {

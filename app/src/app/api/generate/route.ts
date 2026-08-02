@@ -131,10 +131,15 @@ export async function POST(request: NextRequest) {
     }
 
     // --- Per-IP monthly cap on free-tier generations ---
-    // Only relevant when this request would actually draw a free credit
-    // (cost === 1 and free tier still has room) — never gates paid usage.
+    // Only gates when free is the user's ONLY viable source: cost === 1, free
+    // tier still has room, AND paid can't cover it either. A paying-capable
+    // user at a capped IP (e.g. shared office NAT) must still be able to
+    // generate — consumeCredits() is free-first regardless, so their request
+    // may still draw a free credit and push the counter past the cap; that's
+    // fine, since the cap exists to stop free-only farm accounts, and those
+    // (paidRemaining === 0) stay blocked.
     const freeRemaining = Math.max(0, balance.freeTotal - balance.freeUsed);
-    if (!balance.isAdmin && cost === 1 && freeRemaining > 0) {
+    if (!balance.isAdmin && cost === 1 && freeRemaining > 0 && paidRemaining < cost) {
       const ipCap = await checkFreeIpCap(ip);
       if (!ipCap.allowed) {
         return errors.freeTierIpCapReached();

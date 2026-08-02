@@ -120,8 +120,14 @@ export async function POST(request: NextRequest) {
     }
 
     // --- Per-IP monthly cap on free-tier generations ---
+    // Only gates when free is the user's ONLY viable source: perSegmentCost
+    // === 1, free tier still has room, AND paid can't cover the batch either.
+    // A paying-capable user at a capped IP must still proceed — consumeCredits()
+    // is free-first regardless, so their segments may still draw free credits
+    // and push the counter past the cap; that's fine, since the cap exists to
+    // stop free-only farm accounts, and those (paidRemaining === 0) stay blocked.
     const freeRemaining = Math.max(0, credits.freeTotal - credits.freeUsed);
-    if (!credits.isAdmin && perSegmentCost === 1 && freeRemaining > 0) {
+    if (!credits.isAdmin && perSegmentCost === 1 && freeRemaining > 0 && paidRemaining < totalCost) {
       const ipCap = await checkFreeIpCap(ip);
       if (!ipCap.allowed) {
         return errors.freeTierIpCapReached();

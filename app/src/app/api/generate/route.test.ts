@@ -129,7 +129,7 @@ describe('POST /api/generate — free tier is standard-spec only', () => {
 });
 
 describe('POST /api/generate — per-IP monthly free-tier cap', () => {
-  it('rejects a standard-spec generation from an IP that already hit the monthly free cap', async () => {
+  it('rejects a standard-spec generation from an IP that already hit the monthly free cap, when the user has no paid credits (farm-account case)', async () => {
     const email = 'ip-capped@example.com';
     await setEmailVerified(email);
     const ip = nextIp();
@@ -150,6 +150,32 @@ describe('POST /api/generate — per-IP monthly free-tier cap', () => {
 
     const balance = await checkCredits(email);
     expect(balance.freeUsed).toBe(0); // this email's free tier was never touched
+  });
+
+  it('allows a standard-spec generation from a capped IP when the user has enough paid credits to cover it, even though free tier still has room — consumeCredits still draws free-first', async () => {
+    const email = 'ip-capped-but-paid@example.com';
+    await setEmailVerified(email);
+    await addCredits(email, 5, {
+      id: 'p-cap-bypass', credits: 5, amountTWD: 299, createdAt: new Date().toISOString(),
+    });
+    const ip = nextIp();
+    for (let i = 0; i < FREE_IP_MONTHLY_CAP; i++) {
+      await recordFreeIpUsage(ip);
+    }
+
+    const res = await POST(buildRequest({ email, settings: standardSettings, ip }));
+    expect(res.status).toBe(200);
+    expect(mockCreateVideoTask).toHaveBeenCalledTimes(1);
+
+    // consumeCredits(amount=1) is still free-first regardless of the gate —
+    // the paid balance only had to be *available*, not actually preferred.
+    const balance = await checkCredits(email);
+    expect(balance.freeUsed).toBe(1);
+    expect(balance.paidUsed).toBe(0);
+
+    // The counter may now exceed the cap — that's intended (see route comment).
+    const monthKey = new Date().toISOString().slice(0, 7);
+    expect(mockStore.get(`freeip:${monthKey}:${ip}`)).toBe(String(FREE_IP_MONTHLY_CAP + 1));
   });
 
   it('does not gate a generation once the email\'s free tier is already exhausted, even if the IP is capped', async () => {

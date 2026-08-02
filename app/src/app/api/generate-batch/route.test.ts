@@ -121,7 +121,7 @@ describe('POST /api/generate-batch — free tier is standard-spec only', () => {
 });
 
 describe('POST /api/generate-batch — per-IP monthly free-tier cap', () => {
-  it('rejects a standard-spec batch from an IP that already hit the monthly free cap', async () => {
+  it('rejects a standard-spec batch from an IP that already hit the monthly free cap, when the user has no paid credits', async () => {
     const email = 'batch-ip-capped@example.com';
     await setEmailVerified(email);
     const ip = nextIp();
@@ -134,6 +134,29 @@ describe('POST /api/generate-batch — per-IP monthly free-tier cap', () => {
     const body = await res.json();
     expect(body.code).toBe('FREE_TIER_IP_CAP');
     expect(mockCreateVideoTask).not.toHaveBeenCalled();
+  });
+
+  it('allows a standard-spec batch from a capped IP when paid credits cover the total cost', async () => {
+    const email = 'batch-ip-capped-but-paid@example.com';
+    await setEmailVerified(email);
+    await addCredits(email, 5, { id: 'p-cap-bypass', credits: 5, amountTWD: 299, createdAt: new Date().toISOString() });
+    const ip = nextIp();
+    for (let i = 0; i < FREE_IP_MONTHLY_CAP; i++) {
+      await recordFreeIpUsage(ip);
+    }
+
+    // 2 photos = 1 segment, totalCost = 1 — paid(5) covers it, but consumeCredits
+    // still draws free-first for amount === 1.
+    const res = await POST(buildRequest({ email, settings: standardSettings, photoCount: 2, ip }));
+    expect(res.status).toBe(200);
+    expect(mockCreateVideoTask).toHaveBeenCalledTimes(1);
+
+    const balance = await checkCredits(email);
+    expect(balance.freeUsed).toBe(1);
+    expect(balance.paidUsed).toBe(0);
+
+    const monthKey = new Date().toISOString().slice(0, 7);
+    expect(mockStore.get(`freeip:${monthKey}:${ip}`)).toBe(String(FREE_IP_MONTHLY_CAP + 1));
   });
 
   it('does not gate a batch once the email\'s free tier is already exhausted, even if the IP is capped', async () => {
