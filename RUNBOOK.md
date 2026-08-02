@@ -189,6 +189,8 @@ CF Pages → glimmer → Settings → Environment variables → Production:
 | `GOOGLE_CLOUD_PROJECT` | currently unused | For Veo fallback |
 | `KLING_ACCESS_KEY` | currently unused | For Kling fallback |
 | `KLING_SECRET_KEY` | currently unused | For Kling fallback |
+| `TELEGRAM_BOT_TOKEN` | optional | Bot token for admin alerts (`src/lib/telegram.ts`). Both this and `TELEGRAM_ADMIN_CHAT_ID` must be set or `sendAdminAlert()` is a silent no-op — never blocks or fails the caller. |
+| `TELEGRAM_ADMIN_CHAT_ID` | optional | Chat ID the bot DMs. Fires on: successful ECPay payment (`/api/webhooks/ecpay`), and daily provider-spend cap breach — at most once per UTC day, gated by a `spend-alert:YYYY-MM-DD` KV flag (`src/lib/spend-guard.ts`). |
 
 **KV namespace binding** (Settings → Functions → KV namespace bindings):
 - Binding name: `GLIMMER_KV`
