@@ -77,7 +77,16 @@ function currentMonthRevenueTWD(purchases: OverviewResponse['revenue']['purchase
     .reduce((sum, p) => sum + (p.amountTWD || 0), 0);
 }
 
-/** Inline SVG bar chart — no chart library. `points` chronological oldest -> newest. */
+function clampPercent(pct: number): number {
+  return Math.min(92, Math.max(8, pct));
+}
+
+/**
+ * Inline SVG bar chart — no chart library. `points` chronological oldest -> newest.
+ * Hover (desktop) / tap (touch, via onClick toggle) shows a tooltip above the
+ * column and dims the other bars. Zero-value days still render a small muted
+ * stub at the baseline so an all-zero window reads as data, not an empty void.
+ */
 function MiniBarChart({
   points,
   valueKey,
@@ -89,29 +98,67 @@ function MiniBarChart({
   barClassName: string;
   valueFormatter: (v: number) => string;
 }) {
+  const [hovered, setHovered] = useState<number | null>(null);
   const width = 320;
   const height = 64;
   const gap = 2;
+  const stubHeight = 2;
   const values = points.map((p) => p[valueKey]);
   const max = Math.max(1, ...values);
   const slot = width / Math.max(1, points.length);
   const barWidth = Math.max(1, slot - gap);
 
+  const toggleHover = (i: number) => setHovered((h) => (h === i ? null : i));
+
   return (
-    <div>
+    <div className="relative">
       <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-16" preserveAspectRatio="none" role="img">
+        <line x1={0} y1={height - 1} x2={width} y2={height - 1} className="stroke-muted-foreground/25" strokeWidth={1} />
         {points.map((p, i) => {
           const value = p[valueKey];
-          const barHeight = max > 0 ? (value / max) * (height - 4) : 0;
+          const isZero = value <= 0;
+          const barHeight = isZero ? stubHeight : Math.max(1, (value / max) * (height - 4));
           const x = i * slot + gap / 2;
           const y = height - barHeight;
+          const dimmed = hovered !== null && hovered !== i;
           return (
-            <rect key={p.date} x={x} y={y} width={barWidth} height={Math.max(0, barHeight)} rx="1" className={barClassName}>
-              <title>{`${p.date}: ${valueFormatter(value)}`}</title>
-            </rect>
+            <rect
+              key={p.date}
+              x={x}
+              y={y}
+              width={barWidth}
+              height={barHeight}
+              rx="1"
+              className={isZero ? 'fill-muted-foreground/25' : barClassName}
+              style={{ opacity: dimmed ? 0.7 : 1 }}
+            />
           );
         })}
+        {/* Invisible full-column-height hit targets — zero-value days stay hoverable too */}
+        {points.map((p, i) => (
+          <rect
+            key={`hit-${p.date}`}
+            x={i * slot}
+            y={0}
+            width={slot}
+            height={height}
+            fill="transparent"
+            style={{ pointerEvents: 'all', cursor: 'pointer' }}
+            onMouseEnter={() => setHovered(i)}
+            onMouseLeave={() => setHovered(null)}
+            onClick={() => toggleHover(i)}
+          />
+        ))}
       </svg>
+      {hovered !== null && (
+        <div
+          className="absolute bottom-full mb-1 -translate-x-1/2 z-10 whitespace-nowrap rounded-md border bg-popover text-popover-foreground text-xs px-2 py-1 shadow-md pointer-events-none"
+          style={{ left: `${clampPercent(((hovered + 0.5) / points.length) * 100)}%` }}
+        >
+          <div className="font-medium">{formatShortDate(points[hovered].date)}</div>
+          <div className="text-muted-foreground">{valueFormatter(points[hovered][valueKey])}</div>
+        </div>
+      )}
       {points.length > 0 && (
         <div className="flex justify-between text-xs text-muted-foreground mt-1">
           <span>{formatShortDate(points[0].date)}</span>
@@ -836,6 +883,7 @@ export default function AdminPage() {
                       <tr className="border-b border-border text-left text-muted-foreground">
                         <th className="p-3 font-medium">時間</th>
                         <th className="p-3 font-medium">Email</th>
+                        <th className="p-3 font-medium">IP</th>
                         <th className="p-3 font-medium">設定</th>
                         <th className="p-3 font-medium">點數</th>
                         <th className="p-3 font-medium">預估成本</th>
@@ -850,6 +898,7 @@ export default function AdminPage() {
                           <tr key={j.id} className="border-b border-border last:border-0">
                             <td className="p-3 whitespace-nowrap text-muted-foreground">{formatDate(j.createdAt)}</td>
                             <td className="p-3 whitespace-nowrap">{j.email || '—'}</td>
+                            <td className="p-3 whitespace-nowrap text-muted-foreground">{j.ip || '—'}</td>
                             <td className="p-3 whitespace-nowrap text-muted-foreground">{j.settingsSummary}</td>
                             <td className="p-3 whitespace-nowrap">{j.creditsCharged}</td>
                             <td className="p-3 whitespace-nowrap text-muted-foreground">US${j.estCostUSD.toFixed(3)}</td>

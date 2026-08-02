@@ -5,6 +5,7 @@ import { createJob, updateJob, createProject, addJobToProject, createBatch, addS
 import { createVideoTask } from '@/lib/veo';
 import { checkCredits, consumeCredits, isAdmin } from '@/lib/credits';
 import { creditsForGeneration } from '@/lib/credit-cost';
+import { checkFreeIpCap, recordFreeIpUsage } from '@/lib/free-ip-cap';
 import { checkDailySpendCap, recordProviderSpend, estimatedTokensForGeneration } from '@/lib/spend-guard';
 import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
 import { captureError, normalizeError } from '@/lib/errors';
@@ -111,8 +112,33 @@ export async function POST(request: NextRequest) {
     if (!balance.verified && !isAdmin(email)) {
       return errors.emailNotVerified();
     }
+
+    // --- Free tier is standard-spec only (720p/5s/x1, perSegmentCost === 1) ---
+    // consumeCredits() pays each non-standard-spec segment (amount > 1) from
+    // paid credits only, so if paid alone can't cover the whole batch, reject
+    // upfront rather than letting segments fail one-by-one mid-batch.
+    const paidRemaining = balance.paidTotal - balance.paidUsed;
+    if (perSegmentCost > 1 && paidRemaining < totalCost) {
+      return errors.freeTierStandardSpecOnly();
+    }
+
     if (balance.remaining < totalCost) {
       return errors.insufficientCredits(totalCost, balance.remaining);
+    }
+
+    // --- Per-IP monthly cap on free-tier generations ---
+    // Only gates when free is the user's ONLY viable source: perSegmentCost
+    // === 1, free tier still has room, AND paid can't cover the batch either.
+    // A paying-capable user at a capped IP must still proceed — consumeCredits()
+    // is free-first regardless, so their segments may still draw free credits
+    // and push the counter past the cap; that's fine, since the cap exists to
+    // stop free-only farm accounts, and those (paidRemaining === 0) stay blocked.
+    const freeRemaining = Math.max(0, balance.freeTotal - balance.freeUsed);
+    if (!balance.isAdmin && perSegmentCost === 1 && freeRemaining > 0 && paidRemaining < totalCost) {
+      const ipCap = await checkFreeIpCap(ip);
+      if (!ipCap.allowed) {
+        return errors.freeTierIpCapReached();
+      }
     }
 
     // --- Daily provider-spend circuit breaker (check BEFORE creating provider tasks) ---
@@ -165,6 +191,7 @@ export async function POST(request: NextRequest) {
           occasion: occasion as OccasionType,
           settings,
           email,
+          ip,
         });
 
         // Update job with batch reference
@@ -198,6 +225,9 @@ export async function POST(request: NextRequest) {
         const creditResult = await consumeCredits(email, jobId, perSegmentCost);
         if (creditResult.success) {
           creditsUsed += perSegmentCost;
+        }
+        if (creditResult.usedFree > 0) {
+          await recordFreeIpUsage(ip);
         }
 
         // Add to project and batch

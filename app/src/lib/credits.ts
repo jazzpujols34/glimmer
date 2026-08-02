@@ -31,6 +31,38 @@ function normalize(email: string): string {
   return email.toLowerCase().trim();
 }
 
+/**
+ * Canonicalize an email for the free tier's identity check ONLY — collapses
+ * Gmail/Googlemail plus-addressing (user+anything@gmail.com) and dot tricks
+ * (u.s.e.r@gmail.com) to one canonical form, since Gmail itself ignores both
+ * and a single inbox could otherwise farm unlimited free tiers by varying
+ * them. Other domains don't reliably ignore dots/plus (many distinguish
+ * them), so they pass through with only the standard lowercase/trim.
+ *
+ * Used ONLY for deriving the `free:` KV key (getFreeRecord/saveFreeRecord
+ * below) — never for `credits:`/`verified:` keys or any paid-identity
+ * lookup, which stay exact-email via normalize().
+ *
+ * Existing raw-key free records for gmail addresses that contain +/dots
+ * become orphaned by this change (their usage count resets to 0) — accepted
+ * at current ~30-user scale.
+ */
+export function canonicalFreeTierEmail(email: string): string {
+  const trimmed = normalize(email);
+  const atIndex = trimmed.lastIndexOf('@');
+  if (atIndex === -1) return trimmed;
+
+  const local = trimmed.slice(0, atIndex);
+  const domain = trimmed.slice(atIndex + 1);
+  if (domain !== 'gmail.com' && domain !== 'googlemail.com') {
+    return trimmed;
+  }
+
+  const withoutPlus = local.split('+')[0];
+  const withoutDots = withoutPlus.replace(/\./g, '');
+  return `${withoutDots}@${domain}`;
+}
+
 // --- Email Verification ---
 
 export async function isEmailVerified(email: string): Promise<boolean> {
@@ -60,7 +92,7 @@ async function saveCreditRecord(email: string, record: CreditRecord): Promise<vo
 // always read free-tier records through this, never reparse the raw KV value,
 // so the boolean->number migration below stays the single source of truth.
 export async function getFreeRecord(email: string): Promise<FreeRecord> {
-  const data = await kvGet(`${FREE_PREFIX}${normalize(email)}`);
+  const data = await kvGet(`${FREE_PREFIX}${canonicalFreeTierEmail(email)}`);
   if (data) {
     const parsed = JSON.parse(data);
     // Migration: convert old boolean format to new number format
@@ -73,7 +105,7 @@ export async function getFreeRecord(email: string): Promise<FreeRecord> {
 }
 
 async function saveFreeRecord(email: string, record: FreeRecord): Promise<void> {
-  await kvPut(`${FREE_PREFIX}${normalize(email)}`, JSON.stringify(record));
+  await kvPut(`${FREE_PREFIX}${canonicalFreeTierEmail(email)}`, JSON.stringify(record));
 }
 
 // --- Public API ---
@@ -117,9 +149,16 @@ export async function checkCredits(email: string): Promise<CreditBalance> {
 }
 
 /**
- * Use `amount` generations. Checks free tier first, then paid credits.
- * If free + paid together can't cover `amount`, deducts nothing and returns
- * success=false — never a partial charge.
+ * Use `amount` generations.
+ *
+ * Free tier is standard-spec only (720p/5s/x1 — creditsForGeneration() === 1
+ * by construction). So:
+ *   - amount === 1: free-first, then paid (unchanged historical behavior).
+ *   - amount > 1: PAID ONLY — never dips into free tier, even when free
+ *     alone would cover it. Fails entirely (no partial charge) if paid can't
+ *     cover it. This also means a single call can no longer "span" free and
+ *     paid pools — spanning only ever happened for amount > 1, which is now
+ *     paid-exclusive by design.
  *
  * KV is not transactional (check-then-write), so two concurrent requests for
  * the same email could both read a stale balance and both succeed, over-
@@ -138,10 +177,21 @@ export async function consumeCredits(
     return { success: true, usedFree: 0, usedPaid: 0 };
   }
 
-  const [free, record] = await Promise.all([getFreeRecord(norm), getCreditRecord(norm)]);
-
-  const freeRemaining = Math.max(0, FREE_GENERATIONS - free.used);
+  const record = await getCreditRecord(norm);
   const paidRemaining = record.total - record.used;
+
+  if (amount > 1) {
+    // Non-standard-spec generation: paid only, free tier is never touched.
+    if (paidRemaining < amount) {
+      return { success: false, usedFree: 0, usedPaid: 0 };
+    }
+    record.used += amount;
+    await saveCreditRecord(norm, record);
+    return { success: true, usedFree: 0, usedPaid: amount };
+  }
+
+  const free = await getFreeRecord(norm);
+  const freeRemaining = Math.max(0, FREE_GENERATIONS - free.used);
 
   if (freeRemaining + paidRemaining < amount) {
     return { success: false, usedFree: 0, usedPaid: 0 };

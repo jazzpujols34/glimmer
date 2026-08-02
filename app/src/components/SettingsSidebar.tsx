@@ -14,7 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Coins } from 'lucide-react';
+import { Coins, Info } from 'lucide-react';
 import { creditsForGeneration } from '@/lib/credit-cost';
 import type { GenerationSettings, TaskType, ModelType, AspectRatio, Resolution } from '@/types';
 
@@ -23,6 +23,10 @@ interface SettingsSidebarProps {
   onSettingsChange: (settings: GenerationSettings) => void;
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
+  // Paid credits remaining (paidTotal - paidUsed). Undefined while unknown
+  // (e.g. before an email is entered) — the standard-spec hint only renders
+  // once we actually know the user has zero paid credits.
+  paidRemaining?: number;
 }
 
 const taskTypes: { value: TaskType; label: string; description: string }[] = [
@@ -52,7 +56,7 @@ const isVeoModel = (model: ModelType) => model === 'veo-3.1' || model === 'veo-3
 const isBytePlusModel = (model: ModelType) => model === 'byteplus';
 const isKlingModel = (model: ModelType) => model === 'kling-ai';
 
-function SettingsContent({ settings, onSettingsChange }: Omit<SettingsSidebarProps, 'isOpen' | 'onOpenChange'>) {
+function SettingsContent({ settings, onSettingsChange, paidRemaining }: Omit<SettingsSidebarProps, 'isOpen' | 'onOpenChange'>) {
   const updateSetting = <K extends keyof GenerationSettings>(key: K, value: GenerationSettings[K]) => {
     onSettingsChange({ ...settings, [key]: value });
   };
@@ -282,6 +286,14 @@ function SettingsContent({ settings, onSettingsChange }: Omit<SettingsSidebarPro
         <span>本次將扣除 {creditsForGeneration(settings)} 點</span>
       </div>
 
+      {/* Free tier is standard-spec only — hint once paid credits are exhausted */}
+      {typeof paidRemaining === 'number' && paidRemaining <= 0 && creditsForGeneration(settings) > 1 && (
+        <div className="flex items-center gap-2 text-sm font-medium text-amber-600 dark:text-amber-400 p-2 rounded-md bg-amber-500/10">
+          <Info className="w-4 h-4 shrink-0" />
+          <span>免費額度僅支援標準規格（720p・5 秒・1 部）。購買點數即可解鎖完整畫質與更多選項</span>
+        </div>
+      )}
+
       {/* Seed */}
       <div className="space-y-2">
         <Label>種子碼 (Seed)</Label>
@@ -299,7 +311,7 @@ function SettingsContent({ settings, onSettingsChange }: Omit<SettingsSidebarPro
   );
 }
 
-export function SettingsSidebar({ settings, onSettingsChange, isOpen, onOpenChange }: SettingsSidebarProps) {
+export function SettingsSidebar({ settings, onSettingsChange, isOpen, onOpenChange, paidRemaining }: SettingsSidebarProps) {
   return (
     <>
       {/* Mobile: Sheet */}
@@ -317,7 +329,7 @@ export function SettingsSidebar({ settings, onSettingsChange, isOpen, onOpenChan
             <SheetHeader>
               <SheetTitle>生成設定</SheetTitle>
             </SheetHeader>
-            <SettingsContent settings={settings} onSettingsChange={onSettingsChange} />
+            <SettingsContent settings={settings} onSettingsChange={onSettingsChange} paidRemaining={paidRemaining} />
           </SheetContent>
         </Sheet>
       </div>
@@ -334,7 +346,7 @@ export function SettingsSidebar({ settings, onSettingsChange, isOpen, onOpenChan
                 </svg>
               </Button>
             </div>
-            <SettingsContent settings={settings} onSettingsChange={onSettingsChange} />
+            <SettingsContent settings={settings} onSettingsChange={onSettingsChange} paidRemaining={paidRemaining} />
           </aside>
         ) : (
           <Button
