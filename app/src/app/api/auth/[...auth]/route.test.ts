@@ -38,13 +38,16 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-function buildRequest(path: string, opts: { cookie?: string; method?: string } = {}): NextRequest {
+function buildRequest(path: string, opts: { cookie?: string; method?: string; ip?: string } = {}): NextRequest {
   const nextUrl = new URL(path, 'https://glimmer.video');
+  const headerInit: Record<string, string> = {};
+  if (opts.cookie) headerInit.cookie = opts.cookie;
+  if (opts.ip) headerInit['cf-connecting-ip'] = opts.ip;
   return {
     nextUrl,
     url: nextUrl.toString(),
     method: opts.method || 'GET',
-    headers: new Headers(opts.cookie ? { cookie: opts.cookie } : {}),
+    headers: new Headers(headerInit),
   } as unknown as NextRequest;
 }
 
@@ -79,6 +82,7 @@ async function buildCallbackRequest(opts: {
   cookieState?: string;
   codeVerifier?: string;
   code?: string | null;
+  ip?: string;
 }) {
   const realState = JSON.stringify({ nonce: 'test-nonce', returnTo: '/gallery' });
   const codeVerifier = opts.codeVerifier ?? 'test-code-verifier';
@@ -93,6 +97,7 @@ async function buildCallbackRequest(opts: {
 
   return buildRequest(`/api/auth/callback/google?${search.toString()}`, {
     cookie: `${STATE_COOKIE}=${signedState}; ${PKCE_COOKIE}=${signedVerifier}`,
+    ip: opts.ip,
   });
 }
 
@@ -137,6 +142,24 @@ describe('GET /api/auth/login/google', () => {
     delete process.env.GOOGLE_OAUTH_CLIENT_ID;
     const res = await GET(buildRequest('/api/auth/login/google'), { params: paramsFor(['login', 'google']) });
     expect(res.status).toBe(500);
+  });
+
+  it('rate-limits after 20 requests from the same IP within the window', async () => {
+    const ip = '203.0.113.50';
+    for (let i = 0; i < 20; i++) {
+      const res = await GET(buildRequest('/api/auth/login/google', { ip }), {
+        params: paramsFor(['login', 'google']),
+      });
+      expect(res.status).toBe(302);
+    }
+
+    const res = await GET(buildRequest('/api/auth/login/google', { ip }), {
+      params: paramsFor(['login', 'google']),
+    });
+    expect(res.status).toBe(429);
+    const body = await res.json();
+    expect(body.code).toBe('RATE_LIMITED');
+    expect(res.headers.get('Retry-After')).toBeTruthy();
   });
 });
 
@@ -224,6 +247,27 @@ describe('GET /api/auth/callback/google', () => {
     const res = await GET(req, { params: paramsFor(['callback', 'google']) });
     expect(res.status).toBe(500);
     expect(mockStore.size).toBe(0);
+  });
+
+  it('rate-limits after 20 requests from the same IP within the window', async () => {
+    const ip = '203.0.113.60';
+    // No code/state cookies — each request is rejected as invalid (400)
+    // before ever reaching Google, but that happens AFTER the rate check,
+    // so it still counts against the same-IP bucket.
+    for (let i = 0; i < 20; i++) {
+      const res = await GET(buildRequest('/api/auth/callback/google', { ip }), {
+        params: paramsFor(['callback', 'google']),
+      });
+      expect(res.status).toBe(400);
+    }
+
+    const res = await GET(buildRequest('/api/auth/callback/google', { ip }), {
+      params: paramsFor(['callback', 'google']),
+    });
+    expect(res.status).toBe(429);
+    const body = await res.json();
+    expect(body.code).toBe('RATE_LIMITED');
+    expect(res.headers.get('Retry-After')).toBeTruthy();
   });
 });
 

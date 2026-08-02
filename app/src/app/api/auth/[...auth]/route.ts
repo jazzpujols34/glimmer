@@ -24,6 +24,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { errors, successResponse } from '@/lib/api-response';
 import { kvPut } from '@/lib/kv';
 import { captureError } from '@/lib/errors';
+import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
 import { resolveIdentity } from '@/lib/identity';
 import {
   signSession,
@@ -108,6 +109,14 @@ function decodeIdTokenPayload(idToken: string): GoogleIdTokenPayload | null {
 // --- GET /api/auth/login/google ---
 
 async function handleLoginGoogle(request: NextRequest): Promise<NextResponse> {
+  // --- Rate limiting (20 login attempts per 5 min per IP) ---
+  const ip = getClientIP(request);
+  const rateCheck = await checkRateLimit(`auth:login:${ip}`, 20, 300);
+  if (!rateCheck.allowed) {
+    const retryAfter = Math.max(1, rateCheck.resetAt - Math.floor(Date.now() / 1000));
+    return errors.rateLimited(retryAfter);
+  }
+
   const clientId = process.env.GOOGLE_OAUTH_CLIENT_ID;
   if (!clientId) {
     captureError(new Error('GOOGLE_OAUTH_CLIENT_ID is not set'), { route: '/api/auth/login/google' });
@@ -146,6 +155,15 @@ async function handleLoginGoogle(request: NextRequest): Promise<NextResponse> {
 // --- GET /api/auth/callback/google ---
 
 async function handleCallbackGoogle(request: NextRequest): Promise<NextResponse> {
+  // --- Rate limiting (20 callback hits per 5 min per IP — each one makes an
+  // outbound Google token-exchange call, so this also caps that outbound cost) ---
+  const ip = getClientIP(request);
+  const rateCheck = await checkRateLimit(`auth:callback:${ip}`, 20, 300);
+  if (!rateCheck.allowed) {
+    const retryAfter = Math.max(1, rateCheck.resetAt - Math.floor(Date.now() / 1000));
+    return errors.rateLimited(retryAfter);
+  }
+
   const clientId = process.env.GOOGLE_OAUTH_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET;
   if (!clientId || !clientSecret) {
