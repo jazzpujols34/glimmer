@@ -26,6 +26,8 @@ import type { GenerationSettings, OccasionType } from '@/types';
 import { defaultSettings } from '@/types';
 
 const MAX_PHOTOS = 20;
+const MAX_DATE_LENGTH = 50;
+const MAX_MESSAGE_LENGTH = 500;
 
 export async function POST(request: NextRequest) {
   try {
@@ -56,6 +58,12 @@ export async function POST(request: NextRequest) {
     const nameValidation = validateName(name);
     if (!nameValidation.valid) {
       return errors.invalidInput(nameValidation.error!);
+    }
+    if (date && date.length > MAX_DATE_LENGTH) {
+      return errors.invalidInput(`日期不得超過 ${MAX_DATE_LENGTH} 個字元`);
+    }
+    if (message && message.length > MAX_MESSAGE_LENGTH) {
+      return errors.invalidInput(`訊息不得超過 ${MAX_MESSAGE_LENGTH} 個字元`);
     }
     if (!occasion || !isValidOccasion(occasion)) {
       return errors.invalidInput('無效的場合');

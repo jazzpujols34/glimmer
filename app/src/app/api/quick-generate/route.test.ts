@@ -63,6 +63,8 @@ function buildRequest(
   formData.set('templateId', overrides.templateId ?? 'memorial-gentle');
   formData.set('name', overrides.name ?? '測試');
   formData.set('occasion', overrides.occasion ?? 'memorial');
+  if (overrides.date !== undefined) formData.set('date', overrides.date);
+  if (overrides.message !== undefined) formData.set('message', overrides.message);
   formData.append('photos', new Blob([PNG_BYTES], { type: 'image/png' }), 'a.png');
   formData.append('photos', new Blob([PNG_BYTES], { type: 'image/png' }), 'b.png');
 
@@ -246,5 +248,47 @@ describe('POST /api/quick-generate — IP forensics on job records', () => {
     expect(jobKeys.length).toBeGreaterThan(0);
     const job = await getJob(jobKeys[0].replace('job:', ''));
     expect(job?.ip).toBe(ip);
+  });
+});
+
+describe('POST /api/quick-generate — date/message length caps', () => {
+  it('rejects a date longer than 50 characters, before creating any task', async () => {
+    const email = 'quick-long-date@example.com';
+    await setEmailVerified(email);
+
+    const res = await POST(buildRequest(email, { date: 'x'.repeat(51) }));
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toContain('日期不得超過');
+    expect(mockCreateVideoTask).not.toHaveBeenCalled();
+  });
+
+  it('accepts a date exactly at the 50-character limit', async () => {
+    const email = 'quick-date-at-limit@example.com';
+    await setEmailVerified(email);
+    mockCreateVideoTask.mockResolvedValue({ provider: 'byteplus', externalTaskIds: ['task_1'] });
+
+    const res = await POST(buildRequest(email, { date: 'x'.repeat(50) }));
+    expect(res.status).toBe(200);
+  });
+
+  it('rejects a message longer than 500 characters, before creating any task', async () => {
+    const email = 'quick-long-message@example.com';
+    await setEmailVerified(email);
+
+    const res = await POST(buildRequest(email, { message: 'x'.repeat(501) }));
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toContain('訊息不得超過');
+    expect(mockCreateVideoTask).not.toHaveBeenCalled();
+  });
+
+  it('accepts a message exactly at the 500-character limit', async () => {
+    const email = 'quick-message-at-limit@example.com';
+    await setEmailVerified(email);
+    mockCreateVideoTask.mockResolvedValue({ provider: 'byteplus', externalTaskIds: ['task_1'] });
+
+    const res = await POST(buildRequest(email, { message: 'x'.repeat(500) }));
+    expect(res.status).toBe(200);
   });
 });
