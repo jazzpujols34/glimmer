@@ -15,8 +15,10 @@ import { isAdmin } from './credits';
  * Constant-time string comparison. Always walks the full length of the
  * longer input — no early-exit `===` that would leak timing information
  * about how many leading characters of a guessed secret were correct.
+ * Exported for reuse by other secret/signature comparisons (e.g. ecpay.ts's
+ * CheckMacValue verification) — do not replace with `===` at any call site.
  */
-function constantTimeEqual(a: string, b: string): boolean {
+export function constantTimeEqual(a: string, b: string): boolean {
   const maxLen = Math.max(a.length, b.length, 1);
   let diff = a.length === b.length ? 0 : 1;
   for (let i = 0; i < maxLen; i++) {
