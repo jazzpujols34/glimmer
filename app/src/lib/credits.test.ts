@@ -15,7 +15,7 @@ vi.mock('./kv', () => ({
   }),
 }));
 
-import { checkCredits, consumeCredit, consumeCredits, refundCredits, addCredits, isEmailVerified, setEmailVerified, FREE_GENERATIONS } from './credits';
+import { checkCredits, consumeCredit, consumeCredits, refundCredits, addCredits, isEmailVerified, setEmailVerified, canonicalFreeTierEmail, FREE_GENERATIONS } from './credits';
 import { isValidEmail } from './validation';
 
 beforeEach(() => {
@@ -175,30 +175,9 @@ describe('email verification', () => {
 });
 
 describe('consumeCredits (variable amount)', () => {
-  it('spends free credits first, when the amount fits entirely within free remaining', async () => {
-    const result = await consumeCredits('multi@example.com', 'job_multi', 2);
-    expect(result).toEqual({ success: true, usedFree: 2, usedPaid: 0 });
-
-    const balance = await checkCredits('multi@example.com');
-    expect(balance.freeUsed).toBe(2);
-    expect(balance.paidUsed).toBe(0);
-  });
-
-  it('spans free and paid pools when the amount exceeds free remaining', async () => {
-    const email = 'span@example.com';
-    // Use up all but 1 free generation first
-    await consumeCredits(email, 'job_pre', FREE_GENERATIONS - 1);
-    await addCredits(email, 5, {
-      id: 'purchase_span', credits: 5, amountTWD: 599, createdAt: new Date().toISOString(),
-    });
-
-    const result = await consumeCredits(email, 'job_span', 3);
-    expect(result).toEqual({ success: true, usedFree: 1, usedPaid: 2 });
-
-    const balance = await checkCredits(email);
-    expect(balance.freeUsed).toBe(FREE_GENERATIONS);
-    expect(balance.paidUsed).toBe(2);
-    expect(balance.remaining).toBe(3); // 5 paid - 2 used, free exhausted
+  it('amount === 1 still uses free-first (unchanged behavior)', async () => {
+    const result = await consumeCredits('single@example.com', 'job_single', 1);
+    expect(result).toEqual({ success: true, usedFree: 1, usedPaid: 0 });
   });
 
   it('refuses and deducts nothing when free + paid together cannot cover the amount', async () => {
@@ -219,11 +198,66 @@ describe('consumeCredits (variable amount)', () => {
   });
 });
 
+describe('consumeCredits — amount > 1 (non-standard spec) draws PAID credits only', () => {
+  // Free tier is standard-spec only (720p/5s/x1 == creditsForGeneration() === 1).
+  // Any amount > 1 must never dip into the free pool, even when free alone
+  // would cover it — it must come entirely from paid, or fail entirely.
+  it('never dips into free tier when amount > 1, even though free remaining fully covers it', async () => {
+    const email = 'multi-no-paid@example.com';
+    const result = await consumeCredits(email, 'job_multi', 2);
+    expect(result).toEqual({ success: false, usedFree: 0, usedPaid: 0 });
+
+    const balance = await checkCredits(email);
+    expect(balance.freeUsed).toBe(0); // untouched — free tier never dipped into
+    expect(balance.paidUsed).toBe(0);
+    expect(balance.remaining).toBe(FREE_GENERATIONS);
+  });
+
+  it('succeeds purely from paid credits when paid covers it — free tier untouched even though it has room', async () => {
+    const email = 'multi-paid@example.com';
+    await addCredits(email, 5, {
+      id: 'purchase_multi', credits: 5, amountTWD: 599, createdAt: new Date().toISOString(),
+    });
+
+    const result = await consumeCredits(email, 'job_multi_paid', 3);
+    expect(result).toEqual({ success: true, usedFree: 0, usedPaid: 3 });
+
+    const balance = await checkCredits(email);
+    expect(balance.freeUsed).toBe(0); // free tier is fully intact
+    expect(balance.paidUsed).toBe(3);
+    expect(balance.remaining).toBe(FREE_GENERATIONS + 2); // 2 paid left + all 3 free
+  });
+
+  it('fails when paid alone cannot cover it, even though free+paid combined could', async () => {
+    const email = 'multi-insufficient-paid@example.com';
+    await addCredits(email, 1, {
+      id: 'purchase_small', credits: 1, amountTWD: 99, createdAt: new Date().toISOString(),
+    });
+    // free (3) + paid (1) = 4 >= amount (2) under the OLD spanning rule, but
+    // paid alone (1) < amount (2) — must fail under the new paid-only rule.
+    const result = await consumeCredits(email, 'job_multi_fail', 2);
+    expect(result).toEqual({ success: false, usedFree: 0, usedPaid: 0 });
+
+    const balance = await checkCredits(email);
+    expect(balance.freeUsed).toBe(0);
+    expect(balance.paidUsed).toBe(0);
+  });
+
+  it('boundary: amount = 2 is already paid-only (the free-first path is exactly amount === 1)', async () => {
+    const email = 'boundary@example.com';
+    // Exhaust nothing — free is fully available (3), but amount=2 must still
+    // refuse without paid credits.
+    const result = await consumeCredits(email, 'job_boundary', 2);
+    expect(result.success).toBe(false);
+  });
+});
+
 describe('refundCredits', () => {
   it('reverses a free-tier consumption exactly, restoring remaining balance', async () => {
     const email = 'refund-free@example.com';
-    const consumed = await consumeCredits(email, 'job_1', 2);
-    expect(consumed).toEqual({ success: true, usedFree: 2, usedPaid: 0 });
+    // Free tier is only ever touched by amount === 1 (standard-spec) calls.
+    const consumed = await consumeCredits(email, 'job_1', 1);
+    expect(consumed).toEqual({ success: true, usedFree: 1, usedPaid: 0 });
 
     await refundCredits(email, 'job_1', consumed.usedFree, consumed.usedPaid);
 
@@ -234,7 +268,10 @@ describe('refundCredits', () => {
 
   it('reverses a paid consumption exactly, restoring remaining balance', async () => {
     const email = 'refund-paid@example.com';
-    await consumeCredits(email, 'job_pre', FREE_GENERATIONS); // exhaust free tier
+    // Exhaust free tier via amount===1 calls (amount>1 never touches free).
+    for (let i = 0; i < FREE_GENERATIONS; i++) {
+      await consumeCredits(email, `job_pre_${i}`, 1);
+    }
     await addCredits(email, 5, {
       id: 'purchase_refund', credits: 5, amountTWD: 599, createdAt: new Date().toISOString(),
     });
@@ -248,21 +285,20 @@ describe('refundCredits', () => {
     expect(balance.remaining).toBe(5); // 5 paid, free exhausted
   });
 
-  it('reverses a consumption spanning free and paid pools exactly', async () => {
-    const email = 'refund-span@example.com';
-    await consumeCredits(email, 'job_pre', FREE_GENERATIONS - 1);
+  it('reverses a non-standard-spec (amount > 1) consumption drawn entirely from paid, free tier stays untouched throughout', async () => {
+    const email = 'refund-multi@example.com';
     await addCredits(email, 5, {
-      id: 'purchase_span', credits: 5, amountTWD: 599, createdAt: new Date().toISOString(),
+      id: 'purchase_multi', credits: 5, amountTWD: 599, createdAt: new Date().toISOString(),
     });
-    const consumed = await consumeCredits(email, 'job_span', 3);
-    expect(consumed).toEqual({ success: true, usedFree: 1, usedPaid: 2 });
+    const consumed = await consumeCredits(email, 'job_multi', 3);
+    expect(consumed).toEqual({ success: true, usedFree: 0, usedPaid: 3 });
 
-    await refundCredits(email, 'job_span', consumed.usedFree, consumed.usedPaid);
+    await refundCredits(email, 'job_multi', consumed.usedFree, consumed.usedPaid);
 
     const balance = await checkCredits(email);
-    expect(balance.freeUsed).toBe(FREE_GENERATIONS - 1);
+    expect(balance.freeUsed).toBe(0); // never touched, before or after refund
     expect(balance.paidUsed).toBe(0);
-    expect(balance.remaining).toBe(1 + 5); // 1 free left + all 5 paid
+    expect(balance.remaining).toBe(FREE_GENERATIONS + 5);
   });
 
   it('never goes below zero even if called with amounts larger than what was ever consumed', async () => {
@@ -324,5 +360,107 @@ describe('consumeCredits — admin', () => {
     const balance = await fresh.checkCredits('admin@example.com');
     expect(balance.isAdmin).toBe(true);
     expect(balance.freeUsed).toBe(0);
+  });
+});
+
+describe('legacy free records with used > FREE_GENERATIONS (regression)', () => {
+  // Historical `free:` records from an earlier era used a different cap (5, 6,
+  // 9, 10) — current enforcement treats used >= FREE_GENERATIONS as exhausted
+  // and must never surface a negative "remaining" anywhere.
+  it('checkCredits floors freeUsed-derived remaining at zero, never negative', async () => {
+    const email = 'legacy-overcap@example.com';
+    mockStore.set(`free:${email}`, JSON.stringify({ used: 10, jobs: [] }));
+
+    const balance = await checkCredits(email);
+    expect(balance.freeUsed).toBe(10);
+    expect(balance.freeTotal).toBe(FREE_GENERATIONS);
+    expect(balance.remaining).toBe(0); // never negative, even though used(10) > total(3)
+  });
+
+  it('consumeCredits treats an over-cap free record as fully exhausted and falls through to paid', async () => {
+    const email = 'legacy-overcap-consume@example.com';
+    mockStore.set(`free:${email}`, JSON.stringify({ used: 10, jobs: [] }));
+    await addCredits(email, 5, {
+      id: 'purchase_legacy', credits: 5, amountTWD: 599, createdAt: new Date().toISOString(),
+    });
+
+    const result = await consumeCredits(email, 'job_legacy', 1);
+    expect(result).toEqual({ success: true, usedFree: 0, usedPaid: 1 });
+
+    const balance = await checkCredits(email);
+    expect(balance.freeUsed).toBe(10); // stored value preserved as-is, never decremented below its own floor issues
+    expect(balance.remaining).toBe(4); // 5 paid - 1 used, free contributes 0
+  });
+
+  it('consumeCredits refuses (never goes negative) when an over-cap free record leaves no paid credits either', async () => {
+    const email = 'legacy-overcap-no-paid@example.com';
+    mockStore.set(`free:${email}`, JSON.stringify({ used: 10, jobs: [] }));
+
+    const result = await consumeCredits(email, 'job_legacy_fail', 1);
+    expect(result).toEqual({ success: false, usedFree: 0, usedPaid: 0 });
+
+    const balance = await checkCredits(email);
+    expect(balance.remaining).toBe(0);
+  });
+});
+
+describe('canonicalFreeTierEmail (pure function)', () => {
+  it('always lowercases and trims, regardless of domain', () => {
+    expect(canonicalFreeTierEmail('  User@Example.COM  ')).toBe('user@example.com');
+  });
+
+  it('strips everything from + in the local part for gmail.com', () => {
+    expect(canonicalFreeTierEmail('user+promo@gmail.com')).toBe('user@gmail.com');
+  });
+
+  it('removes dots from the local part for gmail.com', () => {
+    expect(canonicalFreeTierEmail('u.s.e.r@gmail.com')).toBe('user@gmail.com');
+  });
+
+  it('handles combined dot and plus tricks for gmail.com', () => {
+    expect(canonicalFreeTierEmail('U.ser.Name+promo123@Gmail.com')).toBe('username@gmail.com');
+  });
+
+  it('applies the same rules to googlemail.com, preserving that domain (no cross-domain unification)', () => {
+    expect(canonicalFreeTierEmail('u.ser+promo@googlemail.com')).toBe('user@googlemail.com');
+  });
+
+  it('leaves other domains completely unchanged beyond lowercase/trim — dots and plus are preserved', () => {
+    expect(canonicalFreeTierEmail('U.Ser+x@Yahoo.com')).toBe('u.ser+x@yahoo.com');
+    expect(canonicalFreeTierEmail('a.b+c@Hotmail.com')).toBe('a.b+c@hotmail.com');
+  });
+
+  it('plain gmail address with no dots/plus is unchanged (same key as before this feature)', () => {
+    expect(canonicalFreeTierEmail('plainuser@gmail.com')).toBe('plainuser@gmail.com');
+  });
+});
+
+describe('free-tier identity canonicalization (gmail alias dedup)', () => {
+  it('gmail dot and plus variants collapse onto the same free-tier record', async () => {
+    await consumeCredits('user@gmail.com', 'job_1', 1);
+    const balance = await checkCredits('u.ser+anything@gmail.com');
+    expect(balance.freeUsed).toBe(1);
+  });
+
+  it('credits:/verified: keys stay exact-email — paid identity is NOT canonicalized', async () => {
+    await addCredits('user+promo@gmail.com', 5, {
+      id: 'purchase_alias', credits: 5, amountTWD: 599, createdAt: new Date().toISOString(),
+    });
+    const aliasBalance = await checkCredits('user+promo@gmail.com');
+    const canonicalBalance = await checkCredits('user@gmail.com');
+    expect(aliasBalance.paidTotal).toBe(5);
+    expect(canonicalBalance.paidTotal).toBe(0); // separate credits: key — no collapsing
+  });
+
+  it('non-gmail providers are not deduplicated across dot/plus variants', async () => {
+    await consumeCredits('a.b@yahoo.com', 'job_1', 1);
+    const balance = await checkCredits('ab@yahoo.com');
+    expect(balance.freeUsed).toBe(0); // distinct free: key — yahoo isn't canonicalized
+  });
+
+  it('plain gmail address behaves exactly as before this feature (no dots/plus to collapse)', async () => {
+    await consumeCredits('plainuser@gmail.com', 'job_1', 1);
+    const balance = await checkCredits('plainuser@gmail.com');
+    expect(balance.freeUsed).toBe(1);
   });
 });
