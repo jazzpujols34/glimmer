@@ -836,6 +836,7 @@ export default function AdminPage() {
                       <tr className="border-b border-border text-left text-muted-foreground">
                         <th className="p-3 font-medium">時間</th>
                         <th className="p-3 font-medium">Email</th>
+                        <th className="p-3 font-medium">IP</th>
                         <th className="p-3 font-medium">設定</th>
                         <th className="p-3 font-medium">點數</th>
                         <th className="p-3 font-medium">預估成本</th>
@@ -850,6 +851,7 @@ export default function AdminPage() {
                           <tr key={j.id} className="border-b border-border last:border-0">
                             <td className="p-3 whitespace-nowrap text-muted-foreground">{formatDate(j.createdAt)}</td>
                             <td className="p-3 whitespace-nowrap">{j.email || '—'}</td>
+                            <td className="p-3 whitespace-nowrap text-muted-foreground">{j.ip || '—'}</td>
                             <td className="p-3 whitespace-nowrap text-muted-foreground">{j.settingsSummary}</td>
                             <td className="p-3 whitespace-nowrap">{j.creditsCharged}</td>
                             <td className="p-3 whitespace-nowrap text-muted-foreground">US${j.estCostUSD.toFixed(3)}</td>

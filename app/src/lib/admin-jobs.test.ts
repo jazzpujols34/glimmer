@@ -75,4 +75,14 @@ describe('buildAdminJobRows', () => {
   it('empty job list returns an empty array', () => {
     expect(buildAdminJobRows([])).toEqual([]);
   });
+
+  it('passes through ip when present on the job record', () => {
+    const rows = buildAdminJobRows([job({ ip: '203.0.113.5' })]);
+    expect(rows[0].ip).toBe('203.0.113.5');
+  });
+
+  it('ip is undefined (never throws) for old jobs recorded before ip forensics shipped', () => {
+    const rows = buildAdminJobRows([job({})]);
+    expect(rows[0].ip).toBeUndefined();
+  });
 });

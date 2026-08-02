@@ -13,6 +13,7 @@ const DEFAULT_USD_PER_MILLION_TOKENS = 1.2;
 export interface AdminJobRow {
   id: string;
   email?: string;
+  ip?: string;
   createdAt: string;
   status: string;
   settingsSummary: string;
@@ -48,6 +49,7 @@ export function buildAdminJobRows(jobs: GenerationJob[], options: BuildAdminJobR
     return {
       id: j.id,
       email: j.email,
+      ip: j.ip,
       createdAt: j.createdAt,
       status: j.status,
       settingsSummary: summarize(j.settings),
