@@ -233,12 +233,21 @@ describe('GET /api/auth/session', () => {
     expect(await res.json()).toEqual({ authenticated: false });
   });
 
-  it('reports authenticated:true + email with a valid session cookie', async () => {
+  it('reports authenticated:true + the session email when there is no submap entry', async () => {
     const token = await signSession({ sub: 'sub-1', email: 'a@b.com' });
     const res = await GET(buildRequest('/api/auth/session', { cookie: `${SESSION_COOKIE_NAME}=${token}` }), {
       params: paramsFor(['session']),
     });
     expect(await res.json()).toEqual({ authenticated: true, email: 'a@b.com' });
+  });
+
+  it('reports the MAPPED email (not the session claim) when submap:<sub> resolves elsewhere', async () => {
+    mockStore.set('submap:sub-mapped', 'credit-holder@example.com');
+    const token = await signSession({ sub: 'sub-mapped', email: 'session-claim@example.com' });
+    const res = await GET(buildRequest('/api/auth/session', { cookie: `${SESSION_COOKIE_NAME}=${token}` }), {
+      params: paramsFor(['session']),
+    });
+    expect(await res.json()).toEqual({ authenticated: true, email: 'credit-holder@example.com' });
   });
 });
 
