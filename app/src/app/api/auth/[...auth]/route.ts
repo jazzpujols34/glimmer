@@ -9,15 +9,17 @@ export const runtime = 'edge';
  * Learnings). Dispatches on the path segment:
  *
  *   GET  /api/auth/login/google     — start the OAuth+PKCE flow
- *   GET  /api/auth/callback/google  — exchange code, mint session, bridge KV
+ *   GET  /api/auth/callback/google  — exchange code, mint session, bridge KV,
+ *                                      mark the account session-established
+ *                                      (sessionreq:<email>, Phase 2b)
  *   GET  /api/auth/session          — { authenticated, email? } resolved
  *                                      through the credit-key bridge
  *   GET  /api/auth/logout           — clear session, redirect to /
  *   POST /api/auth/logout           — clear session, 200 json
  *
- * No generation/gallery/credits route requires a session yet — this is
- * display/client-identity only. Enforcing the session server-side is
- * Phase 2b — see docs/oauth-identity-design.html.
+ * Server-side enforcement (Phase 2b, src/lib/identity.ts enforceIdentity())
+ * is wired into the spend/destructive routes but ships DORMANT behind
+ * REQUIRE_SESSION_FOR_PAID — see docs/oauth-identity-design.html.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -242,6 +244,13 @@ async function handleCallbackGoogle(request: NextRequest): Promise<NextResponse>
   // Credit-key bridge: future logins from this Google account resolve the
   // same identity via submap:<sub> -> email (see src/lib/identity.ts, Step 3).
   await kvPut(`submap:${sub}`, email);
+
+  // Phase 2b auto-migrate marker: this account has now established a
+  // session. Persistent, no TTL — enforceIdentity() (src/lib/identity.ts)
+  // only refuses typed-email spend/delete access for emails that have this
+  // key, so an account that never signs in is never affected by flipping
+  // REQUIRE_SESSION_FOR_PAID on later.
+  await kvPut(`sessionreq:${email}`, '1');
 
   const sessionToken = await signSession({ sub, email });
 
