@@ -4,8 +4,9 @@ import { NextRequest } from 'next/server';
 import imageSize from 'image-size';
 import { createJob, updateJob, addJobToProject, getProject, setJobError } from '@/lib/storage';
 import { createVideoTask } from '@/lib/veo';
-import { checkCredits, consumeCredits, isAdmin, isLegacyFlatRate } from '@/lib/credits';
+import { checkCredits, consumeCredits, isAdmin } from '@/lib/credits';
 import { creditsForGeneration } from '@/lib/credit-cost';
+import { checkDailySpendCap, recordProviderSpend, estimatedTokensForGeneration } from '@/lib/spend-guard';
 import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
 import { captureError, ProviderUnavailableError, normalizeError } from '@/lib/errors';
 import { logger } from '@/lib/logger';
@@ -112,10 +113,19 @@ export async function POST(request: NextRequest) {
 
     // --- Credit check (fail fast before creating job) ---
     // Cost is proportional to resolution/duration/numResults — see credit-cost.ts.
-    // Pre-2026-07-30 legacy customers keep the old flat 1-credit-per-generation rate.
-    const cost = isLegacyFlatRate(email) ? 1 : creditsForGeneration(settings);
+    const cost = creditsForGeneration(settings);
     if (balance.remaining < cost) {
       return errors.insufficientCredits(cost, balance.remaining);
+    }
+
+    // --- Daily provider-spend circuit breaker (check BEFORE creating provider tasks) ---
+    const spendCap = await checkDailySpendCap();
+    if (spendCap.capped) {
+      captureError(new Error('Daily provider spend cap reached'), {
+        route: '/api/generate',
+        email,
+      });
+      return errors.dailySpendCapReached();
     }
 
     // Generate job ID
@@ -160,6 +170,9 @@ export async function POST(request: NextRequest) {
       externalTaskIds: taskData.externalTaskIds,
       veoOperationName: taskData.veoOperationName,
     });
+
+    // Record estimated provider spend AFTER the task was actually created
+    await recordProviderSpend(estimatedTokensForGeneration(settings));
 
     // Deduct credits AFTER external task creation succeeds
     const creditResult = await consumeCredits(email, jobId, cost);
