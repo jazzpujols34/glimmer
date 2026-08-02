@@ -18,6 +18,9 @@ vi.mock('@/lib/kv', () => ({
   kvListKeys: vi.fn(() => Promise.resolve([])),
 }));
 
+const { sendAdminAlert } = vi.hoisted(() => ({ sendAdminAlert: vi.fn((_text: string) => Promise.resolve()) }));
+vi.mock('@/lib/telegram', () => ({ sendAdminAlert }));
+
 import { POST } from './route';
 import { generateCheckMacValue } from '@/lib/ecpay';
 import { getCreditRecord } from '@/lib/credits';
@@ -30,6 +33,7 @@ const ORIGINAL_ENV = { ...process.env };
 
 beforeEach(() => {
   mockStore.clear();
+  sendAdminAlert.mockClear();
   process.env.ECPAY_TEST_MODE = 'true';
 });
 
@@ -166,5 +170,49 @@ describe('ECPay webhook credit resolution', () => {
     const record = await getCreditRecord('dup@example.com');
     expect(record.total).toBe(20); // not 40
     expect(record.purchases).toHaveLength(1);
+  });
+});
+
+describe('ECPay webhook Telegram alert', () => {
+  it('sends an admin alert with amount, credits, and email after credits are added', async () => {
+    const req = await buildCallbackRequest({
+      orderId: 'GLTEST-ALERT',
+      tradeAmt: 299,
+      email: 'alertme@example.com',
+      packId: 'pack20',
+    });
+
+    await POST(req);
+
+    expect(sendAdminAlert).toHaveBeenCalledTimes(1);
+    expect(sendAdminAlert).toHaveBeenCalledWith('拾光收款 NT$299（20次）alertme@example.com');
+  });
+
+  it('does not alert when the amount/packId is unknown (no credits added)', async () => {
+    const req = await buildCallbackRequest({
+      orderId: 'GLTEST-ALERT-UNKNOWN',
+      tradeAmt: 123,
+      email: 'noalert@example.com',
+      packId: 'nope',
+    });
+
+    await POST(req);
+
+    expect(sendAdminAlert).not.toHaveBeenCalled();
+  });
+
+  it('does not alert again for a duplicate (already-credited) webhook', async () => {
+    const fields: CallbackFields = {
+      orderId: 'GLTEST-ALERT-DUP',
+      tradeAmt: 299,
+      email: 'dupalert@example.com',
+      packId: 'pack20',
+    };
+    await POST(await buildCallbackRequest(fields));
+    sendAdminAlert.mockClear();
+
+    await POST(await buildCallbackRequest(fields));
+
+    expect(sendAdminAlert).not.toHaveBeenCalled();
   });
 });
