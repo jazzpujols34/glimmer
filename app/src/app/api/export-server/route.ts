@@ -8,6 +8,8 @@ import { shouldApplyWatermark } from '@/lib/watermark';
 import { isAllowedExportUrl, isSsrfSafeExportUrl } from '@/lib/url-allowlist';
 import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
 import { errors } from '@/lib/api-response';
+import { getJob } from '@/lib/storage';
+import { checkCredits } from '@/lib/credits';
 
 /**
  * Server-side video export via Cloud Run.
@@ -69,7 +71,6 @@ interface ExportRequest {
   musicClips: MusicExportData[];
   titleCard?: TitleCardExportData;
   outroCard?: TitleCardExportData;
-  watermark?: boolean;  // Server-computed watermark decision from /api/gallery/[id] (never client email)
 }
 
 const CLOUD_RUN_URL = process.env.EXPORT_SERVICE_URL;
@@ -95,7 +96,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body: ExportRequest = await request.json();
-    const { jobId, clips, transitions, subtitles, musicClips, titleCard, outroCard, watermark } = body;
+    const { jobId, clips, transitions, subtitles, musicClips, titleCard, outroCard } = body;
 
     if (!jobId || !clips || clips.length === 0) {
       return NextResponse.json(
@@ -106,10 +107,26 @@ export async function POST(request: NextRequest) {
 
     logger.debug('export-server', `Starting export for job ${jobId}, ${clips.length} clips`);
 
-    // Watermark decision is computed server-side by /api/gallery/[id] and passed through —
-    // default to applying the watermark when unset (e.g. showcase exports with no source job)
-    const applyWatermark = shouldApplyWatermark(watermark);
-    logger.debug('export-server', `Watermark: ${applyWatermark}`);
+    // Watermark decision is computed entirely server-side — a client-supplied
+    // `watermark` field is NEVER trusted (it let anyone with a jobId request a
+    // free unwatermarked export by sending watermark:false). Mirrors the check
+    // in storyboards/[id]/export/route.ts: look up the source job's email and
+    // re-run the same free-vs-paid check. Missing job / no email (e.g. showcase
+    // exports, which use a synthetic jobId with no KV record) falls back to
+    // shouldApplyWatermark()'s fail-safe default of applying the watermark.
+    let applyWatermark = shouldApplyWatermark();
+    const sourceJob = await getJob(jobId);
+    if (sourceJob?.email) {
+      try {
+        const credits = await checkCredits(sourceJob.email);
+        if (credits.isAdmin || credits.paidTotal > 0) {
+          applyWatermark = false;
+        }
+      } catch {
+        // Non-critical — keep watermark applied (fail-safe direction)
+      }
+    }
+    logger.debug('export-server', `Watermark: ${applyWatermark} (email: ${sourceJob?.email || 'none'})`);
 
     if (!CLOUD_RUN_URL) {
       return NextResponse.json(
