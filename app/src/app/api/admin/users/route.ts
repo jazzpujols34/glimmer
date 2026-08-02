@@ -2,15 +2,17 @@ export const runtime = 'edge';
 
 import { NextRequest } from 'next/server';
 import { kvListKeys, kvGet, kvPut } from '@/lib/kv';
-import { getCreditRecord, checkCredits, isAdmin } from '@/lib/credits';
+import { listKeysCapped } from '@/lib/admin-kv';
+import { getCreditRecord, checkCredits, isAdmin, getFreeRecord } from '@/lib/credits';
+import { buildAdminUserRows } from '@/lib/admin-users';
 import { captureError } from '@/lib/errors';
 import { successResponse, errors } from '@/lib/api-response';
 import { requireAdmin } from '@/lib/admin-auth';
 import type { GenerationJob, CreditRecord } from '@/types';
 
 /**
- * GET /api/admin/users?email=xxx&adminEmail=yyy
- * Look up a user by email, return their credits, purchases, and jobs
+ * GET /api/admin/users?adminEmail=yyy               -> list all users (Task 2 row shape)
+ * GET /api/admin/users?email=xxx&adminEmail=yyy      -> single-user deep lookup (unchanged)
  */
 export async function GET(request: NextRequest) {
   const adminEmail = request.nextUrl.searchParams.get('adminEmail');
@@ -20,7 +22,7 @@ export async function GET(request: NextRequest) {
   if (denied) return denied;
 
   if (!userEmail) {
-    return errors.missingField('email');
+    return getUsersList();
   }
 
   const normalizedEmail = userEmail.toLowerCase().trim();
@@ -59,6 +61,59 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     captureError(error, { route: '/api/admin/users', userEmail: normalizedEmail });
+    return errors.serverError();
+  }
+}
+
+/**
+ * List all users as per-email rows (credits + free tier + verified + last
+ * job), for the admin dashboard's 用戶 table. Task 2.
+ */
+async function getUsersList() {
+  try {
+    const [creditsList, freeList, verifiedList, jobsList] = await Promise.all([
+      listKeysCapped('credits:'),
+      listKeysCapped('free:'),
+      listKeysCapped('verified:'),
+      listKeysCapped('job:'),
+    ]);
+
+    const creditRecords: Record<string, CreditRecord> = {};
+    for (const key of creditsList.keys) {
+      const data = await kvGet(key);
+      if (data) creditRecords[key.replace('credits:', '')] = JSON.parse(data);
+    }
+
+    // Free-tier usage MUST go through credits.ts's getFreeRecord — it holds the
+    // boolean->number migration for legacy records; never reparse raw here.
+    const freeUsed: Record<string, number> = {};
+    for (const key of freeList.keys) {
+      const freeEmail = key.replace('free:', '');
+      const record = await getFreeRecord(freeEmail);
+      freeUsed[freeEmail] = record.used;
+    }
+
+    const verifiedEmails = new Set<string>();
+    for (const key of verifiedList.keys) {
+      const data = await kvGet(key);
+      if (data === 'true') verifiedEmails.add(key.replace('verified:', ''));
+    }
+
+    const jobs: { email?: string; createdAt: string }[] = [];
+    for (const key of jobsList.keys) {
+      const data = await kvGet(key);
+      if (data) {
+        const job = JSON.parse(data) as GenerationJob;
+        jobs.push({ email: job.email, createdAt: job.createdAt });
+      }
+    }
+
+    const users = buildAdminUserRows({ creditRecords, freeUsed, verifiedEmails, jobs });
+    const truncated = creditsList.truncated || freeList.truncated || verifiedList.truncated || jobsList.truncated;
+
+    return successResponse({ users, truncated, generatedAt: new Date().toISOString() });
+  } catch (error) {
+    captureError(error, { route: '/api/admin/users (list)' });
     return errors.serverError();
   }
 }
