@@ -50,3 +50,8 @@ next-env.d.ts
 
 # tools/convert-legacy-credits.ts backups (contain customer credit records)
 /tools/backups
+
+# OAuth client secret JSON + any local secret material (never commit)
+.secrets/
+client_secret_*.json
+*.apps.googleusercontent.com.json
