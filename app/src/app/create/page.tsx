@@ -727,7 +727,9 @@ function CreatePageInner() {
                         disabled={
                           isSubmitting ||
                           !isValidEmail ||
-                          (creditBalance?.remaining ?? 1) < (batchMode && canEnableBatch ? batchSegments : 1) ||
+                          (creditBalance?.remaining ?? 1) < (batchMode && canEnableBatch
+                            ? batchSegments * creditsForGeneration({ ...settings, numResults: 1 })
+                            : creditsForGeneration(settings)) ||
                           (isFrameMode ? !firstFrame : photos.length < 1)
                         }
                       >

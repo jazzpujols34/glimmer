@@ -183,7 +183,7 @@ CF Pages → glimmer → Settings → Environment variables → Production:
 | `EXPORT_URL_ALLOWED_HOSTS` | optional | Comma-separated host suffixes, extends the SSRF allowlist in `src/lib/url-allowlist.ts` (own origin + BytePlus CDN hosts are always allowed) so a new provider CDN can be allowed without a code deploy |
 | `NEXT_PUBLIC_BASE_URL` | yes | `https://glimmer.video` |
 | `ADMIN_EMAILS` | optional | Comma-separated, gets unlimited credits + admin UI access |
-| `LEGACY_FLAT_RATE_EMAILS` | optional | Comma-separated. Since 2026-07-30 credits are charged proportional to resolution/duration/numResults (`src/lib/credit-cost.ts`) instead of a flat 1 credit per generation. Emails on this list are grandfathered to the old flat rate (1 credit per generation, whatever the settings) — set to honour pre-2026-07-30 purchases. Empty by default. |
+| `DAILY_PROVIDER_TOKEN_CAP` | optional | Daily provider-spend circuit breaker (`src/lib/spend-guard.ts`). Max estimated BytePlus tokens per UTC day before `/api/generate`, `/api/generate-batch`, `/api/quick-generate` refuse new generations with a 503. Unset = default 15,000,000 (≈ US$18/day at $0.0012/K tokens). `0` disables the cap. |
 | `ADMIN_SECRET` | **yes** | Second factor for every `/api/admin/*` route, sent as the `x-admin-secret` header. **Fails closed** — if this is unset or empty, the entire admin API returns 401 and the `/admin` dashboard cannot load. Set it before or immediately after deploying. Generate with `python3 -c "import secrets; print(secrets.token_urlsafe(32))"`. Rotating it logs the dashboard out; re-enter the new value at `/admin`. |
 | `GOOGLE_API_KEY` | currently unused | For Veo fallback when restored |
 | `GOOGLE_CLOUD_PROJECT` | currently unused | For Veo fallback |
