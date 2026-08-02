@@ -14,10 +14,13 @@
 
 import { kvGet, kvPut } from './kv';
 import { resolveGenerationParams } from './credit-cost';
+import { sendAdminAlert } from './telegram';
 import type { GenerationSettings } from '@/types';
 
 const SPEND_KEY_PREFIX = 'spend:';
-const SPEND_TTL_SECONDS = 172800; // 48h — outlives the UTC day it's keyed by
+const SPEND_TTL_SECONDS = 7776000; // 90d — outlives the UTC day it's keyed by, gives the admin 14-day chart real history
+const SPEND_ALERT_KEY_PREFIX = 'spend-alert:';
+const SPEND_ALERT_TTL_SECONDS = 172800; // 48h — one alert per UTC day is enough
 const DEFAULT_DAILY_TOKEN_CAP = 15_000_000; // ≈ US$18/day at $0.0012/K tokens
 const FPS = 24;
 
@@ -37,7 +40,8 @@ function todayKey(): string {
   return `${SPEND_KEY_PREFIX}${new Date().toISOString().slice(0, 10)}`;
 }
 
-function dailyTokenCap(): number {
+/** Resolve today's token cap from env. Exported so admin routes don't duplicate this logic. */
+export function dailyTokenCap(): number {
   const raw = process.env.DAILY_PROVIDER_TOKEN_CAP;
   if (raw === undefined || raw === '') return DEFAULT_DAILY_TOKEN_CAP;
   const parsed = Number(raw);
@@ -51,6 +55,25 @@ async function getSpentToday(): Promise<number> {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+/**
+ * Alert the founder's Telegram once per UTC day when the spend cap is
+ * breached — a KV flag (`spend-alert:YYYY-MM-DD`) suppresses repeats for the
+ * rest of the day. Best-effort: sendAdminAlert never throws, and any KV
+ * failure here is swallowed so a broken alert path can never block the
+ * actual circuit breaker it's reporting on.
+ */
+async function maybeSendCapBreachAlert(cap: number, spent: number): Promise<void> {
+  try {
+    const key = `${SPEND_ALERT_KEY_PREFIX}${new Date().toISOString().slice(0, 10)}`;
+    const alreadySent = await kvGet(key);
+    if (alreadySent) return;
+    await kvPut(key, '1', { expirationTtl: SPEND_ALERT_TTL_SECONDS });
+    await sendAdminAlert(`拾光每日生成上限已達：今日 tokens ${spent.toLocaleString()} / 上限 ${cap.toLocaleString()}`);
+  } catch {
+    // Alerting is best-effort; never let it surface as a guard failure.
+  }
+}
+
 /** Check whether today's accumulated provider spend has reached the cap. */
 export async function checkDailySpendCap(): Promise<DailySpendCapCheck> {
   const cap = dailyTokenCap();
@@ -58,7 +81,11 @@ export async function checkDailySpendCap(): Promise<DailySpendCapCheck> {
     return { capped: false, cap: 0, spent: 0 };
   }
   const spent = await getSpentToday();
-  return { capped: spent >= cap, cap, spent };
+  const capped = spent >= cap;
+  if (capped) {
+    await maybeSendCapBreachAlert(cap, spent);
+  }
+  return { capped, cap, spent };
 }
 
 /** Record estimated provider tokens spent, accumulating into today's counter. */

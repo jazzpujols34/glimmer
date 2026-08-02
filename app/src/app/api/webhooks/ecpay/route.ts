@@ -6,6 +6,7 @@ import { addCredits, getCreditRecord } from '@/lib/credits';
 import { captureError } from '@/lib/errors';
 import { logger } from '@/lib/logger';
 import { getPack, creditsForAmount } from '@/lib/packs';
+import { sendAdminAlert } from '@/lib/telegram';
 
 export async function POST(request: NextRequest) {
   try {
@@ -74,6 +75,8 @@ export async function POST(request: NextRequest) {
     });
 
     logger.log('Credits added:', { email, credits, orderId });
+
+    await sendAdminAlert(`拾光收款 NT$${callbackData.tradeAmt}（${credits}次）${email}`);
 
     // ECPay requires "1|OK" response
     return new NextResponse('1|OK');

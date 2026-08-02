@@ -13,6 +13,9 @@ vi.mock('./kv', () => ({
   }),
 }));
 
+const { sendAdminAlert } = vi.hoisted(() => ({ sendAdminAlert: vi.fn((_text: string) => Promise.resolve()) }));
+vi.mock('./telegram', () => ({ sendAdminAlert }));
+
 import { estimatedTokensForGeneration, checkDailySpendCap, recordProviderSpend } from './spend-guard';
 import { defaultSettings } from '@/types';
 import type { GenerationSettings } from '@/types';
@@ -22,6 +25,7 @@ const ORIGINAL_CAP = process.env.DAILY_PROVIDER_TOKEN_CAP;
 beforeEach(() => {
   mockStore.clear();
   putCalls.length = 0;
+  sendAdminAlert.mockClear();
   delete process.env.DAILY_PROVIDER_TOKEN_CAP;
 });
 
@@ -110,6 +114,49 @@ describe('checkDailySpendCap', () => {
   });
 });
 
+describe('checkDailySpendCap — once-per-day Telegram alert on breach', () => {
+  it('sends exactly one alert the first time the cap is breached', async () => {
+    process.env.DAILY_PROVIDER_TOKEN_CAP = '1000';
+    await recordProviderSpend(1000);
+    await checkDailySpendCap();
+    expect(sendAdminAlert).toHaveBeenCalledTimes(1);
+    expect(sendAdminAlert.mock.calls[0][0]).toContain('1,000');
+  });
+
+  it('does not send a second alert for a later breach-check the same day', async () => {
+    process.env.DAILY_PROVIDER_TOKEN_CAP = '1000';
+    await recordProviderSpend(1000);
+    await checkDailySpendCap();
+    await checkDailySpendCap();
+    await checkDailySpendCap();
+    expect(sendAdminAlert).toHaveBeenCalledTimes(1);
+  });
+
+  it('sets a spend-alert:YYYY-MM-DD KV flag with a 172800s TTL when it alerts', async () => {
+    process.env.DAILY_PROVIDER_TOKEN_CAP = '1000';
+    await recordProviderSpend(1000);
+    await checkDailySpendCap();
+    const todayUTC = new Date().toISOString().slice(0, 10);
+    const flagPut = putCalls.find((c) => c.key === `spend-alert:${todayUTC}`);
+    expect(flagPut).toBeDefined();
+    expect(flagPut?.opts?.expirationTtl).toBe(172800);
+  });
+
+  it('never alerts when spend is below the cap', async () => {
+    process.env.DAILY_PROVIDER_TOKEN_CAP = '1000';
+    await recordProviderSpend(500);
+    await checkDailySpendCap();
+    expect(sendAdminAlert).not.toHaveBeenCalled();
+  });
+
+  it('never alerts when the cap is disabled (0)', async () => {
+    process.env.DAILY_PROVIDER_TOKEN_CAP = '0';
+    await recordProviderSpend(999999999);
+    await checkDailySpendCap();
+    expect(sendAdminAlert).not.toHaveBeenCalled();
+  });
+});
+
 describe('recordProviderSpend', () => {
   it('accumulates across multiple calls for the same UTC day', async () => {
     await recordProviderSpend(100);
@@ -118,13 +165,13 @@ describe('recordProviderSpend', () => {
     expect(result.spent).toBe(350);
   });
 
-  it('writes to KV under a spend:YYYY-MM-DD (UTC) key with a 172800s TTL', async () => {
+  it('writes to KV under a spend:YYYY-MM-DD (UTC) key with a 7776000s (90d) TTL', async () => {
     await recordProviderSpend(42);
     const todayUTC = new Date().toISOString().slice(0, 10);
     expect(putCalls.length).toBeGreaterThan(0);
     const last = putCalls[putCalls.length - 1];
     expect(last.key).toBe(`spend:${todayUTC}`);
-    expect(last.opts?.expirationTtl).toBe(172800);
+    expect(last.opts?.expirationTtl).toBe(7776000);
   });
 
   it('ignores zero and negative token amounts', async () => {

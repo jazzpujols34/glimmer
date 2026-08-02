@@ -56,7 +56,10 @@ async function saveCreditRecord(email: string, record: CreditRecord): Promise<vo
 
 // --- Free Tier CRUD ---
 
-async function getFreeRecord(email: string): Promise<FreeRecord> {
+// Exported for admin routes that need per-user free-tier usage (list views) —
+// always read free-tier records through this, never reparse the raw KV value,
+// so the boolean->number migration below stays the single source of truth.
+export async function getFreeRecord(email: string): Promise<FreeRecord> {
   const data = await kvGet(`${FREE_PREFIX}${normalize(email)}`);
   if (data) {
     const parsed = JSON.parse(data);
