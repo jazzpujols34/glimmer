@@ -17,7 +17,9 @@ export type ErrorCode =
   | 'UNAUTHORIZED'
   | 'SERVER_ERROR'
   | 'PROVIDER_ERROR'
-  | 'PROVIDER_UNAVAILABLE';
+  | 'PROVIDER_UNAVAILABLE'
+  | 'FREE_TIER_STANDARD_SPEC_ONLY'
+  | 'FREE_TIER_IP_CAP';
 
 export interface ErrorResponse {
   error: string;
@@ -107,4 +109,26 @@ export const errors = {
 
   invalidInput: (message: string) =>
     errorResponse(message, 400, 'INVALID_INPUT'),
+
+  // Free tier only covers the standard spec (720p / 5s / x1 — the exact
+  // settings that make creditsForGeneration() === 1). Any request that would
+  // consume a free credit but costs more than 1 must be paid entirely from
+  // paid credits (see consumeCredits() in credits.ts) — this is what a caller
+  // hits when paid credits alone can't cover a non-standard-spec generation.
+  freeTierStandardSpecOnly: () =>
+    errorResponse(
+      '免費額度僅支援標準規格（720p・5 秒・1 部）。購買點數即可解鎖完整畫質與更多選項',
+      402,
+      'FREE_TIER_STANDARD_SPEC_ONLY'
+    ),
+
+  // Per-IP monthly cap on free-tier generations (FREE_IP_MONTHLY_CAP in
+  // free-ip-cap.ts) — stops one network/NAT farming many emails to keep
+  // re-triggering the free tier.
+  freeTierIpCapReached: () =>
+    errorResponse(
+      '此網路環境的免費額度已用完，購買點數即可繼續生成',
+      429,
+      'FREE_TIER_IP_CAP'
+    ),
 };
