@@ -8,6 +8,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { MobileNav } from '@/components/MobileNav';
 import { HeroDemoVideo } from '@/components/HeroDemoVideo';
 import { LanguageToggle } from '@/components/LanguageToggle';
+import { AuthButton } from '@/components/AuthButton';
 import { ContactForm, FaqSection } from '@/components/landing/LazyClientSections';
 import { CREDIT_PACKS } from '@/lib/packs';
 
@@ -91,6 +92,7 @@ export default function LandingPage() {
           </nav>
           <div className="flex items-center gap-2">
             <LanguageToggle />
+            <AuthButton />
             <Button size="sm" asChild className="hidden sm:inline-flex">
               <Link href="/create">免費開始製作</Link>
             </Button>
