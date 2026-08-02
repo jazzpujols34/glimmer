@@ -27,7 +27,11 @@ export function isAdmin(email: string): boolean {
 
 // --- Email helpers ---
 
-function normalize(email: string): string {
+// Exported for src/lib/identity.ts (enforceIdentity, Phase 2b) — the
+// `sessionreq:` KV key must canonicalize an email exactly the way the
+// `credits:` key does (exact-email, no gmail dot/plus folding), so the two
+// stay looked-up under the same key for the same account.
+export function normalize(email: string): string {
   return email.toLowerCase().trim();
 }
 

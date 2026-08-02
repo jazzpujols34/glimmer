@@ -16,7 +16,7 @@ vi.mock('@/lib/kv', () => ({
   getKV: vi.fn(() => Promise.resolve(null)),
 }));
 
-import { resolveIdentity } from './identity';
+import { resolveIdentity, enforceIdentity } from './identity';
 import { signSession, SESSION_COOKIE_NAME } from './session';
 
 const ORIGINAL_ENV = { ...process.env };
@@ -76,5 +76,78 @@ describe('resolveIdentity', () => {
 
     const result = await resolveIdentity(req, 'fallback@example.com');
     expect(result).toBe('fallback@example.com');
+  });
+});
+
+describe('enforceIdentity (Phase 2b — dormant unless REQUIRE_SESSION_FOR_PAID=true)', () => {
+  it('flag unset: always returns the client email, regardless of session or sessionreq', async () => {
+    delete process.env.REQUIRE_SESSION_FOR_PAID;
+    mockStore.set('sessionreq:spoof-target@example.com', '1');
+    const token = await signSession({ sub: 'some-sub', email: 'signed-in@example.com' });
+    const req = requestWithCookie(`${SESSION_COOKIE_NAME}=${token}`);
+
+    const result = await enforceIdentity(req, 'spoof-target@example.com');
+    expect(result).toEqual({ email: 'spoof-target@example.com' });
+  });
+
+  it('flag explicitly false: still a no-op, always the client email', async () => {
+    process.env.REQUIRE_SESSION_FOR_PAID = 'false';
+    mockStore.set('sessionreq:spoof-target@example.com', '1');
+
+    const result = await enforceIdentity(requestWithCookie(null), 'spoof-target@example.com');
+    expect(result).toEqual({ email: 'spoof-target@example.com' });
+  });
+
+  it('flag on + no session + no sessionreq entry: legacy/never-signed-in email keeps working unchanged', async () => {
+    process.env.REQUIRE_SESSION_FOR_PAID = 'true';
+
+    const result = await enforceIdentity(requestWithCookie(null), 'never-signed-in@example.com');
+    expect(result).toEqual({ email: 'never-signed-in@example.com' });
+  });
+
+  it('flag on + no session + sessionreq entry set: refuses typed-email access', async () => {
+    process.env.REQUIRE_SESSION_FOR_PAID = 'true';
+    mockStore.set('sessionreq:bound@example.com', '1');
+
+    const result = await enforceIdentity(requestWithCookie(null), 'bound@example.com');
+    expect(result).toEqual({ error: 'SESSION_REQUIRED' });
+  });
+
+  it('flag on + no session + sessionreq lookup is case/whitespace-insensitive (same normalize() as credits)', async () => {
+    process.env.REQUIRE_SESSION_FOR_PAID = 'true';
+    mockStore.set('sessionreq:bound@example.com', '1');
+
+    const result = await enforceIdentity(requestWithCookie(null), '  Bound@Example.com  ');
+    expect(result).toEqual({ error: 'SESSION_REQUIRED' });
+  });
+
+  it('flag on + valid session: the session-resolved email wins, even when the client-supplied email differs (spoof-proof)', async () => {
+    process.env.REQUIRE_SESSION_FOR_PAID = 'true';
+    const token = await signSession({ sub: 'spoof-sub', email: 'real-owner@example.com' });
+    const req = requestWithCookie(`${SESSION_COOKIE_NAME}=${token}`);
+
+    const result = await enforceIdentity(req, 'someone-elses-email@example.com');
+    expect(result).toEqual({ email: 'real-owner@example.com' });
+  });
+
+  it('flag on + valid session for an email that also has a sessionreq entry: the session still wins (not the SESSION_REQUIRED path)', async () => {
+    process.env.REQUIRE_SESSION_FOR_PAID = 'true';
+    mockStore.set('sessionreq:real-owner@example.com', '1');
+    mockStore.set('submap:established-sub', 'real-owner@example.com');
+    const token = await signSession({ sub: 'established-sub', email: 'session-claim@example.com' });
+    const req = requestWithCookie(`${SESSION_COOKIE_NAME}=${token}`);
+
+    const result = await enforceIdentity(req, 'real-owner@example.com');
+    expect(result).toEqual({ email: 'real-owner@example.com' });
+  });
+
+  it('flag on + invalid/tampered session cookie: treated as no session, falls through to the sessionreq check', async () => {
+    process.env.REQUIRE_SESSION_FOR_PAID = 'true';
+    mockStore.set('sessionreq:bound@example.com', '1');
+    const token = await signSession({ sub: 'sub-x', email: 'x@example.com' });
+    const req = requestWithCookie(`${SESSION_COOKIE_NAME}=${token}tampered`);
+
+    const result = await enforceIdentity(req, 'bound@example.com');
+    expect(result).toEqual({ error: 'SESSION_REQUIRED' });
   });
 });

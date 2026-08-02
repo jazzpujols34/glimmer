@@ -21,6 +21,7 @@ import { captureError, normalizeError } from '@/lib/errors';
 import { getTemplateById } from '@/lib/templates';
 import { isValidEmail, isValidOccasion, validateName, validatePhoto } from '@/lib/validation';
 import { successResponse, errors } from '@/lib/api-response';
+import { enforceIdentity } from '@/lib/identity';
 import { logger } from '@/lib/logger';
 import type { GenerationSettings, OccasionType } from '@/types';
 import { defaultSettings } from '@/types';
@@ -52,6 +53,14 @@ export async function POST(request: NextRequest) {
     if (!email || !isValidEmail(email)) {
       return errors.invalidEmail();
     }
+
+    // --- Phase 2b enforcement (dormant unless REQUIRE_SESSION_FOR_PAID=true) ---
+    const identity = await enforceIdentity(request, email);
+    if ('error' in identity) {
+      return errors.sessionRequired();
+    }
+    const actingEmail = identity.email;
+
     if (!templateId) {
       return errors.missingField('templateId');
     }
@@ -110,8 +119,8 @@ export async function POST(request: NextRequest) {
     const totalCost = totalSegments * perSegmentCost;
 
     // Email verification + credit check
-    const credits = await checkCredits(email);
-    if (!credits.verified && !isAdmin(email)) {
+    const credits = await checkCredits(actingEmail);
+    if (!credits.verified && !isAdmin(actingEmail)) {
       return errors.emailNotVerified();
     }
 
@@ -148,18 +157,18 @@ export async function POST(request: NextRequest) {
     if (spendCap.capped) {
       captureError(new Error('Daily provider spend cap reached'), {
         route: '/api/quick-generate',
-        email,
+        email: actingEmail,
       });
       return errors.dailySpendCapReached();
     }
 
     // Create project to group all segments
-    const project = await createProject(`快速生成：${name}`, email);
+    const project = await createProject(`快速生成：${name}`, actingEmail);
 
     // Create batch job
     const batch = await createBatch(
       name,
-      email,
+      actingEmail,
       occasion as OccasionType,
       settings,
       totalSegments,
@@ -168,7 +177,7 @@ export async function POST(request: NextRequest) {
 
     // Create quick job to track the overall process
     const quickJob = await createQuickJob(
-      email,
+      actingEmail,
       templateId,
       name,
       batch.id,
@@ -189,7 +198,7 @@ export async function POST(request: NextRequest) {
 
       try {
         // Consume credit for this segment
-        creditResult = await consumeCredits(email, `${batch.id}_${i}`, perSegmentCost);
+        creditResult = await consumeCredits(actingEmail, `${batch.id}_${i}`, perSegmentCost);
         if (!creditResult.success) {
           logger.error(`[quick-generate] Credit consumption failed for segment ${i}`);
           segmentResults.push({ index: i, jobId: '', success: false });
@@ -205,7 +214,7 @@ export async function POST(request: NextRequest) {
           name: `${name} - 片段 ${i + 1}`,
           occasion: occasion as OccasionType,
           settings,
-          email,
+          email: actingEmail,
           ip,
         });
 
@@ -243,7 +252,7 @@ export async function POST(request: NextRequest) {
         // consumeCredits throws, give the credit back so the failure doesn't
         // silently cost the user a generation they never got.
         if (creditResult?.success) {
-          await refundCredits(email, `${batch.id}_${i}`, creditResult.usedFree, creditResult.usedPaid);
+          await refundCredits(actingEmail, `${batch.id}_${i}`, creditResult.usedFree, creditResult.usedPaid);
         }
         // Job may already exist in KV as 'queued' (createJob succeeded before
         // a later step threw) — mark it errored so it doesn't stay a zombie.

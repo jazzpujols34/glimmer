@@ -190,6 +190,11 @@ describe('GET /api/auth/callback/google', () => {
 
     expect(mockStore.get('submap:google-sub-abc123')).toBe('grieving@example.com');
 
+    // Phase 2b auto-migrate marker: this sign-in also marks the account
+    // session-established (dormant unless REQUIRE_SESSION_FOR_PAID=true —
+    // see src/lib/identity.ts enforceIdentity()).
+    expect(mockStore.get('sessionreq:grieving@example.com')).toBe('1');
+
     // pkce/state cookies must be cleared on the way out
     const cleared = setCookies.filter((c) => c.includes('Max-Age=0'));
     expect(cleared.some((c) => c.startsWith(`${STATE_COOKIE}=`))).toBe(true);

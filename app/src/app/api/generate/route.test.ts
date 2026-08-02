@@ -44,6 +44,8 @@ beforeEach(() => {
     provider: 'byteplus',
     externalTaskIds: ['task_1'],
   });
+  // Phase 2b flag defaults off in every test unless a test opts in explicitly.
+  delete process.env.REQUIRE_SESSION_FOR_PAID;
 });
 
 let ipCounter = 0;
@@ -248,6 +250,45 @@ describe('POST /api/generate — IP forensics on job records', () => {
 
     const job = await getJob(body.id);
     expect(job?.ip).toBe(ip);
+  });
+});
+
+describe('POST /api/generate — Phase 2b enforcement (dormant unless REQUIRE_SESSION_FOR_PAID=true)', () => {
+  it('flag off: unchanged behavior even for an email that has established a session (sessionreq set), no session on the request', async () => {
+    const email = 'flag-off-generate@example.com';
+    await setEmailVerified(email);
+    mockStore.set(`sessionreq:${email}`, '1');
+
+    const res = await POST(buildRequest({ email, settings: standardSettings }));
+    expect(res.status).toBe(200);
+    expect(mockCreateVideoTask).toHaveBeenCalledTimes(1);
+  });
+
+  it('flag on + sessionreq set + no session: refuses with SESSION_REQUIRED, spends nothing, creates no job', async () => {
+    process.env.REQUIRE_SESSION_FOR_PAID = 'true';
+    const email = 'flag-on-generate@example.com';
+    await setEmailVerified(email);
+    mockStore.set(`sessionreq:${email}`, '1');
+
+    const res = await POST(buildRequest({ email, settings: standardSettings }));
+    expect(res.status).toBe(401);
+    const body = await res.json();
+    expect(body.code).toBe('SESSION_REQUIRED');
+    expect(mockCreateVideoTask).not.toHaveBeenCalled();
+
+    const balance = await checkCredits(email);
+    expect(balance.freeUsed).toBe(0);
+    expect(balance.paidUsed).toBe(0);
+  });
+
+  it('flag on + no sessionreq entry (never signed in): unchanged legacy behavior', async () => {
+    process.env.REQUIRE_SESSION_FOR_PAID = 'true';
+    const email = 'flag-on-never-signed-in@example.com';
+    await setEmailVerified(email);
+
+    const res = await POST(buildRequest({ email, settings: standardSettings }));
+    expect(res.status).toBe(200);
+    expect(mockCreateVideoTask).toHaveBeenCalledTimes(1);
   });
 });
 

@@ -11,6 +11,7 @@ import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
 import { captureError, normalizeError } from '@/lib/errors';
 import { isValidEmail, isValidOccasion, validateSettings, validateName, validatePhoto } from '@/lib/validation';
 import { successResponse, errors } from '@/lib/api-response';
+import { enforceIdentity } from '@/lib/identity';
 import { logger } from '@/lib/logger';
 import type { OccasionType } from '@/types';
 
@@ -39,6 +40,13 @@ export async function POST(request: NextRequest) {
     if (!email || !isValidEmail(email)) {
       return errors.invalidEmail();
     }
+
+    // --- Phase 2b enforcement (dormant unless REQUIRE_SESSION_FOR_PAID=true) ---
+    const identity = await enforceIdentity(request, email);
+    if ('error' in identity) {
+      return errors.sessionRequired();
+    }
+    const actingEmail = identity.email;
 
     // --- Input validation: name ---
     const nameValidation = validateName(name);
@@ -108,8 +116,8 @@ export async function POST(request: NextRequest) {
     const totalCost = totalSegments * perSegmentCost;
 
     // --- Email verification + credit check ---
-    const balance = await checkCredits(email);
-    if (!balance.verified && !isAdmin(email)) {
+    const balance = await checkCredits(actingEmail);
+    if (!balance.verified && !isAdmin(actingEmail)) {
       return errors.emailNotVerified();
     }
 
@@ -147,18 +155,18 @@ export async function POST(request: NextRequest) {
     if (spendCap.capped) {
       captureError(new Error('Daily provider spend cap reached'), {
         route: '/api/generate-batch',
-        email,
+        email: actingEmail,
       });
       return errors.dailySpendCapReached();
     }
 
     // --- Auto-create project for this batch ---
-    const project = await createProject(`${name} - 批次`, email, `批次生成：${photos.length} 張照片，${totalSegments} 段影片`);
+    const project = await createProject(`${name} - 批次`, actingEmail, `批次生成：${photos.length} 張照片，${totalSegments} 段影片`);
 
     // --- Create batch record ---
     const batch = await createBatch(
       name,
-      email,
+      actingEmail,
       occasion as OccasionType,
       settings,
       totalSegments,
@@ -190,7 +198,7 @@ export async function POST(request: NextRequest) {
           name: `${name} - 段落 ${i + 1}`,
           occasion: occasion as OccasionType,
           settings,
-          email,
+          email: actingEmail,
           ip,
         });
 
@@ -222,7 +230,7 @@ export async function POST(request: NextRequest) {
         await recordProviderSpend(perSegmentTokens);
 
         // Deduct credit for this segment
-        const creditResult = await consumeCredits(email, jobId, perSegmentCost);
+        const creditResult = await consumeCredits(actingEmail, jobId, perSegmentCost);
         if (creditResult.success) {
           creditsUsed += perSegmentCost;
         }

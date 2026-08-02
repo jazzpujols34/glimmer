@@ -39,6 +39,8 @@ const mockCreateVideoTask = vi.mocked(createVideoTask);
 beforeEach(() => {
   mockStore.clear();
   mockCreateVideoTask.mockReset();
+  // Phase 2b flag defaults off in every test unless a test opts in explicitly.
+  delete process.env.REQUIRE_SESSION_FOR_PAID;
 });
 
 afterEach(() => {
@@ -290,5 +292,34 @@ describe('POST /api/quick-generate — date/message length caps', () => {
 
     const res = await POST(buildRequest(email, { message: 'x'.repeat(500) }));
     expect(res.status).toBe(200);
+  });
+});
+
+describe('POST /api/quick-generate — Phase 2b enforcement (dormant unless REQUIRE_SESSION_FOR_PAID=true)', () => {
+  it('flag off: unchanged behavior even for an email that has established a session (sessionreq set), no session on the request', async () => {
+    const email = 'quick-flag-off@example.com';
+    await setEmailVerified(email);
+    mockStore.set(`sessionreq:${email}`, '1');
+    mockCreateVideoTask.mockResolvedValue({ provider: 'byteplus', externalTaskIds: ['task_1'] });
+
+    const res = await POST(buildRequest(email));
+    expect(res.status).toBe(200);
+    expect(mockCreateVideoTask).toHaveBeenCalledTimes(1);
+  });
+
+  it('flag on + sessionreq set + no session: refuses with SESSION_REQUIRED, spends nothing', async () => {
+    process.env.REQUIRE_SESSION_FOR_PAID = 'true';
+    const email = 'quick-flag-on@example.com';
+    await setEmailVerified(email);
+    mockStore.set(`sessionreq:${email}`, '1');
+
+    const res = await POST(buildRequest(email));
+    expect(res.status).toBe(401);
+    const body = await res.json();
+    expect(body.code).toBe('SESSION_REQUIRED');
+    expect(mockCreateVideoTask).not.toHaveBeenCalled();
+
+    const balance = await checkCredits(email);
+    expect(balance.freeUsed).toBe(0);
   });
 });
