@@ -12,6 +12,7 @@ import { PhotoUploader } from '@/components/PhotoUploader';
 import { FrameUploader } from '@/components/FrameUploader';
 import { SettingsSidebar } from '@/components/SettingsSidebar';
 import { LanguageToggle } from '@/components/LanguageToggle';
+import { AuthButton } from '@/components/AuthButton';
 import { useTranslation, type TranslationKey } from '@/lib/i18n';
 import { useAccess } from '@/hooks/useAccess';
 import type { OccasionType, GenerationSettings, CreditBalance, Project } from '@/types';
@@ -330,6 +331,7 @@ function CreatePageInner() {
               <Link href="/gallery" className="text-muted-foreground hover:text-foreground transition-colors">{t('nav.gallery')}</Link>
             </nav>
             <LanguageToggle />
+            <AuthButton />
             <Button
               variant="outline"
               size="sm"

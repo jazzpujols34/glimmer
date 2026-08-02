@@ -6,6 +6,7 @@ import { Logo } from '@/components/Logo';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { AccessGate } from '@/components/AccessGate';
+import { AuthButton } from '@/components/AuthButton';
 import { withEmail } from '@/lib/utils';
 import { ArrowLeft, Plus, FolderOpen, Calendar, Film, Pencil, Check, X, Mail } from 'lucide-react';
 import type { Project } from '@/types';
@@ -112,12 +113,15 @@ function ProjectsPageContent() {
       <header className="border-b border-border">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <Logo />
-          <Button variant="outline" asChild>
-            <Link href="/gallery">
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              返回影片庫
-            </Link>
-          </Button>
+          <div className="flex items-center gap-2">
+            <AuthButton />
+            <Button variant="outline" asChild>
+              <Link href="/gallery">
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                返回影片庫
+              </Link>
+            </Button>
+          </div>
         </div>
       </header>
 
