@@ -98,6 +98,13 @@ export const errors = {
       'PROVIDER_UNAVAILABLE'
     ),
 
+  dailySpendCapReached: () =>
+    errorResponse(
+      '今日系統生成額度已滿，請稍後或明日再試',
+      503,
+      'PROVIDER_UNAVAILABLE'
+    ),
+
   invalidInput: (message: string) =>
     errorResponse(message, 400, 'INVALID_INPUT'),
 };

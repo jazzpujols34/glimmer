@@ -18,13 +18,29 @@ const PIXELS: Record<string, number> = {
   '1080p': 1920 * 1080,
 };
 
-export function creditsForGeneration(settings: GenerationSettings): number {
+export interface ResolvedGenerationParams {
+  pixels: number;
+  duration: number;
+  numResults: number;
+}
+
+/**
+ * Resolve the pixel/duration/numResults inputs that drive both credit price
+ * (this file) and estimated provider token spend (spend-guard.ts) — shared
+ * so the two never drift on what "unknown resolution" or "missing duration"
+ * falls back to.
+ */
+export function resolveGenerationParams(settings: GenerationSettings): ResolvedGenerationParams {
   const pixels = (settings?.resolution && PIXELS[settings.resolution as Resolution]) || BASE_PIXELS;
   const videoLength = settings?.videoLength;
   const duration = typeof videoLength === 'number' && videoLength > 0 ? videoLength : BASE_DURATION;
   const numResultsInput = settings?.numResults;
   const numResults = typeof numResultsInput === 'number' && numResultsInput > 0 ? numResultsInput : 1;
+  return { pixels, duration, numResults };
+}
 
+export function creditsForGeneration(settings: GenerationSettings): number {
+  const { pixels, duration, numResults } = resolveGenerationParams(settings);
   const raw = (pixels / BASE_PIXELS) * (duration / BASE_DURATION) * numResults;
   return Math.max(1, Math.ceil(raw));
 }

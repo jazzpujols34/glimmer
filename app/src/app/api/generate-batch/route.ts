@@ -3,8 +3,9 @@ export const runtime = 'edge';
 import { NextRequest } from 'next/server';
 import { createJob, updateJob, createProject, addJobToProject, createBatch, addSegmentToBatch, updateBatch, setJobError } from '@/lib/storage';
 import { createVideoTask } from '@/lib/veo';
-import { checkCredits, consumeCredits, isAdmin, isLegacyFlatRate } from '@/lib/credits';
+import { checkCredits, consumeCredits, isAdmin } from '@/lib/credits';
 import { creditsForGeneration } from '@/lib/credit-cost';
+import { checkDailySpendCap, recordProviderSpend, estimatedTokensForGeneration } from '@/lib/spend-guard';
 import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
 import { captureError, normalizeError } from '@/lib/errors';
 import { isValidEmail, isValidOccasion, validateSettings, validateName, validatePhoto } from '@/lib/validation';
@@ -102,7 +103,7 @@ export async function POST(request: NextRequest) {
 
     // Batch always forces numResults=1 per segment (see settings.numResults
     // below) — cost is still proportional to resolution/duration.
-    const perSegmentCost = isLegacyFlatRate(email) ? 1 : creditsForGeneration({ ...settings, numResults: 1 });
+    const perSegmentCost = creditsForGeneration({ ...settings, numResults: 1 });
     const totalCost = totalSegments * perSegmentCost;
 
     // --- Email verification + credit check ---
@@ -112,6 +113,17 @@ export async function POST(request: NextRequest) {
     }
     if (balance.remaining < totalCost) {
       return errors.insufficientCredits(totalCost, balance.remaining);
+    }
+
+    // --- Daily provider-spend circuit breaker (check BEFORE creating provider tasks) ---
+    const perSegmentTokens = estimatedTokensForGeneration({ ...settings, numResults: 1 });
+    const spendCap = await checkDailySpendCap();
+    if (spendCap.capped) {
+      captureError(new Error('Daily provider spend cap reached'), {
+        route: '/api/generate-batch',
+        email,
+      });
+      return errors.dailySpendCapReached();
     }
 
     // --- Auto-create project for this batch ---
@@ -178,6 +190,9 @@ export async function POST(request: NextRequest) {
           externalTaskIds: taskData.externalTaskIds,
           veoOperationName: taskData.veoOperationName,
         });
+
+        // Record estimated provider spend AFTER this segment's task was actually created
+        await recordProviderSpend(perSegmentTokens);
 
         // Deduct credit for this segment
         const creditResult = await consumeCredits(email, jobId, perSegmentCost);

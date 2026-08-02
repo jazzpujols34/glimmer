@@ -15,7 +15,7 @@ vi.mock('./kv', () => ({
   }),
 }));
 
-import { checkCredits, consumeCredit, consumeCredits, addCredits, isEmailVerified, setEmailVerified, isLegacyFlatRate, FREE_GENERATIONS } from './credits';
+import { checkCredits, consumeCredit, consumeCredits, refundCredits, addCredits, isEmailVerified, setEmailVerified, FREE_GENERATIONS } from './credits';
 import { isValidEmail } from './validation';
 
 beforeEach(() => {
@@ -219,6 +219,88 @@ describe('consumeCredits (variable amount)', () => {
   });
 });
 
+describe('refundCredits', () => {
+  it('reverses a free-tier consumption exactly, restoring remaining balance', async () => {
+    const email = 'refund-free@example.com';
+    const consumed = await consumeCredits(email, 'job_1', 2);
+    expect(consumed).toEqual({ success: true, usedFree: 2, usedPaid: 0 });
+
+    await refundCredits(email, 'job_1', consumed.usedFree, consumed.usedPaid);
+
+    const balance = await checkCredits(email);
+    expect(balance.freeUsed).toBe(0);
+    expect(balance.remaining).toBe(FREE_GENERATIONS);
+  });
+
+  it('reverses a paid consumption exactly, restoring remaining balance', async () => {
+    const email = 'refund-paid@example.com';
+    await consumeCredits(email, 'job_pre', FREE_GENERATIONS); // exhaust free tier
+    await addCredits(email, 5, {
+      id: 'purchase_refund', credits: 5, amountTWD: 599, createdAt: new Date().toISOString(),
+    });
+    const consumed = await consumeCredits(email, 'job_paid', 3);
+    expect(consumed).toEqual({ success: true, usedFree: 0, usedPaid: 3 });
+
+    await refundCredits(email, 'job_paid', consumed.usedFree, consumed.usedPaid);
+
+    const balance = await checkCredits(email);
+    expect(balance.paidUsed).toBe(0);
+    expect(balance.remaining).toBe(5); // 5 paid, free exhausted
+  });
+
+  it('reverses a consumption spanning free and paid pools exactly', async () => {
+    const email = 'refund-span@example.com';
+    await consumeCredits(email, 'job_pre', FREE_GENERATIONS - 1);
+    await addCredits(email, 5, {
+      id: 'purchase_span', credits: 5, amountTWD: 599, createdAt: new Date().toISOString(),
+    });
+    const consumed = await consumeCredits(email, 'job_span', 3);
+    expect(consumed).toEqual({ success: true, usedFree: 1, usedPaid: 2 });
+
+    await refundCredits(email, 'job_span', consumed.usedFree, consumed.usedPaid);
+
+    const balance = await checkCredits(email);
+    expect(balance.freeUsed).toBe(FREE_GENERATIONS - 1);
+    expect(balance.paidUsed).toBe(0);
+    expect(balance.remaining).toBe(1 + 5); // 1 free left + all 5 paid
+  });
+
+  it('never goes below zero even if called with amounts larger than what was ever consumed', async () => {
+    const email = 'refund-overshoot@example.com';
+    // Never consumed anything for this email.
+    await refundCredits(email, 'job_phantom', 999, 999);
+
+    const balance = await checkCredits(email);
+    expect(balance.freeUsed).toBe(0);
+    expect(balance.paidUsed).toBe(0);
+    // Bounded by the pre-existing free/paid caps — cannot exceed FREE_GENERATIONS.
+    expect(balance.remaining).toBe(FREE_GENERATIONS);
+  });
+
+  it('is a no-op for admins (nothing was ever deducted from them)', async () => {
+    process.env.ADMIN_EMAILS = 'refund-admin@example.com';
+    vi.resetModules();
+    const fresh = await import('./credits');
+
+    await fresh.refundCredits('refund-admin@example.com', 'job_admin', 1, 1);
+    const balance = await fresh.checkCredits('refund-admin@example.com');
+    expect(balance.isAdmin).toBe(true);
+    expect(balance.freeUsed).toBe(0);
+
+    delete process.env.ADMIN_EMAILS;
+    vi.resetModules();
+  });
+
+  it('does nothing when both amounts are zero', async () => {
+    const email = 'refund-noop@example.com';
+    await consumeCredits(email, 'job_1', 1);
+    await refundCredits(email, 'job_1', 0, 0);
+
+    const balance = await checkCredits(email);
+    expect(balance.freeUsed).toBe(1); // untouched
+  });
+});
+
 describe('consumeCredits — admin', () => {
   const ORIGINAL = process.env.ADMIN_EMAILS;
 
@@ -242,32 +324,5 @@ describe('consumeCredits — admin', () => {
     const balance = await fresh.checkCredits('admin@example.com');
     expect(balance.isAdmin).toBe(true);
     expect(balance.freeUsed).toBe(0);
-  });
-});
-
-describe('isLegacyFlatRate', () => {
-  const ORIGINAL = process.env.LEGACY_FLAT_RATE_EMAILS;
-
-  afterEach(() => {
-    if (ORIGINAL === undefined) {
-      delete process.env.LEGACY_FLAT_RATE_EMAILS;
-    } else {
-      process.env.LEGACY_FLAT_RATE_EMAILS = ORIGINAL;
-    }
-    vi.resetModules();
-  });
-
-  it('is false for everyone when the env var is empty (default)', () => {
-    expect(isLegacyFlatRate('anyone@example.com')).toBe(false);
-  });
-
-  it('matches emails on the list case-insensitively, and excludes emails not on it', async () => {
-    process.env.LEGACY_FLAT_RATE_EMAILS = 'Legacy@Example.com, other@example.com';
-    vi.resetModules();
-    const fresh = await import('./credits');
-
-    expect(fresh.isLegacyFlatRate('legacy@example.com')).toBe(true);
-    expect(fresh.isLegacyFlatRate('LEGACY@EXAMPLE.COM')).toBe(true);
-    expect(fresh.isLegacyFlatRate('nope@example.com')).toBe(false);
   });
 });
