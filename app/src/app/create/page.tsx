@@ -205,9 +205,19 @@ function CreatePageInner() {
     // Credit cost is proportional to resolution x duration x results, so mirror the
     // server's creditsForGeneration() here rather than assuming 1 per generation.
     // Batch forces numResults=1 and charges per segment.
-    const creditsNeeded = batchMode && canEnableBatch
-      ? batchSegments * creditsForGeneration({ ...settings, numResults: 1 })
+    const perUnitCost = batchMode && canEnableBatch
+      ? creditsForGeneration({ ...settings, numResults: 1 })
       : creditsForGeneration(settings);
+    const creditsNeeded = batchMode && canEnableBatch
+      ? batchSegments * perUnitCost
+      : perUnitCost;
+    // Free tier only covers the standard spec (perUnitCost === 1) — mirrors
+    // consumeCredits()'s paid-only rule for amount > 1 (see credits.ts).
+    const paidRemaining = creditBalance ? creditBalance.paidTotal - creditBalance.paidUsed : 0;
+    if (creditBalance && perUnitCost > 1 && paidRemaining < creditsNeeded) {
+      setError('免費額度僅支援標準規格（720p・5 秒・1 部）。購買點數即可解鎖完整畫質與更多選項');
+      return;
+    }
     if (creditBalance && creditBalance.remaining < creditsNeeded) {
       setError(`點數不足，本次需要 ${creditsNeeded} 點，您目前有 ${creditBalance.remaining} 點`);
       return;
@@ -262,6 +272,12 @@ function CreatePageInner() {
           setCreditBalance(prev => prev ? { ...prev, verified: false } : null);
           setIsSubmitting(false);
           return;
+        }
+        // Free-tier-specific errors don't mean the user is out of credits —
+        // don't zero out creditBalance.remaining (that's only accurate for
+        // genuine INSUFFICIENT_CREDITS) or it'd wrongly hide a real balance.
+        if (data.code === 'FREE_TIER_STANDARD_SPEC_ONLY' || data.code === 'FREE_TIER_IP_CAP') {
+          throw new Error(data.error || '發生錯誤');
         }
         if (res.status === 402) {
           setCreditBalance(prev => prev ? { ...prev, remaining: 0 } : null);
@@ -769,6 +785,7 @@ function CreatePageInner() {
           onSettingsChange={setSettings}
           isOpen={settingsOpen}
           onOpenChange={setSettingsOpen}
+          paidRemaining={creditBalance ? creditBalance.paidTotal - creditBalance.paidUsed : undefined}
         />
       </div>
     </div>
