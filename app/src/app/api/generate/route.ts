@@ -13,6 +13,7 @@ import { captureError, ProviderUnavailableError, normalizeError } from '@/lib/er
 import { logger } from '@/lib/logger';
 import { isValidEmail, isValidOccasion, validateSettings, validateName, validatePhoto } from '@/lib/validation';
 import { successResponse, errors } from '@/lib/api-response';
+import { enforceIdentity } from '@/lib/identity';
 import type { OccasionType } from '@/types';
 
 export async function POST(request: NextRequest) {
@@ -41,6 +42,13 @@ export async function POST(request: NextRequest) {
     if (!email || !isValidEmail(email)) {
       return errors.invalidEmail();
     }
+
+    // --- Phase 2b enforcement (dormant unless REQUIRE_SESSION_FOR_PAID=true) ---
+    const identity = await enforceIdentity(request, email);
+    if ('error' in identity) {
+      return errors.sessionRequired();
+    }
+    const actingEmail = identity.email;
 
     // --- Input validation: name ---
     const nameValidation = validateName(name);
@@ -107,8 +115,8 @@ export async function POST(request: NextRequest) {
     }
 
     // --- Email verification check (skip for admins) ---
-    const balance = await checkCredits(email);
-    if (!balance.verified && !isAdmin(email)) {
+    const balance = await checkCredits(actingEmail);
+    if (!balance.verified && !isAdmin(actingEmail)) {
       return errors.emailNotVerified();
     }
 
@@ -151,7 +159,7 @@ export async function POST(request: NextRequest) {
     if (spendCap.capped) {
       captureError(new Error('Daily provider spend cap reached'), {
         route: '/api/generate',
-        email,
+        email: actingEmail,
       });
       return errors.dailySpendCapReached();
     }
@@ -164,7 +172,7 @@ export async function POST(request: NextRequest) {
       name,
       occasion: occasion as OccasionType,
       settings,
-      email,
+      email: actingEmail,
       ip,
     });
 
@@ -204,12 +212,12 @@ export async function POST(request: NextRequest) {
     await recordProviderSpend(estimatedTokensForGeneration(settings));
 
     // Deduct credits AFTER external task creation succeeds
-    const creditResult = await consumeCredits(email, jobId, cost);
+    const creditResult = await consumeCredits(actingEmail, jobId, cost);
     if (!creditResult.success) {
       // Shouldn't happen (we checked above), but alert so we notice free videos
-      captureError(new Error(`Credit deduction failed for ${email} on job ${jobId}`), {
+      captureError(new Error(`Credit deduction failed for ${actingEmail} on job ${jobId}`), {
         route: '/api/generate',
-        email,
+        email: actingEmail,
         jobId,
       });
     }

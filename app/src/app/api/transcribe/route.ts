@@ -7,6 +7,7 @@ import { logger } from '@/lib/logger';
 import { isValidEmail } from '@/lib/validation';
 import { isEmailVerified, isAdmin } from '@/lib/credits';
 import { errors } from '@/lib/api-response';
+import { enforceIdentity } from '@/lib/identity';
 
 // Whisper's own hard upload limit — reject before spending a single API call
 // on a file that would be rejected anyway (or worse, one that streams a huge
@@ -53,13 +54,21 @@ export async function POST(request: Request) {
     if (!email || !isValidEmail(email)) {
       return errors.invalidEmail();
     }
-    if (!isAdmin(email) && !(await isEmailVerified(email))) {
+
+    // --- Phase 2b enforcement (dormant unless REQUIRE_SESSION_FOR_PAID=true) ---
+    const identity = await enforceIdentity(request, email);
+    if ('error' in identity) {
+      return errors.sessionRequired();
+    }
+    const actingEmail = identity.email;
+
+    if (!isAdmin(actingEmail) && !(await isEmailVerified(actingEmail))) {
       return errors.emailNotVerified();
     }
 
     // Rate limit: 10 transcription requests per 5 minutes per email — caps a
     // single verified identity's spend on this metered API independent of IP.
-    const emailRateCheck = await checkRateLimit(`transcribe:email:${email.toLowerCase().trim()}`, 10, 300);
+    const emailRateCheck = await checkRateLimit(`transcribe:email:${actingEmail.toLowerCase().trim()}`, 10, 300);
     if (!emailRateCheck.allowed) {
       const retryAfter = Math.max(1, emailRateCheck.resetAt - Math.floor(Date.now() / 1000));
       return NextResponse.json(

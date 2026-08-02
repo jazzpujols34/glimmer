@@ -5,6 +5,7 @@ import { getJob, deleteJob, getProject, addJobToProject, removeJobFromProject } 
 import { captureError } from '@/lib/errors';
 import { errors } from '@/lib/api-response';
 import { getRequesterEmail, ownsOrAdmin } from '@/lib/owner';
+import { enforceIdentity } from '@/lib/identity';
 
 // POST /api/gallery/batch - Batch move or delete jobs
 export async function POST(request: NextRequest) {
@@ -15,6 +16,13 @@ export async function POST(request: NextRequest) {
         ? errors.invalidEmail()
         : errors.missingField('email');
     }
+
+    // --- Phase 2b enforcement (dormant unless REQUIRE_SESSION_FOR_PAID=true) ---
+    const identity = await enforceIdentity(request, requesterEmail);
+    if ('error' in identity) {
+      return errors.sessionRequired();
+    }
+    const actingEmail = identity.email;
 
     const body = await request.json();
     const { action, jobIds, projectId } = body;
@@ -41,7 +49,7 @@ export async function POST(request: NextRequest) {
       let skipped = 0;
       for (const jobId of jobIds) {
         const job = await getJob(jobId);
-        if (!job || !ownsOrAdmin(job.email, requesterEmail)) { skipped++; continue; }
+        if (!job || !ownsOrAdmin(job.email, actingEmail)) { skipped++; continue; }
 
         const oldProjectId = job.projectId;
 
@@ -69,7 +77,7 @@ export async function POST(request: NextRequest) {
       let skipped = 0;
       for (const jobId of jobIds) {
         const job = await getJob(jobId);
-        if (!job || !ownsOrAdmin(job.email, requesterEmail)) { skipped++; continue; }
+        if (!job || !ownsOrAdmin(job.email, actingEmail)) { skipped++; continue; }
 
         // Remove from project if in one
         if (job.projectId) {

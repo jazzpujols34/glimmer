@@ -7,6 +7,7 @@ import { captureError } from '@/lib/errors';
 import { getVideoUrl, getVideoUrls } from '@/lib/video-url';
 import { errors } from '@/lib/api-response';
 import { getRequesterEmail, ownsOrAdmin } from '@/lib/owner';
+import { enforceIdentity } from '@/lib/identity';
 
 const NOT_FOUND = () => NextResponse.json({ error: '找不到該專案' }, { status: 404 });
 
@@ -104,12 +105,19 @@ export async function DELETE(
     const requesterEmail = requireRequesterEmail(request);
     if (typeof requesterEmail !== 'string') return requesterEmail;
 
+    // --- Phase 2b enforcement (dormant unless REQUIRE_SESSION_FOR_PAID=true) ---
+    const identity = await enforceIdentity(request, requesterEmail);
+    if ('error' in identity) {
+      return errors.sessionRequired();
+    }
+    const actingEmail = identity.email;
+
     const { id } = await params;
     const { searchParams } = request.nextUrl;
     const deleteJobs = searchParams.get('deleteJobs') === 'true';
 
     const project = await getProject(id);
-    if (!project || !ownsOrAdmin(project.email, requesterEmail)) {
+    if (!project || !ownsOrAdmin(project.email, actingEmail)) {
       return NOT_FOUND();
     }
 

@@ -6,6 +6,7 @@ import { r2Delete } from '@/lib/r2';
 import { captureError } from '@/lib/errors';
 import { errors } from '@/lib/api-response';
 import { getRequesterEmail, ownsOrAdmin } from '@/lib/owner';
+import { enforceIdentity } from '@/lib/identity';
 
 // DELETE /api/projects/[id]/cleanup - Delete all non-favorite jobs in project
 export async function DELETE(
@@ -20,10 +21,17 @@ export async function DELETE(
         : errors.missingField('email');
     }
 
+    // --- Phase 2b enforcement (dormant unless REQUIRE_SESSION_FOR_PAID=true) ---
+    const identity = await enforceIdentity(request, requesterEmail);
+    if ('error' in identity) {
+      return errors.sessionRequired();
+    }
+    const actingEmail = identity.email;
+
     const { id } = await params;
 
     const project = await getProject(id);
-    if (!project || !ownsOrAdmin(project.email, requesterEmail)) {
+    if (!project || !ownsOrAdmin(project.email, actingEmail)) {
       return NextResponse.json({ error: '找不到該專案' }, { status: 404 });
     }
 

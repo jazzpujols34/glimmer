@@ -19,7 +19,8 @@ export type ErrorCode =
   | 'PROVIDER_ERROR'
   | 'PROVIDER_UNAVAILABLE'
   | 'FREE_TIER_STANDARD_SPEC_ONLY'
-  | 'FREE_TIER_IP_CAP';
+  | 'FREE_TIER_IP_CAP'
+  | 'SESSION_REQUIRED';
 
 export interface ErrorResponse {
   error: string;
@@ -67,6 +68,12 @@ export const errors = {
 
   invalidEmail: () =>
     errorResponse('請提供有效的 Email 地址', 400, 'INVALID_EMAIL'),
+
+  // Phase 2b (docs/oauth-identity-design.html §5): this account has
+  // established a session (signed in at least once) — REQUIRE_SESSION_FOR_PAID
+  // no longer allows spend/destructive actions via a typed email alone.
+  sessionRequired: () =>
+    errorResponse('此帳號已綁定登入，請使用 Google 或信箱登入後繼續', 401, 'SESSION_REQUIRED'),
 
   emailNotVerified: () =>
     errorResponse('請先驗證您的 Email 地址', 403, 'EMAIL_NOT_VERIFIED'),

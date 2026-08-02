@@ -12,6 +12,7 @@ import {
 import { captureError } from '@/lib/errors';
 import { errors } from '@/lib/api-response';
 import { getRequesterEmail, ownsOrAdmin } from '@/lib/owner';
+import { enforceIdentity } from '@/lib/identity';
 import type { StoryboardSlot, StoryboardTransitionType, StoryboardTitleCard, StoryboardMusic, StoryboardMusicTrack, StoryboardSubtitle } from '@/types';
 
 export const runtime = 'edge';
@@ -231,9 +232,16 @@ export async function DELETE(request: Request, { params }: RouteParams) {
     const requesterEmail = requireRequesterEmail(request);
     if (typeof requesterEmail !== 'string') return requesterEmail;
 
+    // --- Phase 2b enforcement (dormant unless REQUIRE_SESSION_FOR_PAID=true) ---
+    const identity = await enforceIdentity(request, requesterEmail);
+    if ('error' in identity) {
+      return errors.sessionRequired();
+    }
+    const actingEmail = identity.email;
+
     const { id } = await params;
     const storyboard = await getStoryboard(id);
-    if (!storyboard || !ownsOrAdmin(storyboard.email, requesterEmail)) {
+    if (!storyboard || !ownsOrAdmin(storyboard.email, actingEmail)) {
       return NOT_FOUND();
     }
 

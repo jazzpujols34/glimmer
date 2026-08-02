@@ -28,6 +28,8 @@ const ORIGINAL_ENV = { ...process.env };
 beforeEach(() => {
   mockStore.clear();
   process.env.OPENAI_API_KEY = 'test-key';
+  // Phase 2b flag defaults off in every test unless a test opts in explicitly.
+  delete process.env.REQUIRE_SESSION_FOR_PAID;
 });
 
 afterEach(() => {
@@ -78,5 +80,48 @@ describe('POST /api/transcribe — audio size cap', () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.segments).toHaveLength(1);
+  });
+});
+
+describe('POST /api/transcribe — Phase 2b enforcement (dormant unless REQUIRE_SESSION_FOR_PAID=true)', () => {
+  function requestFor(email: string): Request {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(
+      JSON.stringify({ segments: [{ text: 'hi', start: 0, end: 1 }] }),
+      { status: 200 }
+    )));
+    const small = new Blob([new Uint8Array(1024)], { type: 'audio/mp4' });
+    const formData = new FormData();
+    formData.set('email', email);
+    formData.set('audio', small, 'small.mp4');
+    return buildRequest(formData);
+  }
+
+  it('flag off: unchanged behavior even for an email that has established a session (sessionreq set), no session on the request', async () => {
+    const email = 'transcribe-flag-off@example.com';
+    await setEmailVerified(email);
+    mockStore.set(`sessionreq:${email}`, '1');
+
+    const res = await POST(requestFor(email));
+    expect(res.status).toBe(200);
+  });
+
+  it('flag on + sessionreq set + no session: refuses with SESSION_REQUIRED, never calls Whisper', async () => {
+    process.env.REQUIRE_SESSION_FOR_PAID = 'true';
+    const email = 'transcribe-flag-on@example.com';
+    await setEmailVerified(email);
+    mockStore.set(`sessionreq:${email}`, '1');
+    const fetchSpy = vi.fn();
+    vi.stubGlobal('fetch', fetchSpy);
+
+    const small = new Blob([new Uint8Array(1024)], { type: 'audio/mp4' });
+    const formData = new FormData();
+    formData.set('email', email);
+    formData.set('audio', small, 'small.mp4');
+
+    const res = await POST(buildRequest(formData));
+    expect(res.status).toBe(401);
+    const body = await res.json();
+    expect(body.code).toBe('SESSION_REQUIRED');
+    expect(fetchSpy).not.toHaveBeenCalled();
   });
 });
