@@ -14,6 +14,8 @@ interface AccessState {
 /**
  * Hook to check user's access level for feature gating.
  * Reads email from localStorage and checks API for paid status.
+ * Reads hasPaidAccess/isAdmin from /api/credits (folded in from the retired
+ * /api/access route, 2026-08 bundle diet — see CLAUDE.md Recent Learnings).
  */
 export function useAccess(): AccessState {
   const [state, setState] = useState<Omit<AccessState, 'retry'>>({
@@ -41,15 +43,15 @@ export function useAccess(): AccessState {
     }
 
     try {
-      const res = await fetch(`/api/access?email=${encodeURIComponent(email)}`);
+      const res = await fetch(`/api/credits?email=${encodeURIComponent(email)}`);
       if (res.ok) {
         const data = await res.json();
         setState({
           loading: false,
           error: false,
           email,
-          hasPaidAccess: data.hasPaidAccess,
-          isAdmin: data.isAdmin,
+          hasPaidAccess: !!data.hasPaidAccess,
+          isAdmin: !!data.isAdmin,
         });
       } else {
         setState({

@@ -23,7 +23,9 @@ export async function GET(request: NextRequest) {
     }
 
     const balance = await checkCredits(email);
-    return successResponse(balance);
+    // hasPaidAccess folded in from the retired /api/access route (bundle diet,
+    // 2026-08) — feature-gating (useAccess/AccessGate) reads it from here now.
+    return successResponse({ ...balance, hasPaidAccess: balance.paidTotal > 0 || !!balance.isAdmin });
   } catch (error) {
     captureError(error, { route: '/api/credits' });
     return errors.serverError();
