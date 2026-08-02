@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { validateSettings } from './validation';
+import { validateSettings, validatePhoto } from './validation';
 import { defaultSettings } from '@/types';
 
 describe('validateSettings — videoLength clamp', () => {
@@ -60,5 +60,23 @@ describe('validateSettings — server-side model restriction', () => {
 
   it('defaults to byteplus when model is missing', () => {
     expect(validateSettings({}).model).toBe('byteplus');
+  });
+});
+
+describe('validatePhoto — magic-byte signature check', () => {
+  const PNG_HEADER = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d];
+  const TEXT_HEADER = Array.from('not actually an image').map(c => c.charCodeAt(0));
+
+  it('accepts a real PNG file labeled image/png', async () => {
+    const file = new File([new Uint8Array(PNG_HEADER)], 'photo.png', { type: 'image/png' });
+    const result = await validatePhoto(file);
+    expect(result.valid).toBe(true);
+  });
+
+  it('rejects a file whose content does not match an image signature, despite an image/* MIME type', async () => {
+    const file = new File([new Uint8Array(TEXT_HEADER)], 'photo.png', { type: 'image/png' });
+    const result = await validatePhoto(file);
+    expect(result.valid).toBe(false);
+    expect(result.error).toMatch(/does not match/i);
   });
 });

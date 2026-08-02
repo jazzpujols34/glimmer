@@ -50,6 +50,7 @@ export async function GET(request: NextRequest) {
       'Content-Type': r2Object.contentType,
       'Content-Length': String(r2Object.size),
       'Cache-Control': 'public, s-maxage=3600, max-age=1800',
+      'X-Content-Type-Options': 'nosniff',
     });
 
     return new NextResponse(r2Object.body, { status: 200, headers });

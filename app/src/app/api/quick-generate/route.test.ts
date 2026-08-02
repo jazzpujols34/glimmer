@@ -47,6 +47,10 @@ afterEach(() => {
 
 let ipCounter = 0;
 
+// Real PNG signature bytes — validatePhoto() now checks file content, not just
+// the client-supplied MIME type, so test fixtures need genuine magic bytes.
+const PNG_BYTES = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+
 /** Build a quick-generate NextRequest-like object with 2 dummy photos. */
 function buildRequest(
   email: string,
@@ -59,8 +63,8 @@ function buildRequest(
   formData.set('templateId', overrides.templateId ?? 'memorial-gentle');
   formData.set('name', overrides.name ?? '測試');
   formData.set('occasion', overrides.occasion ?? 'memorial');
-  formData.append('photos', new Blob(['a'], { type: 'image/png' }), 'a.png');
-  formData.append('photos', new Blob(['b'], { type: 'image/png' }), 'b.png');
+  formData.append('photos', new Blob([PNG_BYTES], { type: 'image/png' }), 'a.png');
+  formData.append('photos', new Blob([PNG_BYTES], { type: 'image/png' }), 'b.png');
 
   const headers = opts.noIpHeader
     ? new Headers()

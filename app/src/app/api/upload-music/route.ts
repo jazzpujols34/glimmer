@@ -6,6 +6,7 @@ import { captureError } from '@/lib/errors';
 import { logger } from '@/lib/logger';
 import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
 import { errors } from '@/lib/api-response';
+import { matchesFileSignature } from '@/lib/file-signature';
 
 const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
 
@@ -41,6 +42,14 @@ export async function POST(request: NextRequest) {
     if (!file.type.startsWith('audio/')) {
       return NextResponse.json(
         { error: '請選擇音訊檔案' },
+        { status: 400 }
+      );
+    }
+
+    // file.type is client-supplied and spoofable — verify the actual bytes too
+    if (!(await matchesFileSignature(file, 'audio'))) {
+      return NextResponse.json(
+        { error: '檔案內容與音訊格式不符' },
         { status: 400 }
       );
     }

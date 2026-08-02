@@ -57,6 +57,7 @@ export async function GET(request: NextRequest) {
               'Content-Type': r2Object.contentType,
               'Content-Length': String(r2Object.size),
               'Cache-Control': 'public, s-maxage=86400, max-age=14400',
+              'X-Content-Type-Options': 'nosniff',
             });
             return new NextResponse(r2Object.body, { status: 200, headers });
           }
@@ -69,6 +70,7 @@ export async function GET(request: NextRequest) {
             const headers = new Headers({
               'Content-Type': contentType,
               'Cache-Control': 'public, s-maxage=86400, max-age=14400',
+              'X-Content-Type-Options': 'nosniff',
             });
             if (contentLength) headers.set('Content-Length', contentLength);
             return new NextResponse(cdnResponse.body, { status: 200, headers });
@@ -93,6 +95,7 @@ export async function GET(request: NextRequest) {
         'Content-Type': r2Object.contentType,
         'Content-Length': String(r2Object.size),
         'Cache-Control': 'public, s-maxage=86400, max-age=14400',
+        'X-Content-Type-Options': 'nosniff',
       });
       return new NextResponse(r2Object.body, { status: 200, headers });
     }

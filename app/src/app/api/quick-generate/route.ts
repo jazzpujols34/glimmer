@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
 
     for (const file of photoFiles) {
       if (!(file instanceof Blob)) continue;
-      const photoValidation = validatePhoto(file);
+      const photoValidation = await validatePhoto(file);
       if (!photoValidation.valid) {
         return errors.invalidInput(photoValidation.error!);
       }

@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
     for (const [key, value] of formData.entries()) {
       if (key.startsWith('photo_') && value instanceof Blob) {
         // --- Input validation: file size and type ---
-        const photoValidation = validatePhoto(value);
+        const photoValidation = await validatePhoto(value);
         if (!photoValidation.valid) {
           return errors.invalidInput(photoValidation.error!);
         }

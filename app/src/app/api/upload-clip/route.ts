@@ -6,6 +6,7 @@ import { captureError } from '@/lib/errors';
 import { logger } from '@/lib/logger';
 import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
 import { errors } from '@/lib/api-response';
+import { matchesFileSignature } from '@/lib/file-signature';
 
 /**
  * Upload a video clip to R2 storage for server-side export.
@@ -53,6 +54,11 @@ export async function POST(request: NextRequest) {
     // Validate file type
     if (!file.type.startsWith('video/')) {
       return NextResponse.json({ error: 'File must be a video' }, { status: 400 });
+    }
+
+    // file.type is client-supplied and spoofable — verify the actual bytes too
+    if (!(await matchesFileSignature(file, 'video'))) {
+      return NextResponse.json({ error: 'File content does not match a video format' }, { status: 400 });
     }
 
     // Check file size
