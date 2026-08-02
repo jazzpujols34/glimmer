@@ -40,13 +40,15 @@ async function getHmacKey(secret: string): Promise<CryptoKey> {
   );
 }
 
-function base64UrlEncode(bytes: Uint8Array): string {
+/** Exported for the OAuth route (Step 2): PKCE verifier/challenge and the
+ * random `state` value use the identical base64url primitive. */
+export function base64UrlEncode(bytes: Uint8Array): string {
   let binary = '';
   for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
   return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
-function base64UrlDecode(value: string): Uint8Array<ArrayBuffer> {
+export function base64UrlDecode(value: string): Uint8Array<ArrayBuffer> {
   const padded = value.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - (value.length % 4)) % 4);
   const binary = atob(padded);
   const bytes = new Uint8Array(binary.length);
