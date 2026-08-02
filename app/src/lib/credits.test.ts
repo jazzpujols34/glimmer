@@ -244,30 +244,3 @@ describe('consumeCredits — admin', () => {
     expect(balance.freeUsed).toBe(0);
   });
 });
-
-describe('isLegacyFlatRate', () => {
-  const ORIGINAL = process.env.LEGACY_FLAT_RATE_EMAILS;
-
-  afterEach(() => {
-    if (ORIGINAL === undefined) {
-      delete process.env.LEGACY_FLAT_RATE_EMAILS;
-    } else {
-      process.env.LEGACY_FLAT_RATE_EMAILS = ORIGINAL;
-    }
-    vi.resetModules();
-  });
-
-  it('is false for everyone when the env var is empty (default)', () => {
-    expect(isLegacyFlatRate('anyone@example.com')).toBe(false);
-  });
-
-  it('matches emails on the list case-insensitively, and excludes emails not on it', async () => {
-    process.env.LEGACY_FLAT_RATE_EMAILS = 'Legacy@Example.com, other@example.com';
-    vi.resetModules();
-    const fresh = await import('./credits');
-
-    expect(fresh.isLegacyFlatRate('legacy@example.com')).toBe(true);
-    expect(fresh.isLegacyFlatRate('LEGACY@EXAMPLE.COM')).toBe(true);
-    expect(fresh.isLegacyFlatRate('nope@example.com')).toBe(false);
-  });
-});

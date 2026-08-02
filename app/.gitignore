@@ -47,3 +47,6 @@ service-account.json
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# tools/convert-legacy-credits.ts backups (contain customer credit records)
+/tools/backups

@@ -25,18 +25,6 @@ export function isAdmin(email: string): boolean {
   return ADMIN_EMAILS.includes(email.toLowerCase().trim());
 }
 
-// Pre-2026-07-30 paying customers who bought credits under the old "1 credit
-// per generation regardless of settings" rule (set via LEGACY_FLAT_RATE_EMAILS
-// env var). Charged exactly 1 credit per generation, whatever the settings.
-export const LEGACY_FLAT_RATE_EMAILS = (process.env.LEGACY_FLAT_RATE_EMAILS || '')
-  .split(',')
-  .map(e => e.toLowerCase().trim())
-  .filter(Boolean);
-
-export function isLegacyFlatRate(email: string): boolean {
-  return LEGACY_FLAT_RATE_EMAILS.includes(email.toLowerCase().trim());
-}
-
 // --- Email helpers ---
 
 function normalize(email: string): string {
