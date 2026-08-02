@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { r2Get } from '@/lib/r2';
 import { captureError } from '@/lib/errors';
 import { logger } from '@/lib/logger';
+import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
 
 /**
  * Proxy R2 objects for external access (e.g., Cloud Run export service).
@@ -11,6 +12,17 @@ import { logger } from '@/lib/logger';
  */
 export async function GET(request: NextRequest) {
   try {
+    // Rate limit: 120 requests per minute per IP — high-bandwidth GET streaming
+    const ip = getClientIP(request);
+    const rateCheck = await checkRateLimit(`proxy-r2:${ip}`, 120, 60);
+    if (!rateCheck.allowed) {
+      const retryAfter = Math.max(1, rateCheck.resetAt - Math.floor(Date.now() / 1000));
+      return NextResponse.json(
+        { error: 'Too many requests' },
+        { status: 429, headers: { 'Retry-After': String(retryAfter) } }
+      );
+    }
+
     const { searchParams } = request.nextUrl;
     const key = searchParams.get('key');
 
