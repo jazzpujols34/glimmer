@@ -63,6 +63,7 @@ export interface GenerationJob {
   occasion?: OccasionType;
   settings?: GenerationSettings;
   email?: string;           // Email of the user who created this job
+  ip?: string;              // Client IP that created this job (forensics/admin visibility only)
   archived?: boolean;       // true if videos have been archived to R2
   // Project organization
   projectId?: string;       // Reference to parent project

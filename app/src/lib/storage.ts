@@ -28,7 +28,7 @@ const KEY_PREFIX = 'job:';
 
 export async function createJob(
   id: string,
-  metadata?: { name?: string; occasion?: OccasionType; settings?: GenerationJob['settings']; email?: string },
+  metadata?: { name?: string; occasion?: OccasionType; settings?: GenerationJob['settings']; email?: string; ip?: string },
 ): Promise<GenerationJob> {
   const job: GenerationJob = {
     id,

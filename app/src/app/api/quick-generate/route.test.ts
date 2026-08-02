@@ -29,7 +29,9 @@ vi.mock('@/lib/veo', () => ({
 
 import { POST } from './route';
 import { createVideoTask } from '@/lib/veo';
-import { checkCredits, setEmailVerified } from '@/lib/credits';
+import { checkCredits, setEmailVerified, addCredits } from '@/lib/credits';
+import { recordFreeIpUsage, FREE_IP_MONTHLY_CAP } from '@/lib/free-ip-cap';
+import { getJob } from '@/lib/storage';
 import { FREE_GENERATIONS } from '@/types';
 
 const mockCreateVideoTask = vi.mocked(createVideoTask);
@@ -46,7 +48,11 @@ afterEach(() => {
 let ipCounter = 0;
 
 /** Build a quick-generate NextRequest-like object with 2 dummy photos. */
-function buildRequest(email: string, overrides: Partial<Record<string, string>> = {}): NextRequest {
+function buildRequest(
+  email: string,
+  overrides: Partial<Record<string, string>> = {},
+  opts: { ip?: string; noIpHeader?: boolean } = {},
+): NextRequest {
   ipCounter += 1;
   const formData = new FormData();
   formData.set('email', overrides.email ?? email);
@@ -56,9 +62,13 @@ function buildRequest(email: string, overrides: Partial<Record<string, string>> 
   formData.append('photos', new Blob(['a'], { type: 'image/png' }), 'a.png');
   formData.append('photos', new Blob(['b'], { type: 'image/png' }), 'b.png');
 
+  const headers = opts.noIpHeader
+    ? new Headers()
+    : new Headers({ 'cf-connecting-ip': opts.ip ?? `10.0.0.${ipCounter}` });
+
   return {
     formData: async () => formData,
-    headers: new Headers({ 'cf-connecting-ip': `10.0.0.${ipCounter}` }),
+    headers,
   } as unknown as NextRequest;
 }
 
@@ -129,5 +139,86 @@ describe('POST /api/quick-generate — daily provider-spend circuit breaker', ()
     // No credit should have been touched either — request was rejected before the loop.
     const after = await checkCredits(email);
     expect(after.remaining).toBe(FREE_GENERATIONS);
+  });
+});
+
+describe('POST /api/quick-generate — per-IP monthly free-tier cap', () => {
+  it('rejects a quick-generate request from an IP that already hit the monthly free cap', async () => {
+    const email = 'quick-ip-capped@example.com';
+    await setEmailVerified(email);
+    const ip = '10.9.0.1';
+    for (let i = 0; i < FREE_IP_MONTHLY_CAP; i++) {
+      await recordFreeIpUsage(ip);
+    }
+
+    const res = await POST(buildRequest(email, {}, { ip }));
+    expect(res.status).toBe(429);
+    const body = await res.json();
+    expect(body.code).toBe('FREE_TIER_IP_CAP');
+    expect(body.error).toContain('此網路環境的免費額度已用完');
+    expect(mockCreateVideoTask).not.toHaveBeenCalled();
+
+    const balance = await checkCredits(email);
+    expect(balance.freeUsed).toBe(0);
+  });
+
+  it('does not gate once the email\'s free tier is already exhausted, even if the IP is capped', async () => {
+    const email = 'quick-free-exhausted@example.com';
+    await setEmailVerified(email);
+    mockCreateVideoTask.mockResolvedValue({ provider: 'byteplus', externalTaskIds: ['task_1'] });
+
+    // Exhaust this email's free tier (1 credit per quick-generate call, 2 photos = 1 segment).
+    for (let i = 0; i < FREE_GENERATIONS; i++) {
+      const res = await POST(buildRequest(email));
+      expect(res.status).toBe(200);
+    }
+    await addCredits(email, 5, { id: 'p1', credits: 5, amountTWD: 299, createdAt: new Date().toISOString() });
+
+    const ip = '10.9.0.2';
+    for (let i = 0; i < FREE_IP_MONTHLY_CAP; i++) {
+      await recordFreeIpUsage(ip);
+    }
+
+    const res = await POST(buildRequest(email, {}, { ip }));
+    expect(res.status).toBe(200);
+  });
+
+  it('never blocks a request when the client IP is unknown (fail-open)', async () => {
+    const email = 'quick-no-ip@example.com';
+    await setEmailVerified(email);
+    mockCreateVideoTask.mockResolvedValue({ provider: 'byteplus', externalTaskIds: ['task_1'] });
+
+    const res = await POST(buildRequest(email, {}, { noIpHeader: true }));
+    expect(res.status).toBe(200);
+  });
+
+  it('increments the per-IP counter only when a free credit is actually consumed', async () => {
+    const email = 'quick-counts-free@example.com';
+    await setEmailVerified(email);
+    mockCreateVideoTask.mockResolvedValue({ provider: 'byteplus', externalTaskIds: ['task_1'] });
+    const ip = '10.9.0.3';
+
+    const res = await POST(buildRequest(email, {}, { ip }));
+    expect(res.status).toBe(200);
+
+    const monthKey = new Date().toISOString().slice(0, 7);
+    expect(mockStore.get(`freeip:${monthKey}:${ip}`)).toBe('1');
+  });
+});
+
+describe('POST /api/quick-generate — IP forensics on job records', () => {
+  it('stores the client IP on the created segment job record', async () => {
+    const email = 'quick-ip-forensics@example.com';
+    await setEmailVerified(email);
+    mockCreateVideoTask.mockResolvedValue({ provider: 'byteplus', externalTaskIds: ['task_1'] });
+    const ip = '203.0.113.11';
+
+    const res = await POST(buildRequest(email, {}, { ip }));
+    expect(res.status).toBe(200);
+
+    const jobKeys = Array.from(mockStore.keys()).filter(k => k.startsWith('job:'));
+    expect(jobKeys.length).toBeGreaterThan(0);
+    const job = await getJob(jobKeys[0].replace('job:', ''));
+    expect(job?.ip).toBe(ip);
   });
 });

@@ -6,6 +6,7 @@ import { createJob, updateJob, addJobToProject, getProject, setJobError } from '
 import { createVideoTask } from '@/lib/veo';
 import { checkCredits, consumeCredits, isAdmin } from '@/lib/credits';
 import { creditsForGeneration } from '@/lib/credit-cost';
+import { checkFreeIpCap, recordFreeIpUsage } from '@/lib/free-ip-cap';
 import { checkDailySpendCap, recordProviderSpend, estimatedTokensForGeneration } from '@/lib/spend-guard';
 import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
 import { captureError, ProviderUnavailableError, normalizeError } from '@/lib/errors';
@@ -114,8 +115,30 @@ export async function POST(request: NextRequest) {
     // --- Credit check (fail fast before creating job) ---
     // Cost is proportional to resolution/duration/numResults — see credit-cost.ts.
     const cost = creditsForGeneration(settings);
+
+    // --- Free tier is standard-spec only (720p/5s/x1, cost === 1) ---
+    // consumeCredits() refuses to draw non-standard-spec (amount > 1) requests
+    // from the free pool, so if paid alone can't cover a cost > 1 request,
+    // reject with a specific message rather than falling through to the
+    // generic insufficient-credits error.
+    const paidRemaining = balance.paidTotal - balance.paidUsed;
+    if (cost > 1 && paidRemaining < cost) {
+      return errors.freeTierStandardSpecOnly();
+    }
+
     if (balance.remaining < cost) {
       return errors.insufficientCredits(cost, balance.remaining);
+    }
+
+    // --- Per-IP monthly cap on free-tier generations ---
+    // Only relevant when this request would actually draw a free credit
+    // (cost === 1 and free tier still has room) — never gates paid usage.
+    const freeRemaining = Math.max(0, balance.freeTotal - balance.freeUsed);
+    if (!balance.isAdmin && cost === 1 && freeRemaining > 0) {
+      const ipCap = await checkFreeIpCap(ip);
+      if (!ipCap.allowed) {
+        return errors.freeTierIpCapReached();
+      }
     }
 
     // --- Daily provider-spend circuit breaker (check BEFORE creating provider tasks) ---
@@ -137,6 +160,7 @@ export async function POST(request: NextRequest) {
       occasion: occasion as OccasionType,
       settings,
       email,
+      ip,
     });
 
     logger.debug('API', `Starting generation job ${jobId}`, {
@@ -183,6 +207,9 @@ export async function POST(request: NextRequest) {
         email,
         jobId,
       });
+    }
+    if (creditResult.usedFree > 0) {
+      await recordFreeIpUsage(ip);
     }
 
     // Add job to project if projectId provided

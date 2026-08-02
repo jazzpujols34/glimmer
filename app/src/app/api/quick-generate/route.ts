@@ -14,6 +14,7 @@ import {
 import { createVideoTask } from '@/lib/veo';
 import { checkCredits, consumeCredits, refundCredits, isAdmin } from '@/lib/credits';
 import { creditsForGeneration } from '@/lib/credit-cost';
+import { checkFreeIpCap, recordFreeIpUsage } from '@/lib/free-ip-cap';
 import { checkDailySpendCap, recordProviderSpend, estimatedTokensForGeneration } from '@/lib/spend-guard';
 import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
 import { captureError, normalizeError } from '@/lib/errors';
@@ -105,8 +106,26 @@ export async function POST(request: NextRequest) {
     if (!credits.verified && !isAdmin(email)) {
       return errors.emailNotVerified();
     }
+
+    // --- Free tier is standard-spec only (perSegmentCost === 1 by construction
+    // here, since settings above always force numResults=1/defaultSettings —
+    // kept for defensive consistency with the other 2 generation routes) ---
+    const paidRemaining = credits.paidTotal - credits.paidUsed;
+    if (perSegmentCost > 1 && paidRemaining < totalCost) {
+      return errors.freeTierStandardSpecOnly();
+    }
+
     if (credits.remaining < totalCost) {
       return errors.insufficientCredits(totalCost, credits.remaining);
+    }
+
+    // --- Per-IP monthly cap on free-tier generations ---
+    const freeRemaining = Math.max(0, credits.freeTotal - credits.freeUsed);
+    if (!credits.isAdmin && perSegmentCost === 1 && freeRemaining > 0) {
+      const ipCap = await checkFreeIpCap(ip);
+      if (!ipCap.allowed) {
+        return errors.freeTierIpCapReached();
+      }
     }
 
     // --- Daily provider-spend circuit breaker (check BEFORE creating provider tasks) ---
@@ -162,6 +181,9 @@ export async function POST(request: NextRequest) {
           segmentResults.push({ index: i, jobId: '', success: false });
           continue;
         }
+        if (creditResult.usedFree > 0) {
+          await recordFreeIpUsage(ip);
+        }
 
         // Create job
         jobId = `job_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -170,6 +192,7 @@ export async function POST(request: NextRequest) {
           occasion: occasion as OccasionType,
           settings,
           email,
+          ip,
         });
 
         // Add to project and batch
