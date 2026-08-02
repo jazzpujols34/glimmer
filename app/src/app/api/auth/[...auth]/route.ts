@@ -1,25 +1,30 @@
 export const runtime = 'edge';
 
 /**
- * Progressive Google identity — OAuth + session endpoints (Phase 1, dormant).
- * One catch-all route to net the function count back to zero after retiring
- * /api/access in Step 0 (each Pages Function costs ~320 KiB fixed overhead —
- * see CLAUDE.md Recent Learnings). Dispatches on the path segment:
+ * Progressive Google identity — OAuth + session endpoints (Phase 2a: the
+ * client now syncs its active identity from this route; see
+ * src/components/SessionIdentitySync.tsx). One catch-all route to net the
+ * function count back to zero after retiring /api/access in Step 0 (each
+ * Pages Function costs ~320 KiB fixed overhead — see CLAUDE.md Recent
+ * Learnings). Dispatches on the path segment:
  *
  *   GET  /api/auth/login/google     — start the OAuth+PKCE flow
  *   GET  /api/auth/callback/google  — exchange code, mint session, bridge KV
- *   GET  /api/auth/session          — { authenticated, email? } for the client
+ *   GET  /api/auth/session          — { authenticated, email? } resolved
+ *                                      through the credit-key bridge
  *   GET  /api/auth/logout           — clear session, redirect to /
  *   POST /api/auth/logout           — clear session, 200 json
  *
- * Nothing else in the app requires a session yet — see docs/oauth-identity-
- * design.html Phase 1 vs Phase 2.
+ * No generation/gallery/credits route requires a session yet — this is
+ * display/client-identity only. Enforcing the session server-side is
+ * Phase 2b — see docs/oauth-identity-design.html.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { errors, successResponse } from '@/lib/api-response';
 import { kvPut } from '@/lib/kv';
 import { captureError } from '@/lib/errors';
+import { resolveIdentity } from '@/lib/identity';
 import {
   signSession,
   sessionCookieHeader,
@@ -234,7 +239,11 @@ async function handleCallbackGoogle(request: NextRequest): Promise<NextResponse>
 async function handleSession(request: NextRequest): Promise<NextResponse> {
   const session = await getSession(request);
   if (!session) return successResponse({ authenticated: false });
-  return successResponse({ authenticated: true, email: session.email });
+  // Resolved through the submap:<sub> credit-key bridge (src/lib/identity.ts)
+  // so the client gets the credit-bearing email, not just the session's raw
+  // claim — a session always resolves to a string here, never the fallback.
+  const email = await resolveIdentity(request);
+  return successResponse({ authenticated: true, email });
 }
 
 // --- GET/POST /api/auth/logout ---

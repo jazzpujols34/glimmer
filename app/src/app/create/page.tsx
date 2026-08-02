@@ -116,6 +116,21 @@ function CreatePageInner() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [email]);
 
+  // Reflect the signed-in session's resolved identity once it lands. The
+  // `email` state above was already initialized from localStorage at mount,
+  // so it won't see SessionIdentitySync's (root layout) async write on its
+  // own — that component dispatches this `storage` event once
+  // /api/auth/session resolves, same as a real cross-tab localStorage change.
+  useEffect(() => {
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === 'glimmer_email' && e.newValue) {
+        setEmail(e.newValue);
+      }
+    };
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, []);
+
   // Persist name/occasion to localStorage
   useEffect(() => {
     localStorage.setItem('glimmer_name', name);
