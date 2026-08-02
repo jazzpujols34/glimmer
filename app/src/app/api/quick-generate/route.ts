@@ -12,8 +12,9 @@ import {
   setJobError,
 } from '@/lib/storage';
 import { createVideoTask } from '@/lib/veo';
-import { checkCredits, consumeCredits, isAdmin, isLegacyFlatRate } from '@/lib/credits';
+import { checkCredits, consumeCredits, refundCredits, isAdmin } from '@/lib/credits';
 import { creditsForGeneration } from '@/lib/credit-cost';
+import { checkDailySpendCap, recordProviderSpend, estimatedTokensForGeneration } from '@/lib/spend-guard';
 import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
 import { captureError, normalizeError } from '@/lib/errors';
 import { getTemplateById } from '@/lib/templates';
@@ -96,7 +97,7 @@ export async function POST(request: NextRequest) {
 
     // Quick-generate always forces numResults=1 per segment (above) — cost is
     // still proportional to resolution/duration.
-    const perSegmentCost = isLegacyFlatRate(email) ? 1 : creditsForGeneration(settings);
+    const perSegmentCost = creditsForGeneration(settings);
     const totalCost = totalSegments * perSegmentCost;
 
     // Email verification + credit check
@@ -106,6 +107,17 @@ export async function POST(request: NextRequest) {
     }
     if (credits.remaining < totalCost) {
       return errors.insufficientCredits(totalCost, credits.remaining);
+    }
+
+    // --- Daily provider-spend circuit breaker (check BEFORE creating provider tasks) ---
+    const perSegmentTokens = estimatedTokensForGeneration(settings);
+    const spendCap = await checkDailySpendCap();
+    if (spendCap.capped) {
+      captureError(new Error('Daily provider spend cap reached'), {
+        route: '/api/quick-generate',
+        email,
+      });
+      return errors.dailySpendCapReached();
     }
 
     // Create project to group all segments
@@ -140,10 +152,11 @@ export async function POST(request: NextRequest) {
       const firstFrame = photos[i];
       const lastFrame = photos[i + 1];
       let jobId: string | undefined;
+      let creditResult: { success: boolean; usedFree: number; usedPaid: number } | undefined;
 
       try {
         // Consume credit for this segment
-        const creditResult = await consumeCredits(email, `${batch.id}_${i}`, perSegmentCost);
+        creditResult = await consumeCredits(email, `${batch.id}_${i}`, perSegmentCost);
         if (!creditResult.success) {
           logger.error(`[quick-generate] Credit consumption failed for segment ${i}`);
           segmentResults.push({ index: i, jobId: '', success: false });
@@ -181,10 +194,20 @@ export async function POST(request: NextRequest) {
           veoOperationName: taskResult.veoOperationName,
         });
 
+        // Record estimated provider spend AFTER this segment's task was actually created
+        await recordProviderSpend(perSegmentTokens);
+
         segmentResults.push({ index: i, jobId, success: true });
         logger.debug('quick-generate', `Started segment ${i}, jobId ${jobId}`);
       } catch (err) {
         logger.error(`[quick-generate] Failed to start segment ${i}:`, err);
+        // Credit was consumed BEFORE task creation in this route (unlike
+        // generate/generate-batch) — if anything after that succeeded
+        // consumeCredits throws, give the credit back so the failure doesn't
+        // silently cost the user a generation they never got.
+        if (creditResult?.success) {
+          await refundCredits(email, `${batch.id}_${i}`, creditResult.usedFree, creditResult.usedPaid);
+        }
         // Job may already exist in KV as 'queued' (createJob succeeded before
         // a later step threw) — mark it errored so it doesn't stay a zombie.
         if (jobId) await setJobError(jobId, normalizeError(err));

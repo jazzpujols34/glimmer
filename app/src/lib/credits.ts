@@ -162,6 +162,43 @@ export async function consumeCredits(
 }
 
 /**
+ * Reverse a previous consumeCredits() result exactly — decrements free.used /
+ * record.used by the same usedFree/usedPaid amounts that were consumed.
+ *
+ * Internal compensating action for routes that must deduct credits BEFORE
+ * attempting external task creation (e.g. quick-generate's per-segment loop)
+ * and need to give the credit back when that creation throws. Only ever
+ * touches `.used` fields (never `.total` or free tier's fixed cap), and
+ * floors at 0 — so even if called with amounts exceeding what was actually
+ * consumed, the result is bounded by the pre-existing free/paid caps and can
+ * never mint credits beyond them.
+ */
+export async function refundCredits(
+  email: string,
+  jobId: string,
+  usedFree: number,
+  usedPaid: number,
+): Promise<void> {
+  const norm = normalize(email);
+
+  if (usedFree <= 0 && usedPaid <= 0) return;
+  if (isAdmin(norm)) return; // admins never had anything deducted
+
+  const [free, record] = await Promise.all([getFreeRecord(norm), getCreditRecord(norm)]);
+
+  if (usedFree > 0) {
+    free.used = Math.max(0, free.used - usedFree);
+    free.jobs = (free.jobs || []).filter(j => j !== jobId);
+    await saveFreeRecord(norm, free);
+  }
+
+  if (usedPaid > 0) {
+    record.used = Math.max(0, record.used - usedPaid);
+    await saveCreditRecord(norm, record);
+  }
+}
+
+/**
  * Use 1 generation. Checks free tier first, then paid credits.
  * Returns { success, usedFree } — success=false if no generations available.
  */
