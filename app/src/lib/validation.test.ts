@@ -33,3 +33,32 @@ describe('validateSettings — videoLength clamp', () => {
     expect(validateSettings({}).videoLength).toBe(defaultSettings.videoLength);
   });
 });
+
+describe('validateSettings — server-side model restriction', () => {
+  // creditsForGeneration() prices at BytePlus/seedance token rates only. Veo
+  // runs ~7x the cost/sec — accepting it here would sell generations
+  // underwater even though the UI dropdown already disables it.
+  it('accepts byteplus (the only server-enabled model)', () => {
+    expect(validateSettings({ model: 'byteplus' }).model).toBe('byteplus');
+  });
+
+  it('coerces veo-3.1 to byteplus', () => {
+    expect(validateSettings({ model: 'veo-3.1' }).model).toBe('byteplus');
+  });
+
+  it('coerces veo-3.1-fast to byteplus', () => {
+    expect(validateSettings({ model: 'veo-3.1-fast' }).model).toBe('byteplus');
+  });
+
+  it('coerces kling-ai to byteplus', () => {
+    expect(validateSettings({ model: 'kling-ai' }).model).toBe('byteplus');
+  });
+
+  it('coerces an unrecognized model string to byteplus', () => {
+    expect(validateSettings({ model: 'not-a-real-model' }).model).toBe('byteplus');
+  });
+
+  it('defaults to byteplus when model is missing', () => {
+    expect(validateSettings({}).model).toBe('byteplus');
+  });
+});

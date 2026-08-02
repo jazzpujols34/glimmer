@@ -8,7 +8,16 @@ import { defaultSettings } from '@/types';
 
 // Validation constants
 export const VALID_OCCASIONS = ['memorial', 'birthday', 'wedding', 'pet', 'other'] as const;
+// Full set of model values the ModelType union allows (kept for reference / future
+// re-enablement) — but see SERVER_ENABLED_MODELS below for what the server actually accepts.
 export const VALID_MODELS = ['veo-3.1', 'veo-3.1-fast', 'kling-ai', 'byteplus'] as const;
+// Models the server currently accepts. Only byteplus is priced: creditsForGeneration()
+// (src/lib/credit-cost.ts) prices at BytePlus/seedance token rates only, and Veo runs
+// ~7x the cost/sec — accepting it here would sell generations underwater even though
+// the UI dropdown already disables everything but byteplus. Before re-enabling
+// veo-3.1 / veo-3.1-fast / kling-ai here, creditsForGeneration() needs a provider cost
+// multiplier.
+const SERVER_ENABLED_MODELS = ['byteplus'] as const;
 export const VALID_ASPECT_RATIOS = ['16:9', '9:16'] as const;
 export const VALID_RESOLUTIONS = ['720p', '1080p'] as const;
 export const VALID_TASK_TYPES = ['image-to-video', 'first-last-frame'] as const;
@@ -46,8 +55,9 @@ export function validateSettings(input: unknown): GenerationSettings {
 
   const parsed = input as Partial<GenerationSettings>;
 
-  // Validate model
-  if (parsed.model && VALID_MODELS.includes(parsed.model as typeof VALID_MODELS[number])) {
+  // Validate model — server only accepts byteplus (see SERVER_ENABLED_MODELS above);
+  // anything else silently falls back to the default, same as other invalid values.
+  if (parsed.model && SERVER_ENABLED_MODELS.includes(parsed.model as typeof SERVER_ENABLED_MODELS[number])) {
     settings.model = parsed.model;
   }
 
