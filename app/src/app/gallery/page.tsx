@@ -6,6 +6,7 @@ import { Logo } from '@/components/Logo';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { LanguageToggle } from '@/components/LanguageToggle';
+import { AuthButton } from '@/components/AuthButton';
 import { useTranslation } from '@/lib/i18n';
 import { useAccess } from '@/hooks/useAccess';
 import { OCCASION_LABELS } from '@/lib/constants';
@@ -455,6 +456,7 @@ export default function GalleryPage() {
           <Logo />
           <div className="flex items-center gap-2">
             <LanguageToggle />
+            <AuthButton />
             {hasPaidAccess ? (
               <Button asChild>
                 <Link href="/storyboard/new">
