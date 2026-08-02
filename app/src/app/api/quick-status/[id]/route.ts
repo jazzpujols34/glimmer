@@ -15,6 +15,7 @@ import { logger } from '@/lib/logger';
 import { checkCredits } from '@/lib/credits';
 import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
 import { errors } from '@/lib/api-response';
+import { getRequesterEmail, ownsOrAdmin } from '@/lib/owner';
 import type { StoryboardSlot, StoryboardClip, StoryboardTransitionType } from '@/types';
 
 const CLOUD_RUN_URL = process.env.EXPORT_SERVICE_URL;
@@ -56,6 +57,12 @@ export async function GET(
         { status: 404 }
       );
     }
+
+    // `name` can carry the deceased's name — don't leak it to non-owners.
+    // Progress/video URLs stay bearer-id-visible (the polling client sends no
+    // email today), matching status/[id]'s documented-open posture.
+    const requesterEmail = getRequesterEmail(request);
+    const isOwner = !!requesterEmail && ownsOrAdmin(quickJob.email, requesterEmail);
 
     // Get batch status
     const batch = await getBatch(quickJob.batchId);
@@ -147,7 +154,7 @@ export async function GET(
     return NextResponse.json({
       quickId,
       status: updatedQuickJob?.status || quickJob.status,
-      name: quickJob.name,
+      ...(isOwner ? { name: quickJob.name } : {}),
       templateId: quickJob.templateId,
       batchId: quickJob.batchId,
       totalSegments,

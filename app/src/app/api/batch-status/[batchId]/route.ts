@@ -10,6 +10,7 @@ import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
 import { captureError } from '@/lib/errors';
 import { logger } from '@/lib/logger';
 import { getVideoUrl } from '@/lib/video-url';
+import { getRequesterEmail, ownsOrAdmin } from '@/lib/owner';
 
 export async function GET(
   request: NextRequest,
@@ -36,6 +37,12 @@ export async function GET(
         { status: 404 }
       );
     }
+
+    // Progress/segments/video URLs stay bearer-id-visible (matches status/[id]'s
+    // documented-open posture — polling clients here send no email today), but
+    // `name` can carry the deceased's name and must not leak to non-owners.
+    const requesterEmail = getRequesterEmail(request);
+    const isOwner = !!requesterEmail && ownsOrAdmin(batch.email, requesterEmail);
 
     // Build segment status array
     interface SegmentStatus {
@@ -165,7 +172,7 @@ export async function GET(
       batchId: batch.id,
       status: updatedBatch?.status || batch.status,
       projectId: batch.projectId,
-      name: batch.name,
+      ...(isOwner ? { name: batch.name } : {}),
       totalSegments: batch.totalSegments,
       completedSegments: completedCount,
       failedSegments: failedCount,
