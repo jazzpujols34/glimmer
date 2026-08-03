@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { CREDIT_PACKS, getPack, creditsForAmount } from './packs';
+import {
+  CREDIT_PACKS,
+  getPack,
+  creditsForAmount,
+  PACK_LIST,
+  MIN_PACK_PRICE_TWD,
+  MIN_PACK_CREDITS,
+} from './packs';
 
 describe('getPack', () => {
   it('looks up a pack by id', () => {
@@ -43,5 +50,32 @@ describe('live pricing pin — must match production exactly', () => {
 
   it('only pack20 and pack50 exist — no dead packs', () => {
     expect(Object.keys(CREDIT_PACKS).sort()).toEqual(['pack20', 'pack50']);
+  });
+});
+
+describe('PACK_LIST / entry-price helpers', () => {
+  it('lists every pack, cheapest first', () => {
+    expect(PACK_LIST.map((p) => p.id)).toEqual(['pack20', 'pack50']);
+    expect(PACK_LIST).toHaveLength(Object.keys(CREDIT_PACKS).length);
+  });
+
+  it('stays sorted by price for any pack table', () => {
+    const prices = PACK_LIST.map((p) => p.priceTWD);
+    expect([...prices].sort((a, b) => a - b)).toEqual(prices);
+  });
+
+  it('derives the entry price and credits from the cheapest pack', () => {
+    expect(MIN_PACK_PRICE_TWD).toBe(PACK_LIST[0].priceTWD);
+    expect(MIN_PACK_CREDITS).toBe(PACK_LIST[0].credits);
+    expect(MIN_PACK_PRICE_TWD).toBe(299);
+    expect(MIN_PACK_CREDITS).toBe(20);
+  });
+
+  it('every displayed price traces to a real pack — no orphan prices', () => {
+    // Guards the drift this SSOT exists to stop: the comparison table once
+    // advertised "NT$400 起", a price no pack has ever had.
+    const realPrices = new Set(PACK_LIST.map((p) => p.priceTWD));
+    expect(realPrices.has(MIN_PACK_PRICE_TWD)).toBe(true);
+    expect(realPrices.has(400)).toBe(false);
   });
 });

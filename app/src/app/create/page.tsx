@@ -18,6 +18,7 @@ import { useAccess } from '@/hooks/useAccess';
 import type { OccasionType, GenerationSettings, CreditBalance, Project } from '@/types';
 import { defaultSettings } from '@/types';
 import { creditsForGeneration } from '@/lib/credit-cost';
+import { PACK_LIST } from '@/lib/packs';
 import { FolderOpen, ChevronDown, Layers, CheckCircle2 } from 'lucide-react';
 import { trackGenerationStart, trackPurchaseStart } from '@/lib/analytics';
 import { isValidEmail as checkEmail } from '@/lib/validation';
@@ -525,8 +526,14 @@ function CreatePageInner() {
                                 {t('credits.exhausted')}
                               </p>
                               <div className="flex gap-2 flex-wrap">
-                                <PurchaseButton email={email} packId="pack20" label="20 點 NT$299" />
-                                <PurchaseButton email={email} packId="pack50" label="50 點 NT$599" />
+                                {PACK_LIST.map((pack) => (
+                                  <PurchaseButton
+                                    key={pack.id}
+                                    email={email}
+                                    packId={pack.id}
+                                    label={`${pack.credits} 點 NT$${pack.priceTWD}`}
+                                  />
+                                ))}
                               </div>
                               <p className="text-xs text-muted-foreground">
                                 1 點 = 5 秒片段

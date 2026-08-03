@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 import Link from 'next/link';
+import { MIN_PACK_PRICE_TWD } from '@/lib/packs';
 import { useRouter } from 'next/navigation';
 import { Logo } from '@/components/Logo';
 import { Button } from '@/components/ui/button';
@@ -86,7 +87,7 @@ export default function UpgradePage() {
             <div className="p-4 rounded-lg bg-primary/10">
               <p className="flex items-center justify-center gap-2 text-sm font-medium">
                 <Sparkles className="w-4 h-4 text-primary" />
-                最低 NT$299 起，點數永不過期
+                {`最低 NT$${MIN_PACK_PRICE_TWD} 起，點數永不過期`}
               </p>
             </div>
 

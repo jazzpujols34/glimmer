@@ -1,4 +1,6 @@
 import Link from 'next/link';
+import { MIN_PACK_PRICE_TWD } from '@/lib/packs';
+import { FREE_GENERATIONS } from '@/types';
 import { Button } from '@/components/ui/button';
 
 export function ComparisonSection() {
@@ -39,7 +41,7 @@ export function ComparisonSection() {
             </thead>
             <tbody>
               <ComparisonRow label="所需時間" labelEn="Time needed" traditional="數天 ~ 數週" diy="數小時" glimmer="5 分鐘" />
-              <ComparisonRow label="費用" labelEn="Cost" traditional="NT$15,000+" diy="免費 ~ $30/月" glimmer="免費 3 次 / NT$400 起" />
+              <ComparisonRow label="費用" labelEn="Cost" traditional="NT$15,000+" diy="免費 ~ $30/月" glimmer={`免費 ${FREE_GENERATIONS} 次 / NT$${MIN_PACK_PRICE_TWD} 起`} />
               <ComparisonRow label="技術門檻" labelEn="Skill required" traditional="專業剪輯師" diy="中等學習曲線" glimmer="零門檻" />
               <ComparisonRow label="AI 照片動畫" labelEn="AI photo animation" traditional="—" diy="—" glimmer="✓" isCheck />
               <ComparisonRow label="場合感知 AI" labelEn="Occasion-aware AI" traditional="手動調整" diy="手動調整" glimmer="✓ 自動適配" isCheck />
@@ -83,7 +85,7 @@ export function ComparisonSection() {
             isHighlighted
             items={[
               { label: '所需時間', value: '5 分鐘', isAdvantage: true },
-              { label: '費用', value: '免費 1 支 / NT$400 起', isAdvantage: true },
+              { label: '費用', value: `免費 ${FREE_GENERATIONS} 次 / NT$${MIN_PACK_PRICE_TWD} 起`, isAdvantage: true },
               { label: '技術門檻', value: '零門檻', isAdvantage: true },
               { label: 'AI 照片動畫', value: '✓', isAdvantage: true },
               { label: '場合感知 AI', value: '✓ 自動適配', isAdvantage: true },

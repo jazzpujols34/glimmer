@@ -10,7 +10,8 @@ import { HeroDemoVideo } from '@/components/HeroDemoVideo';
 import { LanguageToggle } from '@/components/LanguageToggle';
 import { AuthButton } from '@/components/AuthButton';
 import { ContactForm, FaqSection } from '@/components/landing/LazyClientSections';
-import { CREDIT_PACKS } from '@/lib/packs';
+import { CREDIT_PACKS, PACK_LIST, MIN_PACK_PRICE_TWD, MIN_PACK_CREDITS } from '@/lib/packs';
+import { FREE_GENERATIONS } from '@/types';
 
 // Interactive showcase cards (client component)
 const ShowcaseCardInteractive = dynamic(
@@ -50,7 +51,7 @@ export default function LandingPage() {
     description:
       '上傳老照片，AI 自動生成電影級回憶影片。Upload photos, AI creates cinematic memorial videos.',
     offers: [
-      { '@type': 'Offer', price: '0', priceCurrency: 'TWD', name: '免費體驗 3 次生成' },
+      { '@type': 'Offer', price: '0', priceCurrency: 'TWD', name: `免費體驗 ${FREE_GENERATIONS} 次生成` },
       ...Object.values(CREDIT_PACKS).map((pack) => ({
         '@type': 'Offer',
         price: String(pack.priceTWD),
@@ -510,10 +511,10 @@ export default function LandingPage() {
                       <div className="mt-2">
                         <span className="text-2xl font-bold">NT$0</span>
                       </div>
-                      <p className="text-xs text-muted-foreground mt-1">3 次 AI 生成</p>
+                      <p className="text-xs text-muted-foreground mt-1">{`${FREE_GENERATIONS} 次 AI 生成`}</p>
                     </div>
                     <ul className="space-y-1.5 text-sm">
-                      <PricingItem>3 次 AI 片段生成</PricingItem>
+                      <PricingItem>{`${FREE_GENERATIONS} 次 AI 片段生成`}</PricingItem>
                       <PricingItem>完整編輯器</PricingItem>
                       <PricingItem>無限次匯出</PricingItem>
                     </ul>
@@ -530,15 +531,18 @@ export default function LandingPage() {
                       <h4 className="font-semibold">生成點數包</h4>
                       <p className="text-xs text-muted-foreground">Generation Packs</p>
                       <div className="mt-2">
-                        <span className="text-2xl font-bold">NT$299</span>
+                        <span className="text-2xl font-bold">{`NT$${MIN_PACK_PRICE_TWD}`}</span>
                         <span className="text-sm text-muted-foreground"> 起</span>
                       </div>
-                      <p className="text-xs text-muted-foreground mt-1">20 點起購</p>
+                      <p className="text-xs text-muted-foreground mt-1">{`${MIN_PACK_CREDITS} 點起購`}</p>
                     </div>
                     <ul className="space-y-1.5 text-sm">
                       <PricingItem>1 點 = 5 秒片段</PricingItem>
-                      <PricingItem highlight>20 點 NT$299</PricingItem>
-                      <PricingItem highlight>50 點 NT$599</PricingItem>
+                      {PACK_LIST.map((pack) => (
+                        <PricingItem key={pack.id} highlight>
+                          {`${pack.credits} 點 NT$${pack.priceTWD}`}
+                        </PricingItem>
+                      ))}
                       <PricingItem>點數永不過期</PricingItem>
                     </ul>
                     <Button size="sm" className="w-full" asChild>

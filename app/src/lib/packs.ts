@@ -16,6 +16,23 @@ export const CREDIT_PACKS: Record<string, CreditPack> = {
   pack50: { id: 'pack50', credits: 50, priceTWD: 599, label: '50 點生成組合包' },
 };
 
+/**
+ * Packs cheapest-first, for anything that displays the range. Every price
+ * shown to a customer should come from here rather than being typed inline —
+ * the landing page, /create's buy buttons, /upgrade and the comparison table
+ * each used to hard-code NT$299/NT$599, and the comparison table had already
+ * drifted to an NT$400 that matched no pack.
+ */
+export const PACK_LIST: CreditPack[] = Object.values(CREDIT_PACKS).sort(
+  (a, b) => a.priceTWD - b.priceTWD,
+);
+
+/** Entry price, for "from NT$X" copy. */
+export const MIN_PACK_PRICE_TWD = PACK_LIST[0].priceTWD;
+
+/** Credits in the entry pack, for "from X credits" copy. */
+export const MIN_PACK_CREDITS = PACK_LIST[0].credits;
+
 /** Look up a pack by id. Returns undefined for unknown ids. */
 export function getPack(packId: string): CreditPack | undefined {
   return CREDIT_PACKS[packId];
