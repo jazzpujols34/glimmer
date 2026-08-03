@@ -14,6 +14,7 @@ import { logger } from '@/lib/logger';
 import { isValidEmail, isValidOccasion, validateSettings, validateName, validatePhoto } from '@/lib/validation';
 import { successResponse, errors } from '@/lib/api-response';
 import { enforceIdentity } from '@/lib/identity';
+import { submitFingerprint, findRecentSubmit, claimSubmit } from '@/lib/submit-guard';
 import type { OccasionType } from '@/types';
 
 export async function POST(request: NextRequest) {
@@ -33,6 +34,7 @@ export async function POST(request: NextRequest) {
     const settingsJson = formData.get('settings') as string;
     const email = formData.get('email') as string;
     const projectId = formData.get('projectId') as string | null;
+    const allowDuplicate = formData.get('allowDuplicate') === 'true';
 
     if (!name || !occasion) {
       return errors.missingField('name/occasion');
@@ -112,6 +114,33 @@ export async function POST(request: NextRequest) {
       }
     } catch {
       logger.warn('[API] Could not detect image dimensions, using default aspect ratio');
+    }
+
+    // --- Duplicate-submission guard ---
+    // Answers a repeat of a submission that already succeeded (typically after
+    // its response was lost in flight) with the work already running, instead
+    // of billing a second time. `allowDuplicate` is the user's explicit "yes,
+    // generate this again" from the client dialog.
+    const fingerprint = submitFingerprint({
+      email: actingEmail,
+      name,
+      occasion,
+      settings,
+      photoCount: photos.length,
+      photoBytes: photos.reduce((sum, p) => sum + p.length, 0),
+    });
+    if (!allowDuplicate) {
+      const inFlight = await findRecentSubmit(fingerprint);
+      if (inFlight) {
+        logger.debug('API', `Duplicate submission suppressed for ${actingEmail}`, inFlight);
+        return successResponse({
+          id: inFlight.id,
+          kind: inFlight.kind,
+          path: inFlight.path,
+          status: 'processing',
+          duplicate: true,
+        });
+      }
     }
 
     // --- Email verification check (skip for admins) ---
@@ -229,6 +258,12 @@ export async function POST(request: NextRequest) {
     if (projectId) {
       await addJobToProject(projectId, jobId);
     }
+
+    // Claim only now — the provider tasks exist and credits are spent, so this
+    // is the point after which a repeat would be a double charge. Claiming any
+    // earlier would let a request that died before task creation block its own
+    // legitimate retry.
+    await claimSubmit(fingerprint, { id: jobId, kind: 'job', path: `/generate/${jobId}` });
 
     return successResponse({
       id: jobId,

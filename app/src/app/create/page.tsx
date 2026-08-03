@@ -18,7 +18,7 @@ import { useAccess } from '@/hooks/useAccess';
 import type { OccasionType, GenerationSettings, CreditBalance, Project } from '@/types';
 import { defaultSettings } from '@/types';
 import { creditsForGeneration } from '@/lib/credit-cost';
-import { FolderOpen, ChevronDown, Layers } from 'lucide-react';
+import { FolderOpen, ChevronDown, Layers, CheckCircle2 } from 'lucide-react';
 import { trackGenerationStart, trackPurchaseStart } from '@/lib/analytics';
 import { isValidEmail as checkEmail } from '@/lib/validation';
 import { withEmail } from '@/lib/utils';
@@ -65,6 +65,10 @@ function CreatePageInner() {
   const [lastFrame, setLastFrame] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
+  // Set when the server recognises this submission as a repeat of one that
+  // already succeeded — holds where to send the user to watch the existing
+  // generation, so nobody pays twice for a response that got lost in flight.
+  const [duplicatePath, setDuplicatePath] = useState<string | null>(null);
   const [settings, setSettings] = useState<GenerationSettings>(defaultSettings);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [creditBalance, setCreditBalance] = useState<CreditBalance | null>(null);
@@ -208,7 +212,12 @@ function CreatePageInner() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    await runGeneration(false);
+  };
+
+  const runGeneration = async (allowDuplicate: boolean) => {
     setError('');
+    setDuplicatePath(null);
 
     if (!email.trim() || !isValidEmail) {
       setError('請輸入有效的 Email 地址');
@@ -258,6 +267,9 @@ function CreatePageInner() {
       formData.append('name', name);
       formData.append('occasion', occasion);
       formData.append('settings', JSON.stringify(settings));
+      if (allowDuplicate) {
+        formData.append('allowDuplicate', 'true');
+      }
       if (selectedProjectId) {
         formData.append('projectId', selectedProjectId);
       }
@@ -299,6 +311,14 @@ function CreatePageInner() {
           setCreditBalance(prev => prev ? { ...prev, remaining: 0 } : null);
         }
         throw new Error(data.error || '發生錯誤');
+      }
+
+      // The server recognised this as a repeat of a submission that already
+      // went through — nothing was created or charged. Offer the existing
+      // generation rather than silently swallowing a deliberate second run.
+      if (data.duplicate) {
+        setDuplicatePath(data.path || (data.batchId ? `/batch/${data.batchId}` : `/generate/${data.id}`));
+        return;
       }
 
       // Track generation start
@@ -804,6 +824,38 @@ function CreatePageInner() {
           onOpenChange={setSettingsOpen}
           paidRemaining={creditBalance ? creditBalance.paidTotal - creditBalance.paidUsed : undefined}
         />
+
+        {/* Duplicate-submission prompt */}
+        {duplicatePath && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4">
+            <Card className="w-full max-w-md">
+              <CardHeader>
+                <div className="flex items-start gap-3">
+                  <CheckCircle2 className="h-6 w-6 shrink-0 text-primary" aria-hidden="true" />
+                  <div>
+                    <CardTitle>這次的生成已經成功送出</CardTitle>
+                    <CardDescription className="mt-1">
+                      剛才那次已經在製作中了，沒有重複扣點。要現在查看進度嗎？
+                    </CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="flex flex-col gap-2">
+                <Button onClick={() => router.push(duplicatePath)} className="w-full">
+                  查看生成進度
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  disabled={isSubmitting}
+                  onClick={() => runGeneration(true)}
+                >
+                  {isSubmitting ? '送出中…' : '仍要再生成一次'}
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -22,6 +22,7 @@ import { getTemplateById } from '@/lib/templates';
 import { isValidEmail, isValidOccasion, validateName, validatePhoto } from '@/lib/validation';
 import { successResponse, errors } from '@/lib/api-response';
 import { enforceIdentity } from '@/lib/identity';
+import { submitFingerprint, findRecentSubmit, claimSubmit } from '@/lib/submit-guard';
 import { logger } from '@/lib/logger';
 import type { GenerationSettings, OccasionType } from '@/types';
 import { defaultSettings } from '@/types';
@@ -43,6 +44,7 @@ export async function POST(request: NextRequest) {
     const formData = await request.formData();
 
     const email = formData.get('email') as string;
+    const allowDuplicate = formData.get('allowDuplicate') === 'true';
     const templateId = formData.get('templateId') as string;
     const name = formData.get('name') as string;
     const date = formData.get('date') as string || undefined;
@@ -117,6 +119,31 @@ export async function POST(request: NextRequest) {
     // still proportional to resolution/duration.
     const perSegmentCost = creditsForGeneration(settings);
     const totalCost = totalSegments * perSegmentCost;
+
+    // --- Duplicate-submission guard (see src/lib/submit-guard.ts) ---
+    // templateId/date/message ride along in the settings slot: they are part of
+    // what was submitted, so two runs differing only by caption are not dupes.
+    const fingerprint = submitFingerprint({
+      email: actingEmail,
+      name,
+      occasion,
+      settings: { ...settings, templateId, date, message },
+      photoCount: photos.length,
+      photoBytes: photos.reduce((sum, p) => sum + p.length, 0),
+    });
+    if (!allowDuplicate) {
+      const inFlight = await findRecentSubmit(fingerprint);
+      if (inFlight) {
+        logger.debug('quick-generate', `Duplicate submission suppressed for ${actingEmail}`, inFlight);
+        return successResponse({
+          id: inFlight.id,
+          batchId: inFlight.id,
+          kind: inFlight.kind,
+          path: inFlight.path,
+          duplicate: true,
+        });
+      }
+    }
 
     // Email verification + credit check
     const credits = await checkCredits(actingEmail);
@@ -263,6 +290,13 @@ export async function POST(request: NextRequest) {
 
     const successCount = segmentResults.filter(r => r.success).length;
     logger.debug('quick-generate', `Started ${successCount}/${totalSegments} segments`);
+
+    // Claim only after segments exist and credits are spent — see submit-guard.ts.
+    await claimSubmit(fingerprint, {
+      id: batch.id,
+      kind: 'batch',
+      path: `/batch/${batch.id}?quick=${quickJob.id}`,
+    });
 
     return successResponse({
       quickId: quickJob.id,
