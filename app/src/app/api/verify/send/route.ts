@@ -9,8 +9,13 @@ import { captureError } from '@/lib/errors';
 import { isValidEmail } from '@/lib/validation';
 import { successResponse, errorResponse, errors } from '@/lib/api-response';
 import { logger } from '@/lib/logger';
+import { parseLinkPurpose } from '@/lib/magic-link';
 
 const VERIFY_TOKEN_TTL = 86400; // 24 hours
+// A login link hands out a 30-day session, so it gets a far tighter window
+// than a first-time verification link — a sign-in link sitting in an inbox
+// (or a forwarded thread) for a day is a standing key to the account.
+const LOGIN_TOKEN_TTL = 900; // 15 minutes
 
 export async function POST(request: NextRequest) {
   try {
@@ -25,6 +30,9 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const email = body.email as string;
+    // 'login' = an explicit "send me a sign-in link". Absent/unrecognised is
+    // 'verify', i.e. exactly the behaviour that predates magic-link.
+    const purpose = parseLinkPurpose(body.purpose);
 
     if (!email || !isValidEmail(email)) {
       return errors.invalidEmail();
@@ -39,9 +47,12 @@ export async function POST(request: NextRequest) {
       return errors.rateLimited(retryAfter);
     }
 
-    // Skip if already verified
+    // Skip if already verified — but only for verification links. A login
+    // link is precisely what an already-verified user needs: before this,
+    // every established customer was unreachable by email link, which is why
+    // no account could ever arm session enforcement.
     const verified = await isEmailVerified(normalized);
-    if (verified) {
+    if (verified && purpose === 'verify') {
       return successResponse({ alreadyVerified: true });
     }
 
@@ -49,12 +60,12 @@ export async function POST(request: NextRequest) {
     const token = crypto.randomUUID();
     await kvPut(
       `verify:${token}`,
-      JSON.stringify({ email: normalized, createdAt: new Date().toISOString() }),
-      { expirationTtl: VERIFY_TOKEN_TTL },
+      JSON.stringify({ email: normalized, createdAt: new Date().toISOString(), purpose }),
+      { expirationTtl: purpose === 'login' ? LOGIN_TOKEN_TTL : VERIFY_TOKEN_TTL },
     );
 
     // Send email
-    const result = await sendVerificationEmail(normalized, token);
+    const result = await sendVerificationEmail(normalized, token, purpose);
     if (!result.success) {
       logger.error(`[Verify] Failed to send email to ${normalized}:`, result.error);
       return errorResponse('寄送驗證信失敗，請稍後再試', 503, 'PROVIDER_ERROR');

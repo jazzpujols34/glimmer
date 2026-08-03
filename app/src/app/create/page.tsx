@@ -70,6 +70,11 @@ function CreatePageInner() {
   // already succeeded — holds where to send the user to watch the existing
   // generation, so nobody pays twice for a response that got lost in flight.
   const [duplicatePath, setDuplicatePath] = useState<string | null>(null);
+  // Set when a route refuses typed-email access because this account has
+  // established a session before (Phase 2b enforcement). The only way back is
+  // to prove inbox control again, so surface that instead of a dead error.
+  const [needsLogin, setNeedsLogin] = useState(false);
+  const [loginLinkState, setLoginLinkState] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
   const [settings, setSettings] = useState<GenerationSettings>(defaultSettings);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [creditBalance, setCreditBalance] = useState<CreditBalance | null>(null);
@@ -216,9 +221,24 @@ function CreatePageInner() {
     await runGeneration(false);
   };
 
+  const sendLoginLink = async () => {
+    setLoginLinkState('sending');
+    try {
+      const res = await fetch('/api/verify/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, purpose: 'login' }),
+      });
+      setLoginLinkState(res.ok ? 'sent' : 'error');
+    } catch {
+      setLoginLinkState('error');
+    }
+  };
+
   const runGeneration = async (allowDuplicate: boolean) => {
     setError('');
     setDuplicatePath(null);
+    setNeedsLogin(false);
 
     if (!email.trim() || !isValidEmail) {
       setError('請輸入有效的 Email 地址');
@@ -305,6 +325,13 @@ function CreatePageInner() {
         // Free-tier-specific errors don't mean the user is out of credits —
         // don't zero out creditBalance.remaining (that's only accurate for
         // genuine INSUFFICIENT_CREDITS) or it'd wrongly hide a real balance.
+        if (data.code === 'SESSION_REQUIRED') {
+          setNeedsLogin(true);
+          setLoginLinkState('idle');
+          setIsSubmitting(false);
+          setError(data.error || '此帳號已綁定登入，請先登入');
+          return;
+        }
         if (data.code === 'FREE_TIER_STANDARD_SPEC_ONLY' || data.code === 'FREE_TIER_IP_CAP') {
           throw new Error(data.error || '發生錯誤');
         }
@@ -726,6 +753,32 @@ function CreatePageInner() {
                   {error && (
                     <div ref={errorRef} className="p-3 rounded-lg bg-destructive/10 text-destructive text-sm" role="alert">
                       {error}
+                    </div>
+                  )}
+
+                  {needsLogin && (
+                    <div className="p-3 rounded-lg border border-border bg-muted/40 text-sm space-y-2">
+                      <p className="text-muted-foreground">
+                        為了保護您的點數，這個帳號需要登入後才能使用。
+                      </p>
+                      {loginLinkState === 'sent' ? (
+                        <p className="font-medium">登入連結已寄到 {email}，請點擊信中的連結（15 分鐘內有效）。</p>
+                      ) : (
+                        <>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            disabled={loginLinkState === 'sending'}
+                            onClick={sendLoginLink}
+                          >
+                            {loginLinkState === 'sending' ? '寄送中…' : `寄送登入連結到 ${email}`}
+                          </Button>
+                          {loginLinkState === 'error' && (
+                            <p className="text-destructive">寄送失敗，請稍後再試。</p>
+                          )}
+                        </>
+                      )}
                     </div>
                   )}
 

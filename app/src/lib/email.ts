@@ -4,6 +4,7 @@
  */
 
 import { logger } from '@/lib/logger';
+import type { LinkPurpose } from './magic-link';
 
 const RESEND_API_URL = 'https://api.resend.com/emails';
 const FROM_EMAIL_FALLBACK = 'onboarding@resend.dev'; // Resend sandbox
@@ -11,6 +12,7 @@ const FROM_EMAIL_FALLBACK = 'onboarding@resend.dev'; // Resend sandbox
 export async function sendVerificationEmail(
   email: string,
   token: string,
+  purpose: LinkPurpose = 'verify',
 ): Promise<{ success: boolean; error?: string }> {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) {
@@ -33,8 +35,8 @@ export async function sendVerificationEmail(
     body: JSON.stringify({
       from,
       to: [email],
-      subject: '拾光 Glimmer — 驗證您的 Email',
-      html: buildVerificationHtml(verifyUrl),
+      subject: purpose === 'login' ? '拾光 Glimmer — 您的登入連結' : '拾光 Glimmer — 驗證您的 Email',
+      html: buildVerificationHtml(verifyUrl, purpose),
     }),
   });
 
@@ -129,7 +131,8 @@ function buildCompletionHtml(viewUrl: string, name: string): string {
 </html>`.trim();
 }
 
-function buildVerificationHtml(verifyUrl: string): string {
+function buildVerificationHtml(verifyUrl: string, purpose: LinkPurpose = 'verify'): string {
+  const isLogin = purpose === 'login';
   return `
 <!DOCTYPE html>
 <html lang="zh-Hant">
@@ -142,24 +145,29 @@ function buildVerificationHtml(verifyUrl: string): string {
 
   <p style="font-size: 16px; line-height: 1.6;">您好，</p>
   <p style="font-size: 16px; line-height: 1.6;">
-    請點擊下方按鈕驗證您的 Email 地址，以開始使用拾光的免費影片額度。
+    ${isLogin
+      ? '請點擊下方按鈕登入拾光。登入後，您的點數將只能由已登入的裝置使用，別人即使知道您的 Email 也無法動用。'
+      : '請點擊下方按鈕驗證您的 Email 地址，以開始使用拾光的免費影片額度。'}
   </p>
 
   <div style="text-align: center; margin: 32px 0;">
     <a href="${verifyUrl}" style="display: inline-block; background: #6366f1; color: #fff; font-size: 16px; font-weight: 600; padding: 14px 32px; border-radius: 8px; text-decoration: none;">
-      驗證 Email
+      ${isLogin ? '登入拾光' : '驗證 Email'}
     </a>
   </div>
 
   <p style="font-size: 13px; color: #888; line-height: 1.5;">
-    Click the button above to verify your email and unlock your free video credit.
+    ${isLogin
+      ? 'Click the button above to sign in to Glimmer.'
+      : 'Click the button above to verify your email and unlock your free video credit.'}
   </p>
 
   <hr style="border: none; border-top: 1px solid #eee; margin: 32px 0;" />
 
   <p style="font-size: 12px; color: #aaa; line-height: 1.5;">
-    此連結將在 15 分鐘後失效。如果您沒有在拾光註冊，請忽略此信件。<br />
-    This link expires in 15 minutes. If you didn't sign up for Glimmer, please ignore this email.
+    ${isLogin
+      ? '此連結將在 15 分鐘後失效，且只能使用一次。如果您沒有要求登入，請忽略此信件。<br />This sign-in link expires in 15 minutes and can only be used once. If you didn\'t request it, please ignore this email.'
+      : '此連結將在 24 小時後失效。如果您沒有在拾光註冊，請忽略此信件。<br />This link expires in 24 hours. If you didn\'t sign up for Glimmer, please ignore this email.'}
   </p>
 </body>
 </html>`.trim();
