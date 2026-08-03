@@ -12,6 +12,7 @@ import { captureError, normalizeError } from '@/lib/errors';
 import { isValidEmail, isValidOccasion, validateSettings, validateName, validatePhoto } from '@/lib/validation';
 import { successResponse, errors } from '@/lib/api-response';
 import { enforceIdentity } from '@/lib/identity';
+import { submitFingerprint, findRecentSubmit, claimSubmit } from '@/lib/submit-guard';
 import { logger } from '@/lib/logger';
 import type { OccasionType } from '@/types';
 
@@ -31,6 +32,7 @@ export async function POST(request: NextRequest) {
     const occasion = formData.get('occasion') as string;
     const settingsJson = formData.get('settings') as string;
     const email = formData.get('email') as string;
+    const allowDuplicate = formData.get('allowDuplicate') === 'true';
 
     if (!name || !occasion) {
       return errors.missingField('name/occasion');
@@ -114,6 +116,30 @@ export async function POST(request: NextRequest) {
     // below) — cost is still proportional to resolution/duration.
     const perSegmentCost = creditsForGeneration({ ...settings, numResults: 1 });
     const totalCost = totalSegments * perSegmentCost;
+
+    // --- Duplicate-submission guard (see src/lib/submit-guard.ts) ---
+    const fingerprint = submitFingerprint({
+      email: actingEmail,
+      name,
+      occasion,
+      settings,
+      photoCount: photos.length,
+      photoBytes: photos.reduce((sum, p) => sum + p.length, 0),
+    });
+    if (!allowDuplicate) {
+      const inFlight = await findRecentSubmit(fingerprint);
+      if (inFlight) {
+        logger.debug('API', `Duplicate batch submission suppressed for ${actingEmail}`, inFlight);
+        return successResponse({
+          id: inFlight.id,
+          batchId: inFlight.kind === 'batch' ? inFlight.id : undefined,
+          kind: inFlight.kind,
+          path: inFlight.path,
+          status: 'processing',
+          duplicate: true,
+        });
+      }
+    }
 
     // --- Email verification + credit check ---
     const balance = await checkCredits(actingEmail);
@@ -266,6 +292,9 @@ export async function POST(request: NextRequest) {
     }
 
     await updateBatch(batch.id, { status: 'processing' });
+
+    // Claim only after segments exist and credits are spent — see submit-guard.ts.
+    await claimSubmit(fingerprint, { id: batch.id, kind: 'batch', path: `/batch/${batch.id}` });
 
     return successResponse({
       batchId: batch.id,
