@@ -55,3 +55,4 @@ prompts/
 # locally drops __pycache__ into the tree with no rule to catch it.
 __pycache__/
 *.pyc
+.wrangler/
