@@ -2,7 +2,8 @@ import { NextResponse } from 'next/server';
 import { createStoryboard, getAllStoryboards } from '@/lib/storage';
 import { captureError } from '@/lib/errors';
 import { errors } from '@/lib/api-response';
-import { getRequesterEmail, resolveReaderEmail } from '@/lib/owner';
+import { getRequesterEmail } from '@/lib/owner';
+import { resolveReaderEmail } from '@/lib/identity';
 import { isAdmin } from '@/lib/credits';
 import type { AspectRatio } from '@/types';
 

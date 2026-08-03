@@ -15,7 +15,7 @@ vi.mock('./kv', () => ({
   }),
 }));
 
-import { resolveReaderEmail } from './owner';
+import { resolveReaderEmail } from './identity';
 import { signSession, sessionCookieHeader, SESSION_COOKIE_NAME } from './session';
 
 const ORIGINAL_ENV = { ...process.env };

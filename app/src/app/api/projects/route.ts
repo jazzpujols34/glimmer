@@ -5,7 +5,8 @@ import { createProject, getAllProjects } from '@/lib/storage';
 import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
 import { captureError } from '@/lib/errors';
 import { errors } from '@/lib/api-response';
-import { getRequesterEmail, resolveReaderEmail } from '@/lib/owner';
+import { getRequesterEmail } from '@/lib/owner';
+import { resolveReaderEmail } from '@/lib/identity';
 import { isAdmin } from '@/lib/credits';
 
 function requireRequesterEmail(request: NextRequest) {

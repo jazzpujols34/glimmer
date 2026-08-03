@@ -242,7 +242,7 @@ export default function GalleryPage() {
     setRefreshing(true);
     setRefreshResult(null);
     try {
-      const res = await fetch(withEmail('/api/gallery/refresh', email), { method: 'POST' });
+      const res = await fetch(withEmail('/api/gallery', email), { method: 'POST' });
       const data = await res.json();
       if (res.ok) {
         setRefreshResult({ updated: data.updated, checked: data.checked });

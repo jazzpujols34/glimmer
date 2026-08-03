@@ -20,6 +20,7 @@
 import { getSession } from './session';
 import { kvGet } from './kv';
 import { normalize } from './credits';
+import { isValidEmail } from './validation';
 
 interface RequestLike {
   headers: { get(name: string): string | null };
@@ -85,4 +86,54 @@ export async function enforceIdentity(
   }
 
   return { email: clientEmail };
+}
+
+/** Outcome of identifying the caller of a read/list route. */
+export type ReaderResolution =
+  | { email: string }
+  | { error: 'MISSING' | 'INVALID' | 'SESSION_REQUIRED' };
+
+interface ReaderRequest {
+  url: string;
+  headers: { get(name: string): string | null };
+}
+
+/**
+ * Identify the caller of a read/list route, with Phase 2b enforcement applied.
+ *
+ * Spend and destructive routes have gone through enforceIdentity() since Phase
+ * 2b; reads did not, so `?email=` alone still decided whose gallery, projects
+ * and storyboards you saw. The July 2026 ownership fix closed anonymous
+ * enumeration (you must name an email), but naming a known address was still
+ * enough to list that person's videos.
+ *
+ * Delegates the rules to enforceIdentity() rather than restating them, so
+ * reads and spends can never drift on what counts as identity. Reads add one
+ * rule of their own: a session ALONE identifies the caller, so a signed-in
+ * client need not also pass `?email=`.
+ *
+ * Deliberately lives here rather than in owner.ts. owner.ts is imported by 12
+ * route files but only three need identity, and putting this there dragged
+ * session+identity into every one of them — enough to push the Pages Functions
+ * bundle over the 25 MiB deploy limit and fail the build outright.
+ */
+export async function resolveReaderEmail(request: ReaderRequest): Promise<ReaderResolution> {
+  const raw = new URL(request.url).searchParams.get('email');
+  const clientEmail = raw && isValidEmail(raw.toLowerCase().trim())
+    ? raw.toLowerCase().trim()
+    : null;
+
+  if (!clientEmail) {
+    if (process.env.REQUIRE_SESSION_FOR_PAID === 'true') {
+      const sessionEmail = await resolveIdentity(request);
+      if (sessionEmail) return { email: sessionEmail };
+    }
+    // Distinguish "you sent nothing" from "you sent junk" — the existing
+    // routes return different errors for these and callers depend on it.
+    return { error: raw ? 'INVALID' : 'MISSING' };
+  }
+
+  const enforced = await enforceIdentity(request, clientEmail);
+  if ('error' in enforced) return { error: 'SESSION_REQUIRED' };
+  return { email: enforced.email };
 }
