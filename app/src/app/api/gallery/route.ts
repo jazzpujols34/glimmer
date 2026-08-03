@@ -8,7 +8,7 @@ import { getVideoUrl, getVideoUrls } from '@/lib/video-url';
 import { logger } from '@/lib/logger';
 import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
 import { errors } from '@/lib/api-response';
-import { getRequesterEmail } from '@/lib/owner';
+import { resolveReaderEmail } from '@/lib/owner';
 import { isAdmin } from '@/lib/credits';
 
 export async function GET(request: NextRequest) {
@@ -21,12 +21,12 @@ export async function GET(request: NextRequest) {
       return errors.rateLimited(retryAfter);
     }
 
-    const requesterEmail = getRequesterEmail(request);
-    if (!requesterEmail) {
-      return new URL(request.url).searchParams.get('email')
-        ? errors.invalidEmail()
-        : errors.missingField('email');
+    const resolved = await resolveReaderEmail(request);
+    if ('error' in resolved) {
+      if (resolved.error === 'SESSION_REQUIRED') return errors.sessionRequired();
+      return resolved.error === 'INVALID' ? errors.invalidEmail() : errors.missingField('email');
     }
+    const requesterEmail = resolved.email;
 
     // Admins see every job; everyone else only sees their own
     const jobs = await getCompletedJobs(isAdmin(requesterEmail) ? undefined : requesterEmail);

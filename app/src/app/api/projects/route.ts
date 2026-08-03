@@ -5,7 +5,7 @@ import { createProject, getAllProjects } from '@/lib/storage';
 import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
 import { captureError } from '@/lib/errors';
 import { errors } from '@/lib/api-response';
-import { getRequesterEmail } from '@/lib/owner';
+import { getRequesterEmail, resolveReaderEmail } from '@/lib/owner';
 import { isAdmin } from '@/lib/credits';
 
 function requireRequesterEmail(request: NextRequest) {
@@ -31,8 +31,12 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const requesterEmail = requireRequesterEmail(request);
-    if (typeof requesterEmail !== 'string') return requesterEmail;
+    const resolved = await resolveReaderEmail(request);
+    if ('error' in resolved) {
+      if (resolved.error === 'SESSION_REQUIRED') return errors.sessionRequired();
+      return resolved.error === 'INVALID' ? errors.invalidEmail() : errors.missingField('email');
+    }
+    const requesterEmail = resolved.email;
 
     // Admins see every project; everyone else only sees their own
     const projects = await getAllProjects(isAdmin(requesterEmail) ? undefined : requesterEmail);

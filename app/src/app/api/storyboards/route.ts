@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { createStoryboard, getAllStoryboards } from '@/lib/storage';
 import { captureError } from '@/lib/errors';
 import { errors } from '@/lib/api-response';
-import { getRequesterEmail } from '@/lib/owner';
+import { getRequesterEmail, resolveReaderEmail } from '@/lib/owner';
 import { isAdmin } from '@/lib/credits';
 import type { AspectRatio } from '@/types';
 
@@ -21,8 +21,12 @@ function requireRequesterEmail(request: Request) {
 // GET /api/storyboards - List all storyboards
 export async function GET(request: Request) {
   try {
-    const requesterEmail = requireRequesterEmail(request);
-    if (typeof requesterEmail !== 'string') return requesterEmail;
+    const resolved = await resolveReaderEmail(request);
+    if ('error' in resolved) {
+      if (resolved.error === 'SESSION_REQUIRED') return errors.sessionRequired();
+      return resolved.error === 'INVALID' ? errors.invalidEmail() : errors.missingField('email');
+    }
+    const requesterEmail = resolved.email;
 
     // Admins see every storyboard; everyone else only sees their own
     const storyboards = await getAllStoryboards(isAdmin(requesterEmail) ? undefined : requesterEmail);
