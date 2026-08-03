@@ -12,8 +12,8 @@ export interface CreditPack {
 }
 
 export const CREDIT_PACKS: Record<string, CreditPack> = {
-  pack20: { id: 'pack20', credits: 20, priceTWD: 299, label: '20次生成組合包' },
-  pack50: { id: 'pack50', credits: 50, priceTWD: 599, label: '50次生成組合包' },
+  pack20: { id: 'pack20', credits: 20, priceTWD: 299, label: '20 點生成組合包' },
+  pack50: { id: 'pack50', credits: 50, priceTWD: 599, label: '50 點生成組合包' },
 };
 
 /** Look up a pack by id. Returns undefined for unknown ids. */

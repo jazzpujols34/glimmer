@@ -525,9 +525,12 @@ function CreatePageInner() {
                                 {t('credits.exhausted')}
                               </p>
                               <div className="flex gap-2 flex-wrap">
-                                <PurchaseButton email={email} packId="pack20" label="20 次 NT$299" />
-                                <PurchaseButton email={email} packId="pack50" label="50 次 NT$599" />
+                                <PurchaseButton email={email} packId="pack20" label="20 點 NT$299" />
+                                <PurchaseButton email={email} packId="pack50" label="50 點 NT$599" />
                               </div>
+                              <p className="text-xs text-muted-foreground">
+                                1 點 = 5 秒片段
+                              </p>
                             </div>
                           )
                         ) : (

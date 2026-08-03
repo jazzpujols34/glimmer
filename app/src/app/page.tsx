@@ -527,28 +527,29 @@ export default function LandingPage() {
                 <Card className="border-primary ring-1 ring-primary/20">
                   <CardContent className="p-5 space-y-4">
                     <div className="text-center">
-                      <h4 className="font-semibold">生成次數包</h4>
+                      <h4 className="font-semibold">生成點數包</h4>
                       <p className="text-xs text-muted-foreground">Generation Packs</p>
                       <div className="mt-2">
                         <span className="text-2xl font-bold">NT$299</span>
                         <span className="text-sm text-muted-foreground"> 起</span>
                       </div>
-                      <p className="text-xs text-muted-foreground mt-1">20 次起購</p>
+                      <p className="text-xs text-muted-foreground mt-1">20 點起購</p>
                     </div>
                     <ul className="space-y-1.5 text-sm">
-                      <PricingItem highlight>20 次 NT$299</PricingItem>
-                      <PricingItem highlight>50 次 NT$599</PricingItem>
-                      <PricingItem>次數永不過期</PricingItem>
+                      <PricingItem>1 點 = 5 秒片段</PricingItem>
+                      <PricingItem highlight>20 點 NT$299</PricingItem>
+                      <PricingItem highlight>50 點 NT$599</PricingItem>
+                      <PricingItem>點數永不過期</PricingItem>
                     </ul>
                     <Button size="sm" className="w-full" asChild>
-                      <Link href="/create">購買次數</Link>
+                      <Link href="/create">購買點數</Link>
                     </Button>
                   </CardContent>
                 </Card>
               </div>
 
               <p className="text-xs text-muted-foreground text-center">
-                每次生成產出一段 5-12 秒 AI 片段，用編輯器組合成完整影片
+                用編輯器組合成完整影片
               </p>
             </div>
 
