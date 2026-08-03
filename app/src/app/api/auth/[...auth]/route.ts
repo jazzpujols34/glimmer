@@ -24,7 +24,7 @@ export const runtime = 'edge';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { errors, successResponse } from '@/lib/api-response';
-import { kvPut } from '@/lib/kv';
+import { kvPut, kvGet } from '@/lib/kv';
 import { captureError } from '@/lib/errors';
 import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
 import { resolveIdentity } from '@/lib/identity';
@@ -243,7 +243,18 @@ async function handleCallbackGoogle(request: NextRequest): Promise<NextResponse>
 
   // Credit-key bridge: future logins from this Google account resolve the
   // same identity via submap:<sub> -> email (see src/lib/identity.ts, Step 3).
-  await kvPut(`submap:${sub}`, email);
+  //
+  // Write-once, never overwrite. The whole point of the bridge is that a
+  // Google login can resolve to an account keyed by a DIFFERENT email — the
+  // credits were bought under the address the customer already used, which
+  // needn't be their Google address. Re-writing it on every sign-in destroys
+  // exactly that: on 2026-08-03 a second sign-in overwrote a deliberate
+  // sub -> ro5112@hotmail.com bridge with the Google address, and a session
+  // holding 114 credits started resolving to an account with none.
+  const existingBridge = await kvGet(`submap:${sub}`);
+  if (!existingBridge) {
+    await kvPut(`submap:${sub}`, email);
+  }
 
   // Phase 2b auto-migrate marker: this account has now established a
   // session. Persistent, no TTL — enforceIdentity() (src/lib/identity.ts)
