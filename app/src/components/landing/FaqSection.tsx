@@ -17,7 +17,7 @@ export function FaqSection() {
           <FaqItem
             q="「生成」和「影片」有什麼不同？"
             qEn="What's the difference between a 'generation' and a 'video'?"
-            a="一次「生成」會產出一段 5-12 秒的 AI 動態片段。一支完整的「影片」（90-180 秒）是由多個生成片段加上音樂、字幕剪輯而成。DIY 用戶可用編輯器自行組合，或選擇全程代製服務由我們為您完成。"
+            a="「生成」會產出一段 5-12 秒的 AI 動態片段。一支完整的「影片」（90-180 秒）是由多個生成片段加上音樂、字幕剪輯而成。DIY 用戶可用編輯器自行組合，或選擇全程代製服務由我們為您完成。"
             aEn="One 'generation' creates a 5-12 second AI clip. A complete 'video' (90-180 sec) is made by combining multiple clips with music and subtitles. DIY users can edit themselves, or choose our full-service option."
           />
           <FaqItem
@@ -45,9 +45,9 @@ export function FaqSection() {
             aEn="JPG, PNG, WebP and other common formats. Higher resolution photos produce better results."
           />
           <FaqItem
-            q="生成次數會過期嗎？"
+            q="點數會過期嗎？"
             qEn="Do generations expire?"
-            a="不會！購買的生成次數永不過期，可以隨時使用。免費的 3 次也不會過期。"
+            a="不會！購買的點數永不過期，可以隨時使用。免費的 3 次也不會過期。"
             aEn="No! Purchased generations never expire. The 3 free generations don't expire either."
           />
           <FaqItem

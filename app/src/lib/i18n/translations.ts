@@ -59,11 +59,11 @@ export const translations = {
 
     // Credits
     'credits.checking': '查詢額度中...',
-    'credits.remaining': '剩餘 {count} 次生成',
-    'credits.free': '免費: {count} 次',
-    'credits.paid': '已購: {count} 次',
-    'credits.exhausted': '生成次數已用完 — 購買更多次數',
-    'credits.admin': '管理員 — 無限生成次數',
+    'credits.remaining': '剩餘 {count} 點',
+    'credits.free': '免費: {count} 點',
+    'credits.paid': '已購: {count} 點',
+    'credits.exhausted': '點數已用完 — 購買更多點數',
+    'credits.admin': '管理員 — 無限點數',
     'credits.enterEmail': '輸入 Email 以查詢額度',
 
     // Generate page
@@ -227,7 +227,7 @@ export const translations = {
 
     // Credits
     'credits.checking': 'Checking credits...',
-    'credits.remaining': '{count} generations remaining',
+    'credits.remaining': '{count} credits remaining',
     'credits.free': 'Free: {count}',
     'credits.paid': 'Paid: {count}',
     'credits.exhausted': 'No credits remaining — Purchase more',
