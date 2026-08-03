@@ -2,13 +2,24 @@ export const runtime = 'edge';
 
 import { NextRequest } from 'next/server';
 import { isValidEmail } from '@/lib/validation';
-import { errorResponse, successResponse } from '@/lib/api-response';
+import { errorResponse, successResponse, errors } from '@/lib/api-response';
+import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
 
 const MAX_NAME_LENGTH = 100;
 const MAX_MESSAGE_LENGTH = 2000;
 
 export async function POST(request: NextRequest) {
   try {
+    // Unauthenticated POST that accepts free text — the only route left
+    // without a limiter, so nothing stopped a script filling the logs (and
+    // whatever this is wired to deliver later) as fast as it could POST.
+    const ip = getClientIP(request);
+    const rateCheck = await checkRateLimit(`contact:${ip}`, 5, 600);
+    if (!rateCheck.allowed) {
+      const retryAfter = Math.max(1, rateCheck.resetAt - Math.floor(Date.now() / 1000));
+      return errors.rateLimited(retryAfter);
+    }
+
     const body = await request.json();
     const { name, email, message } = body as {
       name?: string;

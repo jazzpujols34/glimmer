@@ -12,7 +12,7 @@ import {
 import { captureError } from '@/lib/errors';
 import { errors } from '@/lib/api-response';
 import { getRequesterEmail, ownsOrAdmin } from '@/lib/owner';
-import { enforceIdentity } from '@/lib/identity';
+import { enforceIdentity, resolveReaderEmail } from '@/lib/identity';
 import type { StoryboardSlot, StoryboardTransitionType, StoryboardTitleCard, StoryboardMusic, StoryboardMusicTrack, StoryboardSubtitle } from '@/types';
 
 export const runtime = 'edge';
@@ -36,8 +36,12 @@ function requireRequesterEmail(request: Request) {
 // GET /api/storyboards/[id] - Get a single storyboard
 export async function GET(request: Request, { params }: RouteParams) {
   try {
-    const requesterEmail = requireRequesterEmail(request);
-    if (typeof requesterEmail !== 'string') return requesterEmail;
+    const resolved = await resolveReaderEmail(request);
+    if ('error' in resolved) {
+      if (resolved.error === 'SESSION_REQUIRED') return errors.sessionRequired();
+      return resolved.error === 'INVALID' ? errors.invalidEmail() : errors.missingField('email');
+    }
+    const requesterEmail = resolved.email;
 
     const { id } = await params;
     const storyboard = await getStoryboard(id);

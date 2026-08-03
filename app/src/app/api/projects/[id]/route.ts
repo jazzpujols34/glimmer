@@ -7,7 +7,7 @@ import { captureError } from '@/lib/errors';
 import { getVideoUrl, getVideoUrls } from '@/lib/video-url';
 import { errors } from '@/lib/api-response';
 import { getRequesterEmail, ownsOrAdmin } from '@/lib/owner';
-import { enforceIdentity } from '@/lib/identity';
+import { enforceIdentity, resolveReaderEmail } from '@/lib/identity';
 
 const NOT_FOUND = () => NextResponse.json({ error: '找不到該專案' }, { status: 404 });
 
@@ -27,8 +27,12 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const requesterEmail = requireRequesterEmail(request);
-    if (typeof requesterEmail !== 'string') return requesterEmail;
+    const resolved = await resolveReaderEmail(request);
+    if ('error' in resolved) {
+      if (resolved.error === 'SESSION_REQUIRED') return errors.sessionRequired();
+      return resolved.error === 'INVALID' ? errors.invalidEmail() : errors.missingField('email');
+    }
+    const requesterEmail = resolved.email;
 
     const { id } = await params;
     const project = await getProject(id);
