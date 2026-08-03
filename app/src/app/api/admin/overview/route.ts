@@ -2,7 +2,7 @@ export const runtime = 'edge';
 
 import { NextRequest } from 'next/server';
 import { kvGet } from '@/lib/kv';
-import { listKeysCapped } from '@/lib/admin-kv';
+import { listKeysCapped, mapWithConcurrency } from '@/lib/admin-kv';
 import { dailyTokenCap } from '@/lib/spend-guard';
 import { buildOverview } from '@/lib/admin-overview';
 import { buildAdminJobRows } from '@/lib/admin-jobs';
@@ -55,23 +55,29 @@ export async function GET(request: NextRequest) {
       listKeysCapped('job:'),
     ]);
 
-    const creditRecords: { email: string; record: CreditRecord }[] = [];
-    for (const key of creditsList.keys) {
-      const data = await kvGet(key);
-      if (data) creditRecords.push({ email: key.replace('credits:', ''), record: JSON.parse(data) });
-    }
+    // Hydrate the three key sets concurrently — see mapWithConcurrency's note:
+    // reading these in series cost one edge round-trip per key and was the
+    // dashboard's whole perceived load time.
+    const [creditValues, verifiedValues, jobValues] = await Promise.all([
+      mapWithConcurrency(creditsList.keys, (key) => kvGet(key)),
+      mapWithConcurrency(verifiedList.keys, (key) => kvGet(key)),
+      mapWithConcurrency(jobsList.keys, (key) => kvGet(key)),
+    ]);
 
-    let verifiedCount = 0;
-    for (const key of verifiedList.keys) {
-      const data = await kvGet(key);
-      if (data === 'true') verifiedCount++;
-    }
+    const creditRecords: { email: string; record: CreditRecord }[] = creditsList.keys.flatMap(
+      (key, i) => {
+        const data = creditValues[i];
+        return data
+          ? [{ email: key.replace('credits:', ''), record: JSON.parse(data) as CreditRecord }]
+          : [];
+      },
+    );
 
-    const jobs: GenerationJob[] = [];
-    for (const key of jobsList.keys) {
-      const data = await kvGet(key);
-      if (data) jobs.push(JSON.parse(data));
-    }
+    const verifiedCount = verifiedValues.filter((data) => data === 'true').length;
+
+    const jobs: GenerationJob[] = jobValues.flatMap((data) =>
+      data ? [JSON.parse(data) as GenerationJob] : [],
+    );
 
     const overview = buildOverview({
       spendByDate,

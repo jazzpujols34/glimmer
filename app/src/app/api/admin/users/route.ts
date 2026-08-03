@@ -2,7 +2,7 @@ export const runtime = 'edge';
 
 import { NextRequest } from 'next/server';
 import { kvListKeys, kvGet, kvPut } from '@/lib/kv';
-import { listKeysCapped } from '@/lib/admin-kv';
+import { listKeysCapped, mapWithConcurrency } from '@/lib/admin-kv';
 import { getCreditRecord, checkCredits, isAdmin, getFreeRecord } from '@/lib/credits';
 import { buildAdminUserRows } from '@/lib/admin-users';
 import { captureError } from '@/lib/errors';
@@ -34,16 +34,12 @@ export async function GET(request: NextRequest) {
 
     // Get user's jobs
     const jobKeys = await kvListKeys('job:');
-    const userJobs: GenerationJob[] = [];
-    for (const key of jobKeys) {
-      const data = await kvGet(key);
-      if (data) {
-        const job = JSON.parse(data) as GenerationJob;
-        if (job.email?.toLowerCase() === normalizedEmail) {
-          userJobs.push(job);
-        }
-      }
-    }
+    const jobValues = await mapWithConcurrency(jobKeys, (key) => kvGet(key));
+    const userJobs: GenerationJob[] = jobValues.flatMap((data) => {
+      if (!data) return [];
+      const job = JSON.parse(data) as GenerationJob;
+      return job.email?.toLowerCase() === normalizedEmail ? [job] : [];
+    });
 
     // Sort jobs by date (newest first)
     userJobs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
@@ -78,35 +74,38 @@ async function getUsersList() {
       listKeysCapped('job:'),
     ]);
 
-    const creditRecords: Record<string, CreditRecord> = {};
-    for (const key of creditsList.keys) {
-      const data = await kvGet(key);
-      if (data) creditRecords[key.replace('credits:', '')] = JSON.parse(data);
-    }
-
+    // All four key sets hydrate concurrently — in series this was one edge
+    // round-trip per key and dominated the dashboard's load time.
     // Free-tier usage MUST go through credits.ts's getFreeRecord — it holds the
     // boolean->number migration for legacy records; never reparse raw here.
+    const [creditValues, freeRecords, verifiedValues, jobValues] = await Promise.all([
+      mapWithConcurrency(creditsList.keys, (key) => kvGet(key)),
+      mapWithConcurrency(freeList.keys, (key) => getFreeRecord(key.replace('free:', ''))),
+      mapWithConcurrency(verifiedList.keys, (key) => kvGet(key)),
+      mapWithConcurrency(jobsList.keys, (key) => kvGet(key)),
+    ]);
+
+    const creditRecords: Record<string, CreditRecord> = {};
+    creditsList.keys.forEach((key, i) => {
+      const data = creditValues[i];
+      if (data) creditRecords[key.replace('credits:', '')] = JSON.parse(data);
+    });
+
     const freeUsed: Record<string, number> = {};
-    for (const key of freeList.keys) {
-      const freeEmail = key.replace('free:', '');
-      const record = await getFreeRecord(freeEmail);
-      freeUsed[freeEmail] = record.used;
-    }
+    freeList.keys.forEach((key, i) => {
+      freeUsed[key.replace('free:', '')] = freeRecords[i].used;
+    });
 
     const verifiedEmails = new Set<string>();
-    for (const key of verifiedList.keys) {
-      const data = await kvGet(key);
-      if (data === 'true') verifiedEmails.add(key.replace('verified:', ''));
-    }
+    verifiedList.keys.forEach((key, i) => {
+      if (verifiedValues[i] === 'true') verifiedEmails.add(key.replace('verified:', ''));
+    });
 
-    const jobs: { email?: string; createdAt: string }[] = [];
-    for (const key of jobsList.keys) {
-      const data = await kvGet(key);
-      if (data) {
-        const job = JSON.parse(data) as GenerationJob;
-        jobs.push({ email: job.email, createdAt: job.createdAt });
-      }
-    }
+    const jobs: { email?: string; createdAt: string }[] = jobValues.flatMap((data) => {
+      if (!data) return [];
+      const job = JSON.parse(data) as GenerationJob;
+      return [{ email: job.email, createdAt: job.createdAt }];
+    });
 
     const users = buildAdminUserRows({ creditRecords, freeUsed, verifiedEmails, jobs });
     const truncated = creditsList.truncated || freeList.truncated || verifiedList.truncated || jobsList.truncated;
