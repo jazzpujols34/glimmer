@@ -8,7 +8,7 @@
 
 **Stack:** Next.js 16, React, TypeScript, Tailwind CSS, Cloudflare Pages (Edge Runtime), Cloudflare KV, Cloudflare R2
 
-**Stats (2026-03-10):** 176+ commits, 140+ source files, 51 tests, deployed on Cloudflare Pages
+Deployed on Cloudflare Pages.
 
 ## Folder Structure
 
@@ -110,7 +110,7 @@ Avoid re-declaring these — always import from the canonical source:
 
 ## Assigned Ports
 
-**ALWAYS use these ports (never use defaults 3000/5173/8000):**
+**Dev ports (each monorepo project has its own range, so defaults like 3000/5173/8000 collide):**
 - Frontend: `3200`
 - Backend: `3201` (if applicable)
 
@@ -119,7 +119,7 @@ Avoid re-declaring these — always import from the canonical source:
 ```bash
 cd app && npm run dev -- --port 3200   # Dev server
 cd app && npm run build                 # Production build
-cd app && npm test                      # Tests (Vitest, 51 tests)
+cd app && npm test                      # Tests (Vitest)
 ```
 
 ## Batch Video Generation
@@ -188,7 +188,7 @@ Pay-per-generation credits (not subscriptions). Email-only identity (no password
 
 - **[2026-08-02] Progressive Google identity Phase 2a: session wakes up on the client** (branch `feature/oauth-phase2a`, not yet merged/deployed) — `/api/auth/session` now returns the email resolved through `resolveIdentity()` (submap-mapped, not the raw session claim), and a new no-render `SessionIdentitySync` component (mounted once in `src/app/layout.tsx`) fetches it on load and promotes it into `localStorage['glimmer_email']` when it differs, dispatching a `storage` event so already-mounted pages (`create/page.tsx`) pick it up without a manual refresh. Decision logic (`resolveSyncedEmail`) lives in `src/lib/session-sync.ts`, split out purely so it's unit-testable — this repo's vitest config is `environment: 'node'` with `include: ['src/**/*.test.ts']` only, i.e. **no component-rendering tests exist or are supported without adding `@testing-library/react`**; keep React glue thin and push logic into plain `.ts` modules to stay testable under the current harness. `AuthButton` was considered as the sync point but only mounts on the landing page (`src/app/page.tsx`), never `/create` — confirms a shared-header-less app needs the root-layout home, not a per-component fix. Still display/client-identity only — no route enforces the session (Phase 2b). Bundle: 24.886 → 24.899 MiB, ~101 KiB headroom left.
 
-- **[2026-08-02] CF Pages has a 25 MiB Functions bundle limit and ONLY Cloudflare's deploy step enforces it** — local `next build` AND local `npx @cloudflare/next-on-pages` both pass on a bundle that CF rejects ("Generated Pages Functions bundle size is over the limit of 25.0 MiB"). The Next 16.1.4→16.2.12 bump inflated the worker to 26.03 MiB and **silently broke every deploy from 2026-08-01 until the revert (`9fc180d`)**; prod kept serving the last good build, so nothing looked wrong. Before ANY dep bump or large feature: build with `npx @cloudflare/next-on-pages`, then measure `find .vercel/output/static/_worker.js -name "*.js" -o -name "*.wasm" | xargs stat -f%z | awk '{s+=$1} END {print s/1048576}'` — we sit at ~24.8 MiB with ~200 KiB headroom. Retrying the Next 16.2.x upgrade REQUIRES a bundle diet first, done against a preview deployment. After every push to main, verify the deployment actually succeeded (`npx wrangler pages deployment list --project-name=glimmer`) — a red build is silent otherwise. Build logs are fetchable via the CF API: `GET /accounts/{acct}/pages/projects/glimmer/deployments/{id}/history/logs` with wrangler's OAuth token.
+- **[2026-08-02] CF Pages has a 25 MiB Functions bundle limit and ONLY Cloudflare's deploy step enforces it** — local `next build` AND local `npx @cloudflare/next-on-pages` both pass on a bundle that CF rejects ("Generated Pages Functions bundle size is over the limit of 25.0 MiB"). The Next 16.1.4→16.2.12 bump inflated the worker to 26.03 MiB and **silently broke every deploy from 2026-08-01 until the revert (`9fc180d`)**; prod kept serving the last good build, so nothing looked wrong. Before ANY dep bump or large feature: build with `npx @cloudflare/next-on-pages`, then measure `find .vercel/output/static/_worker.js -name "*.js" -o -name "*.wasm" | xargs stat -f%z | awk '{s+=$1} END {print s/1048576}'` — headroom is under 100 KiB (see the newer bundle note above for the latest figure). Retrying the Next 16.2.x upgrade REQUIRES a bundle diet first, done against a preview deployment. After every push to main, verify the deployment actually succeeded (`npx wrangler pages deployment list --project-name=glimmer`) — a red build is silent otherwise. Build logs are fetchable via the CF API: `GET /accounts/{acct}/pages/projects/glimmer/deployments/{id}/history/logs` with wrangler's OAuth token.
   - **Corollary, verified while building the admin portal (same day):** each Cloudflare Pages Function (`__next-on-pages-dist__/functions/**/*.func.js`) carries a **fixed ~320-330 KiB bundle overhead regardless of route logic size** — even a near-trivial route (`api/webhooks/ecpay-return.func.js`) is ~312 KiB, while a full route with real business logic (`api/admin/overview.func.js`) is only ~334 KiB, i.e. the route's own code was <25 KiB of that. With only ~190-200 KiB of headroom at baseline, **adding even ONE new `route.ts` file can blow the budget** — code-golfing the new route's logic does nothing, since the fixed per-function cost dwarfs it. The fix is architectural, not stylistic: fold new read endpoints into an existing route's query-param space (e.g. `?jobsEmail=`) instead of creating a new `route.ts`, or retire an old route to net the function count back to zero. Always confirm with a real `next build` — `/some-page` routes with no server data dependency (e.g. `/admin`, a pure `'use client'` page) come out `○` static and cost nothing against this limit; only new `ƒ` (dynamic) routes/functions do.
 
 - **[2026-07-30] Per-user routes MUST take an explicit owner**: `/api/gallery` was declared `export async function GET()` — no request object, so no identity — and `getCompletedJobs()` did a bare `kvListKeys('job:')`. It served every user's completed videos to anonymous visitors. `/api/projects` and `/api/storyboards` had a subtler version: `searchParams.get('email') || undefined` combined with `if (!email || project.email === email)`, so **omitting the param disabled the filter**. An opt-in filter is not access control. Every per-user route now goes through `getRequesterEmail()` + `ownsOrAdmin()` from `src/lib/owner.ts`: missing/invalid email → 400, non-owner → **404** (never 403 — don't confirm another user's resource exists), resource with no `email` field → admin-only. Admins bypass via `isAdmin()`. Deliberately NOT changed: `/api/proxy-video`, `/api/proxy-r2`, `/api/export-download` keep their unguessable-id bearer model (the RUNBOOK's "send a lost video back to a customer" flow depends on it) — scoping the *listings* is what stops ids being enumerable. Also still open by design: `/api/status/[id]`. Known limitation: the requester email is client-supplied and spoofable; this closes anonymous enumeration, not a determined attacker. A signed identity token is the real fix and would force existing verified users to re-verify.
@@ -225,12 +225,12 @@ Pay-per-generation credits (not subscriptions). Email-only identity (no password
 
 - **[2026-02-26] R2 Archival**: Videos auto-archived when generation completes. R2 proxy URLs never expire. CDN URLs expire in 24h.
 
-- **[2026-02-26] Feature Gating**: `/api/access` → `useAccess()` hook → `<AccessGate>` wrapper. Admin grants stored as purchases with `provider: 'admin'`.
+- **[2026-02-26] Feature Gating**: `/api/credits` (access folded in) → `useAccess()` hook → `<AccessGate>` wrapper. Admin grants stored as purchases with `provider: 'admin'`.
 
 - **[2026-02-02] Auto-Save**: IndexedDB for editor state. Debounce 1s, skip UI-only actions. Strip `blobUrl` before saving, re-fetch on restore. Migration logic for renamed enum values.
 
 - **[2026-02-01] Credits**: Deduct AFTER external API success, not before. Idempotent webhooks: check `purchase.id` before adding credits.
 
-- **[2026-02-01] Business Model**: Pay-per-video > subscriptions for event-driven products. Price anchor against traditional production (NT$15,000+ vs NT$499). Enterprise = "contact sales" to control margins.
+- **[2026-02-01] Business Model**: Pay-per-video > subscriptions for event-driven products. Price anchor against traditional production (NT$15,000+ vs a NT$299 pack). Enterprise = "contact sales" to control margins.
 
 - **[2026-01-31] Landing Page**: 7-section framework: Hero, Benefits, Showcase, Social Proof, Why Us, Pricing, FAQ. Founder story substitutes for missing testimonials.
