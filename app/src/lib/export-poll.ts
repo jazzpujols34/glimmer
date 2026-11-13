@@ -43,10 +43,11 @@ export async function waitForExport(exportId: string, opts: WaitForExportOptions
       // fall through as a failed poll
     }
 
-    if (notFound) throw new Error('找不到匯出任務，請重新匯出');
-
     if (!result) {
-      if (++failures >= MAX_CONSECUTIVE_FAILURES) throw new Error('無法取得匯出進度，請稍後再試');
+      // "Not found" counts as a failed poll too: one stale read must not end a healthy export.
+      if (++failures >= MAX_CONSECUTIVE_FAILURES) {
+        throw new Error(notFound ? '找不到匯出任務，請重新匯出' : '無法取得匯出進度，請稍後再試');
+      }
       continue;
     }
     failures = 0;

@@ -21,6 +21,7 @@ import {
   deriveBatchStatus,
   isTerminalBatchStatus,
   isTerminalJobStatus,
+  missingSegmentIsPending,
 } from './lifecycle';
 
 /**
@@ -544,8 +545,9 @@ export async function updateBatchStatus(batchId: string): Promise<BatchJob | und
   const jobs = await Promise.all(batch.segmentJobIds.map(getJob));
   for (const job of jobs) {
     if (job?.status === 'complete') completed++;
-    else if (!job || job.status === 'error') failed++;
-    else pending++;
+    else if (job?.status === 'error') failed++;
+    else if (job || missingSegmentIsPending(batch.createdAt)) pending++;
+    else failed++;
   }
 
   const status: BatchStatus = deriveBatchStatus({ completed, failed, pending });

@@ -106,6 +106,19 @@ describe('job status is a one-way street once it reaches a final state', () => {
   });
 });
 
+describe('a record with a status outside the table', () => {
+  it('can still be edited instead of crashing every write', async () => {
+    await createJob('job_odd');
+    const raw = JSON.parse(mockStore.get('job:job_odd')!);
+    raw.status = 'cancelled';
+    mockStore.set('job:job_odd', JSON.stringify(raw));
+
+    const updated = await updateJob('job_odd', { favorite: true, progress: 5 });
+    expect(updated?.favorite).toBe(true);
+    await expect(setJobError('job_odd', 'boom')).resolves.toMatchObject({ status: 'error' });
+  });
+});
+
 describe('job record lifetime', () => {
   it('a paid job keeps its 30 days when a failed archive succeeds on retry', async () => {
     await processingJob('job_7');
@@ -147,10 +160,23 @@ describe('batch status never slides backwards', () => {
     expect((await getBatch(batchId))?.status).toBe('complete');
   });
 
-  it('a segment whose record vanished mid-run counts as failed, not as still running', async () => {
+  it('a missing segment record on a young batch is a slow read, so the batch keeps running', async () => {
     const batchId = await batchWith(['job_c', 'job_d']);
     await setJobComplete('job_c', 'videos/job_c/0.mp4', undefined, { archived: true });
     mockStore.delete('job:job_d');
+    const after = await updateBatchStatus(batchId);
+    expect(after?.status).toBe('processing');
+    expect(after?.failedSegments).toBe(0);
+  });
+
+  it('a missing segment record on a batch older than a day has expired, so it counts as failed', async () => {
+    const batchId = await batchWith(['job_c', 'job_d']);
+    await setJobComplete('job_c', 'videos/job_c/0.mp4', undefined, { archived: true });
+    mockStore.delete('job:job_d');
+    const stored = JSON.parse(mockStore.get(`batch:${batchId}`)!);
+    stored.createdAt = new Date(Date.now() - 25 * 3600 * 1000).toISOString();
+    mockStore.set(`batch:${batchId}`, JSON.stringify(stored));
+
     const after = await updateBatchStatus(batchId);
     expect(after?.status).toBe('partial');
     expect(after?.failedSegments).toBe(1);

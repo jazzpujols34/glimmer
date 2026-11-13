@@ -15,6 +15,7 @@ import { logger } from '@/lib/logger';
 import { checkCredits } from '@/lib/credits';
 import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
 import { errors } from '@/lib/api-response';
+import { missingSegmentIsPending } from '@/lib/lifecycle';
 import { getRequesterEmail, ownsOrAdmin } from '@/lib/owner';
 import type { StoryboardSlot, StoryboardClip, StoryboardTransitionType } from '@/types';
 
@@ -97,8 +98,11 @@ export async function GET(
 
     // Generation is over once every segment that exists has settled. Counting
     // against the planned total would wait forever for segments that were
-    // never created, and an expired segment record is settled too.
-    const pendingCount = segments.length - completedCount - failedCount;
+    // never created. An expired segment record is settled; one that is merely not
+    // readable yet is not.
+    const missingCount = batch.segmentJobIds.length - segments.length;
+    const pendingCount = segments.length - completedCount - failedCount
+      + (missingSegmentIsPending(batch.createdAt) ? missingCount : 0);
     const batchComplete = pendingCount === 0;
     let exportStatus: string | undefined;
     let exportProgress: number | undefined;

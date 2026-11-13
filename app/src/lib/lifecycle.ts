@@ -28,8 +28,10 @@ export const QUICK_TRANSITIONS: TransitionTable<QuickJobStatus> = {
   error: [],
 };
 
+// A stored status outside the table (an old or hand-patched record) is treated
+// as open, so an unexpected value can never turn every write into a crash.
 function canTransition<S extends string>(table: TransitionTable<S>, from: S, to: S): boolean {
-  return from === to || table[from].includes(to);
+  return from === to || (table[from]?.includes(to) ?? true);
 }
 
 export const canTransitionJob = (from: GenerationStatus, to: GenerationStatus) =>
@@ -38,17 +40,28 @@ export const canTransitionJob = (from: GenerationStatus, to: GenerationStatus) =
 export const canTransitionQuick = (from: QuickJobStatus, to: QuickJobStatus) =>
   canTransition(QUICK_TRANSITIONS, from, to);
 
-export const isTerminalJobStatus = (status: GenerationStatus) => JOB_TRANSITIONS[status].length === 0;
+export const isTerminalJobStatus = (status: GenerationStatus) => JOB_TRANSITIONS[status]?.length === 0;
 
-export const isTerminalQuickStatus = (status: QuickJobStatus) => QUICK_TRANSITIONS[status].length === 0;
+export const isTerminalQuickStatus = (status: QuickJobStatus) => QUICK_TRANSITIONS[status]?.length === 0;
 
 export const isTerminalBatchStatus = (status: BatchStatus) =>
   status === 'complete' || status === 'partial' || status === 'error';
 
 /**
+ * A segment record cannot expire in its first 24 hours, so "not found" on a
+ * younger batch is a read that has not caught up yet (KV writes can take a
+ * minute to reach every edge) — still pending, not failed.
+ */
+const SEGMENT_RECORD_MIN_LIFE_MS = 24 * 60 * 60 * 1000;
+
+export function missingSegmentIsPending(batchCreatedAt: string, now = Date.now()): boolean {
+  return now - new Date(batchCreatedAt).getTime() < SEGMENT_RECORD_MIN_LIFE_MS;
+}
+
+/**
  * A batch has no status of its own — it is a summary of its segment jobs.
- * `pending` = segments still queued or processing. A segment whose record no
- * longer exists must be counted by the caller as failed, never as pending.
+ * `pending` = segments still queued or processing. For a segment whose record
+ * is missing, the caller asks missingSegmentIsPending().
  */
 export function deriveBatchStatus(counts: { completed: number; failed: number; pending: number }): BatchStatus {
   const { completed, failed, pending } = counts;

@@ -135,3 +135,18 @@ describe('GET /api/quick-status/[id] — the quick job reaches an end state', ()
     expect(body.status).toBe('error');
   });
 });
+
+describe('GET /api/quick-status/[id] — a segment record that is not readable yet', () => {
+  it('keeps a young quick job generating instead of exporting without that segment', async () => {
+    const batch = await createBatch('爺爺', 'owner@example.com', 'memorial', defaultSettings, 2, 'proj_1');
+    await createJob('job_seen', { email: 'owner@example.com' });
+    await updateJob('job_seen', { status: 'processing' });
+    await updateJob('job_seen', { status: 'complete', videoUrl: 'videos/job_seen/0.mp4', videoUrls: ['videos/job_seen/0.mp4'] });
+    await addSegmentToBatch(batch.id, 'job_seen');
+    await addSegmentToBatch(batch.id, 'job_not_visible_yet');
+    const quickJob = await createQuickJob('owner@example.com', 'memorial-gentle', '爺爺', batch.id);
+
+    const res = await GET(buildRequest(quickJob.id), { params: Promise.resolve({ id: quickJob.id }) });
+    expect((await res.json()).status).toBe('generating');
+  });
+});

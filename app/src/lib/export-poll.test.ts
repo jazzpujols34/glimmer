@@ -39,10 +39,15 @@ describe('waitForExport', () => {
     expect(fetchImpl).toHaveBeenCalledTimes(5);
   });
 
-  it('stops at once when the export job no longer exists', async () => {
-    const { promise, fetchImpl } = run([json({ status: 'not_found' }, 404)]);
+  it('gives up after five "not found" answers in a row, with the lost-job message', async () => {
+    const { promise, fetchImpl } = run(Array.from({ length: 10 }, () => json({ status: 'not_found' }, 404)));
     await expect(promise).rejects.toThrow('找不到匯出任務');
-    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(fetchImpl).toHaveBeenCalledTimes(5);
+  });
+
+  it('survives a single stale "not found" on a healthy export', async () => {
+    const { promise } = run([json({ status: 'not_found' }, 404), json({ status: 'complete', downloadUrl: '/d' })]);
+    await expect(promise).resolves.toBe('/d');
   });
 
   it('rejects a completed export that carries no link', async () => {
