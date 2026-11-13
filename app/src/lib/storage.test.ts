@@ -18,7 +18,13 @@ vi.mock('./kv', () => ({
   ),
 }));
 
-import { createJob, setJobComplete } from './storage';
+import { createJob as createQueuedJob, updateJob, setJobComplete } from './storage';
+
+// Jobs only complete from 'processing' (see lifecycle.ts), so fixtures start there.
+async function createJob(id: string, metadata?: Parameters<typeof createQueuedJob>[1]) {
+  await createQueuedJob(id, metadata);
+  await updateJob(id, { status: 'processing' });
+}
 import { getCompletedJobs } from './storage';
 import { createProject, createBatch, createQuickJob, createStoryboard } from './storage';
 import { defaultSettings } from '@/types';

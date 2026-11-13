@@ -13,6 +13,14 @@ import type {
   QuickJob,
 } from '@/types';
 import { kvGet, kvPut, kvDelete, kvListKeys } from './kv';
+import { logger } from './logger';
+import {
+  canTransitionJob,
+  canTransitionQuick,
+  deriveBatchStatus,
+  isTerminalBatchStatus,
+  isTerminalJobStatus,
+} from './lifecycle';
 
 /**
  * Job storage: uses shared KV abstraction from kv.ts.
@@ -69,9 +77,16 @@ export async function getCompletedJobs(email?: string): Promise<GenerationJob[]>
 export async function updateJob(id: string, updates: Partial<GenerationJob>): Promise<GenerationJob | undefined> {
   const job = await getJob(id);
   if (!job) return undefined;
+  // KV has no compare-and-set, so two polls settling the same job is normal:
+  // the first write wins and the late one gets the stored record back.
+  if (updates.status && !canTransitionJob(job.status, updates.status)) {
+    logger.warn(`[Storage] Ignored job ${id} transition ${job.status} -> ${updates.status}`);
+    return job;
+  }
   const updated = { ...job, ...updates };
-  // Preserve 30-day TTL for completed paid jobs; use 24h for everything else
-  const ttl = job.status === 'complete' && job.archived ? PAID_JOB_TTL : JOB_TTL;
+  if (isTerminalJobStatus(job.status)) updated.progress = job.progress;
+  // Preserve 30-day TTL for completed archived jobs; use 24h for everything else
+  const ttl = updated.status === 'complete' && updated.archived ? PAID_JOB_TTL : JOB_TTL;
   await kvPut(`${KEY_PREFIX}${id}`, JSON.stringify(updated), { expirationTtl: ttl });
   return updated;
 }
@@ -85,6 +100,10 @@ export async function setJobComplete(
   const ttl = options?.paidUser ? PAID_JOB_TTL : JOB_TTL;
   const job = await getJob(id);
   if (!job) return undefined;
+  if (job.status === 'complete' || !canTransitionJob(job.status, 'complete')) {
+    logger.warn(`[Storage] Ignored job ${id} transition ${job.status} -> complete`);
+    return job;
+  }
   const updated = {
     ...job,
     status: 'complete' as GenerationStatus,
@@ -529,38 +548,22 @@ export async function addSegmentToBatch(
 export async function updateBatchStatus(batchId: string): Promise<BatchJob | undefined> {
   const batch = await getBatch(batchId);
   if (!batch) return undefined;
+  // Segment records expire and the batch record does not, so a finished batch
+  // must not be recounted from records that are no longer there.
+  if (isTerminalBatchStatus(batch.status)) return batch;
 
-  // Count completed and failed segments
   let completed = 0;
   let failed = 0;
-  let processing = 0;
+  let pending = 0;
 
-  for (const jobId of batch.segmentJobIds) {
-    const job = await getJob(jobId);
-    if (!job) continue;
-
-    if (job.status === 'complete') {
-      completed++;
-    } else if (job.status === 'error') {
-      failed++;
-    } else {
-      processing++;
-    }
+  const jobs = await Promise.all(batch.segmentJobIds.map(getJob));
+  for (const job of jobs) {
+    if (job?.status === 'complete') completed++;
+    else if (!job || job.status === 'error') failed++;
+    else pending++;
   }
 
-  // Determine batch status
-  let status: BatchStatus;
-  if (processing > 0) {
-    status = 'processing';
-  } else if (failed === batch.segmentJobIds.length) {
-    status = 'error';
-  } else if (completed === batch.segmentJobIds.length) {
-    status = 'complete';
-  } else if (failed > 0 && completed > 0) {
-    status = 'partial';
-  } else {
-    status = 'processing';
-  }
+  const status: BatchStatus = deriveBatchStatus({ completed, failed, pending });
 
   return updateBatch(batchId, {
     status,
@@ -627,6 +630,10 @@ export async function updateQuickJob(
 ): Promise<QuickJob | undefined> {
   const quick = await getQuickJob(id);
   if (!quick) return undefined;
+  if (updates.status && !canTransitionQuick(quick.status, updates.status)) {
+    logger.warn(`[Storage] Ignored quick job ${id} transition ${quick.status} -> ${updates.status}`);
+    return quick;
+  }
 
   const updated = { ...quick, ...updates, updatedAt: new Date().toISOString() };
   await kvPut(`${QUICK_PREFIX}${id}`, JSON.stringify(updated));

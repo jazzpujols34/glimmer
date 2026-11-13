@@ -40,6 +40,7 @@ function buildRequest(batchId: string, email?: string): NextRequest {
 async function makeCompleteBatch(email: string) {
   const batch = await createBatch('阿嬤追思影片', email, 'memorial', defaultSettings, 1, 'proj_1');
   await createJob('job_seg1', { email });
+  await updateJob('job_seg1', { status: 'processing' });
   await updateJob('job_seg1', {
     status: 'complete',
     progress: 100,
