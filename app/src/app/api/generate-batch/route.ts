@@ -249,7 +249,6 @@ export async function POST(request: NextRequest) {
           progress: 10,
           provider: taskData.provider,
           externalTaskIds: taskData.externalTaskIds,
-          veoOperationName: taskData.veoOperationName,
         });
 
         // Record estimated provider spend AFTER this segment's task was actually created

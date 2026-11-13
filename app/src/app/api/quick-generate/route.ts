@@ -269,7 +269,6 @@ export async function POST(request: NextRequest) {
           progress: 10,
           provider: taskResult.provider,
           externalTaskIds: taskResult.externalTaskIds,
-          veoOperationName: taskResult.veoOperationName,
         });
 
         // Record estimated provider spend AFTER this segment's task was actually created
@@ -289,8 +288,6 @@ export async function POST(request: NextRequest) {
         // Job may already exist in KV as 'queued' (createJob succeeded before
         // a later step threw) — mark it errored so it doesn't stay a zombie.
         if (jobId) await setJobError(jobId, normalizeError(err));
-        // Already refunded just above — make sure nothing refunds this job again.
-        if (jobId && creditResult?.success) await updateJob(jobId, { refunded: true });
         segmentResults.push({ index: i, jobId: '', success: false });
       }
     }

@@ -468,3 +468,26 @@ describe('free-tier identity canonicalization (gmail alias dedup)', () => {
     expect(balance.freeUsed).toBe(1);
   });
 });
+
+describe('refundCredits — one refund per charge, however many times it is asked', () => {
+  it('a repeated paid refund does not eat into credits spent later', async () => {
+    const email = 'idem-paid@example.com';
+    await addCredits(email, 30, { id: 'idem-p1', credits: 30, amountTWD: 999, createdAt: new Date().toISOString() });
+    await consumeCredits(email, 'job_a', 6);
+    await refundCredits(email, 'job_a', 0, 6);
+    await consumeCredits(email, 'job_b', 4);
+
+    await refundCredits(email, 'job_a', 0, 6);
+
+    expect((await checkCredits(email)).paidUsed).toBe(4);
+  });
+
+  it('a repeated free refund does not give back a second free use', async () => {
+    const email = 'idem-free@example.com';
+    await consumeCredits(email, 'job_a', 1);
+    await consumeCredits(email, 'job_b', 1);
+    await refundCredits(email, 'job_a', 1, 0);
+    await refundCredits(email, 'job_a', 1, 0);
+    expect((await checkCredits(email)).freeUsed).toBe(1);
+  });
+});

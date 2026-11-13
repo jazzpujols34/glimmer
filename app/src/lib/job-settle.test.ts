@@ -33,7 +33,7 @@ vi.mock('./errors', async (orig) => ({
   captureError: vi.fn(),
 }));
 
-import { settleJob, archiveIfNeeded } from './job-settle';
+import { settleJob, archiveIfNeeded, refundIfOwed } from './job-settle';
 import { createJob, getJob, updateJob } from './storage';
 import type { GenerationJob } from '@/types';
 
@@ -182,47 +182,45 @@ describe('archiveIfNeeded', () => {
 });
 
 describe('settleJob — the customer gets the credits back when the provider fails', () => {
-  const charge = { free: 0, paid: 6, ref: 'job_r1' };
+  const charge = (ref: string, paid = 6, free = 0) => ({ free, paid, ref });
+  const failNow = () => checkVideoTaskStatus.mockResolvedValue({ done: true, error: 'OutputVideoSensitiveContentDetected' });
 
-  it('refunds exactly what the job was charged, once, and marks the job', async () => {
-    const job = await processingJob('job_r1', { charge });
-    checkVideoTaskStatus.mockResolvedValue({ done: true, error: 'OutputVideoSensitiveContentDetected' });
+  it('refunds exactly what the job was charged and records the amount', async () => {
+    const job = await processingJob('job_r1', { charge: charge('job_r1') });
+    failNow();
 
     const settled = await settleJob(job);
 
     expect(settled.status).toBe('error');
-    expect(settled.refunded).toBe(true);
-    expect(refundCredits).toHaveBeenCalledTimes(1);
+    expect(settled.refundedCredits).toBe(6);
     expect(refundCredits).toHaveBeenCalledWith('a@example.com', 'job_r1', 0, 6);
-    expect((await getJob('job_r1'))?.refunded).toBe(true);
+    expect((await getJob('job_r1'))?.refundedCredits).toBe(6);
   });
 
-  it('does not refund twice when a second poll still holds the old copy', async () => {
-    const stale = await processingJob('job_r2', { charge: { ...charge, ref: 'job_r2' } });
-    checkVideoTaskStatus.mockResolvedValue({ done: true, error: 'boom' });
-    await settleJob(stale);
-    await settleJob(stale);
-    expect(refundCredits).toHaveBeenCalledTimes(1);
+  it('the stored error never claims a refund — that is the screen\'s job, from the recorded amount', async () => {
+    const job = await processingJob('job_r1b', { charge: charge('job_r1b') });
+    failNow();
+    expect((await settleJob(job)).error).not.toContain('退還');
   });
 
   it('does not refund a job with no charge on record', async () => {
     const job = await processingJob('job_r3');
-    checkVideoTaskStatus.mockResolvedValue({ done: true, error: 'boom' });
+    failNow();
     const settled = await settleJob(job);
     expect(settled.status).toBe('error');
-    expect(settled.refunded).toBeUndefined();
+    expect(settled.refundedCredits).toBeUndefined();
     expect(refundCredits).not.toHaveBeenCalled();
   });
 
   it('does not refund a job that finished', async () => {
-    const job = await processingJob('job_r4', { charge: { ...charge, ref: 'job_r4' } });
+    const job = await processingJob('job_r4', { charge: charge('job_r4') });
     checkVideoTaskStatus.mockResolvedValue({ done: true, videoUrls: ['https://cdn/a.mp4'] });
     await settleJob(job);
     expect(refundCredits).not.toHaveBeenCalled();
   });
 
   it('does not refund when a completion won the race against the failure', async () => {
-    const stale = await processingJob('job_r5', { charge: { ...charge, ref: 'job_r5' } });
+    const stale = await processingJob('job_r5', { charge: charge('job_r5') });
     checkVideoTaskStatus.mockResolvedValueOnce({ done: true, videoUrls: ['https://cdn/a.mp4'] });
     await settleJob(stale);
     checkVideoTaskStatus.mockResolvedValueOnce({ done: true, error: 'late hiccup' });
@@ -231,14 +229,119 @@ describe('settleJob — the customer gets the credits back when the provider fai
     expect(refundCredits).not.toHaveBeenCalled();
   });
 
-  it('keeps the job failed and marked even if the refund write itself fails', async () => {
-    const job = await processingJob('job_r6', { charge: { ...charge, ref: 'job_r6' } });
-    checkVideoTaskStatus.mockResolvedValue({ done: true, error: 'boom' });
+  it('a refund that failed to write is not shown as done, and is retried on the next look', async () => {
+    const job = await processingJob('job_r6', { charge: charge('job_r6') });
+    failNow();
     refundCredits.mockRejectedValueOnce(new Error('kv down'));
+
     const settled = await settleJob(job);
     expect(settled.status).toBe('error');
-    await settleJob(job);
-    expect(refundCredits).toHaveBeenCalledTimes(1); // never a second attempt that could double-refund
+    expect(settled.refundedCredits).toBeUndefined();
+
+    const retried = await refundIfOwed(settled);
+    expect(retried.refundedCredits).toBe(6);
+    expect(refundCredits).toHaveBeenCalledTimes(2);
+  });
+
+  it('refundIfOwed leaves alone a job already refunded, held, running, or never charged', async () => {
+    const base = await processingJob('job_r7', { charge: charge('job_r7') });
+    await refundIfOwed(base); // still processing
+    await refundIfOwed({ ...base, status: 'error', refundedCredits: 6 });
+    await refundIfOwed({ ...base, status: 'error', refundHeld: true });
+    await refundIfOwed({ ...base, status: 'error', charge: undefined });
+    await refundIfOwed({ ...base, status: 'complete', videoUrls: ['videos/x/0.mp4'] });
+    expect(refundCredits).not.toHaveBeenCalled();
+  });
+});
+
+describe('settleJob — automatic refunds are capped, so failing on purpose is not free', () => {
+  async function failOne(id: string, extra: Partial<GenerationJob> = {}) {
+    const job = await processingJob(id, { charge: { free: 0, paid: 1, ref: id }, ...extra });
+    checkVideoTaskStatus.mockResolvedValue({ done: true, error: 'OutputVideoSensitiveContentDetected' });
+    return settleJob(job);
+  }
+
+  it('the email gets three automatic refunds a day; the fourth is held for review, not refunded', async () => {
+    for (const id of ['job_c1', 'job_c2', 'job_c3']) {
+      expect((await failOne(id)).refundedCredits).toBe(1);
+    }
+    const fourth = await failOne('job_c4');
+
+    expect(fourth.status).toBe('error');
+    expect(fourth.refundHeld).toBe(true);
+    expect(fourth.refundedCredits).toBeUndefined();
+    expect(refundCredits).toHaveBeenCalledTimes(3);
+  });
+
+  it('one failure asked about many times uses one slot of the cap, not several', async () => {
+    const job = await processingJob('job_c5', { charge: { free: 0, paid: 1, ref: 'job_c5' } });
+    checkVideoTaskStatus.mockResolvedValue({ done: true, error: 'boom' });
+    await Promise.all([settleJob(job), settleJob(job), settleJob(job)]);
+    for (const id of ['job_c6', 'job_c7']) {
+      expect((await failOne(id)).refundedCredits).toBe(1);
+    }
+  });
+
+  it('many emails behind one address share a cap of five a day', async () => {
+    for (let i = 0; i < 5; i++) {
+      await createJob(`job_ip${i}`, { email: `user${i}@example.com` });
+      const job = (await updateJob(`job_ip${i}`, {
+        status: 'processing', provider: 'byteplus', externalTaskIds: ['t'], ip: '203.0.113.9',
+        charge: { free: 1, paid: 0, ref: `job_ip${i}` },
+      }))!;
+      checkVideoTaskStatus.mockResolvedValue({ done: true, error: 'boom' });
+      expect((await settleJob(job)).refundedCredits).toBe(1);
+    }
+    await createJob('job_ip5', { email: 'user5@example.com' });
+    const sixth = (await updateJob('job_ip5', {
+      status: 'processing', provider: 'byteplus', externalTaskIds: ['t'], ip: '203.0.113.9',
+      charge: { free: 1, paid: 0, ref: 'job_ip5' },
+    }))!;
+    expect((await settleJob(sixth)).refundHeld).toBe(true);
+  });
+});
+
+describe('settleJob — some versions fail, the good ones are kept', () => {
+  it('four ordered, one failed: three videos kept, a quarter of the charge refunded', async () => {
+    const job = await processingJob('job_p1', {
+      externalTaskIds: ['t1', 't2', 't3', 't4'],
+      charge: { free: 0, paid: 4, ref: 'job_p1' },
+    });
+    checkVideoTaskStatus.mockResolvedValue({
+      done: true, videoUrls: ['https://cdn/a.mp4', 'https://cdn/c.mp4', 'https://cdn/d.mp4'], failedCount: 1, error: 'filtered',
+    });
+
+    const settled = await settleJob(job);
+
+    expect(settled.status).toBe('complete');
+    expect(settled.videoUrls).toHaveLength(3);
+    expect(settled.failedVideos).toBe(1);
+    expect(settled.refundedCredits).toBe(1);
+    expect(settled.error).toBeUndefined();
+    expect(refundCredits).toHaveBeenCalledWith('a@example.com', 'job_p1', 0, 1);
+  });
+
+  it('rounds an uneven share in the customer\'s favour', async () => {
+    const job = await processingJob('job_p2', {
+      externalTaskIds: ['t1', 't2', 't3'],
+      charge: { free: 0, paid: 5, ref: 'job_p2' },
+    });
+    checkVideoTaskStatus.mockResolvedValue({ done: true, videoUrls: ['https://cdn/a.mp4', 'https://cdn/b.mp4'], failedCount: 1 });
+    expect((await settleJob(job)).refundedCredits).toBe(2); // 5 / 3 = 1.67
+  });
+
+  it('a partial refund that failed to write is retried with the same share', async () => {
+    const job = await processingJob('job_p3', {
+      externalTaskIds: ['t1', 't2'],
+      charge: { free: 0, paid: 4, ref: 'job_p3' },
+    });
+    checkVideoTaskStatus.mockResolvedValue({ done: true, videoUrls: ['https://cdn/a.mp4'], failedCount: 1 });
+    refundCredits.mockRejectedValueOnce(new Error('kv down'));
+    const settled = await settleJob(job);
+    expect(settled.status).toBe('complete');
+    expect(settled.refundedCredits).toBeUndefined();
+
+    expect((await refundIfOwed(settled)).refundedCredits).toBe(2);
   });
 });
 
@@ -259,16 +362,14 @@ describe('settleJob — a job the provider never finishes', () => {
 
     expect(settled.status).toBe('error');
     expect(settled.error).toContain('逾時');
-    expect(settled.error).toContain('已退還');
+    expect(settled.refundedCredits).toBe(1);
     expect(refundCredits).toHaveBeenCalledWith('a@example.com', 'job_s1', 1, 0);
   });
 
-  it('does not promise a refund it cannot make', async () => {
-    const job = await agedJob('job_s2', 4);
-    checkVideoTaskStatus.mockResolvedValue({ done: false, progress: 10 });
-    const settled = await settleJob(job);
-    expect(settled.status).toBe('error');
-    expect(settled.error).not.toContain('已退還');
+  it('also when the provider cannot be asked at all for three hours', async () => {
+    const job = await agedJob('job_s4', 4, { charge: { free: 1, paid: 0, ref: 'job_s4' } });
+    checkVideoTaskStatus.mockRejectedValue(new Error('BYTEPLUS_API_KEY not set'));
+    expect((await settleJob(job)).status).toBe('error');
   });
 
   it('leaves a two-hour-old job running', async () => {

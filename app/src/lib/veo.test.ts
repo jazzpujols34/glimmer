@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { buildBytePlusContent, checkBytePlusTasks, isWithinStatusGrace } from './veo';
+import { buildBytePlusContent, checkBytePlusTasks } from './veo';
 import { defaultSettings } from '@/types';
 import type { GenerationSettings } from '@/types';
 
@@ -62,10 +62,17 @@ describe('buildBytePlusContent', () => {
   });
 });
 
-describe('checkBytePlusTasks — a provider outage is not a failed video', () => {
+describe('checkBytePlusTasks — only the provider saying "failed" is a failure', () => {
   const realFetch = globalThis.fetch;
   const respond = (status: number, body: unknown = {}) =>
     Promise.resolve(new Response(JSON.stringify(body), { status }));
+  const ok = (url: string) => respond(200, { status: 'succeeded', content: { video_url: url } });
+  const failed = (message: string) => respond(200, { status: 'failed', error: { code: 'X', message } });
+  const queue = (...answers: Array<() => Promise<Response>>) => {
+    const fn = vi.fn();
+    answers.forEach(a => fn.mockImplementationOnce(a));
+    globalThis.fetch = fn as typeof fetch;
+  };
 
   beforeEach(() => {
     process.env.BYTEPLUS_API_KEY = 'test-key';
@@ -74,43 +81,48 @@ describe('checkBytePlusTasks — a provider outage is not a failed video', () =>
     globalThis.fetch = realFetch;
   });
 
-  it('keeps a young job running through a 503', async () => {
-    globalThis.fetch = vi.fn(() => respond(503)) as typeof fetch;
-    const result = await checkBytePlusTasks(['t1'], true);
+  it.each([429, 500, 503, 401, 404])('a status call answering %i leaves the job running, at any age', async (code) => {
+    queue(() => respond(code));
+    const result = await checkBytePlusTasks(['t1']);
     expect(result.done).toBe(false);
     expect(result.error).toBeUndefined();
   });
 
-  it('keeps a young job running through a 429', async () => {
-    globalThis.fetch = vi.fn(() => respond(429)) as typeof fetch;
-    expect((await checkBytePlusTasks(['t1'], true)).done).toBe(false);
-  });
-
-  it('still fails a young job on a 404 — the task does not exist', async () => {
-    globalThis.fetch = vi.fn(() => respond(404)) as typeof fetch;
-    const result = await checkBytePlusTasks(['t1'], true);
-    expect(result).toEqual({ done: true, error: 'BytePlus status check failed: 404' });
-  });
-
-  it('fails an old job on a 503, so a dead provider cannot spin forever', async () => {
-    globalThis.fetch = vi.fn(() => respond(503)) as typeof fetch;
-    const result = await checkBytePlusTasks(['t1'], false);
-    expect(result).toEqual({ done: true, error: 'BytePlus status check failed: 503' });
+  it('a missing API key is "could not ask", not a failed video', async () => {
+    delete process.env.BYTEPLUS_API_KEY;
+    await expect(checkBytePlusTasks(['t1'])).rejects.toThrow('BYTEPLUS_API_KEY');
   });
 
   it('one finished task plus one unreachable task is progress, not completion', async () => {
-    globalThis.fetch = vi
-      .fn()
-      .mockImplementationOnce(() => respond(200, { status: 'succeeded', content: { video_url: 'https://cdn/a.mp4' } }))
-      .mockImplementationOnce(() => respond(502)) as typeof fetch;
-    const result = await checkBytePlusTasks(['t1', 't2'], true);
+    queue(() => ok('https://cdn/a.mp4'), () => respond(502));
+    const result = await checkBytePlusTasks(['t1', 't2']);
     expect(result.done).toBe(false);
     expect(result.videoUrls).toBeUndefined();
   });
 
-  it('the grace window is 30 minutes from job creation', () => {
-    const now = Date.parse('2026-11-13T12:00:00Z');
-    expect(isWithinStatusGrace('2026-11-13T11:31:00Z', now)).toBe(true);
-    expect(isWithinStatusGrace('2026-11-13T11:29:00Z', now)).toBe(false);
+  it('keeps the good videos when one of four fails', async () => {
+    queue(() => ok('https://cdn/a.mp4'), () => failed('OutputVideoSensitiveContentDetected'), () => ok('https://cdn/c.mp4'), () => ok('https://cdn/d.mp4'));
+    const result = await checkBytePlusTasks(['t1', 't2', 't3', 't4']);
+    expect(result).toEqual({
+      done: true,
+      videoUrls: ['https://cdn/a.mp4', 'https://cdn/c.mp4', 'https://cdn/d.mp4'],
+      failedCount: 1,
+      error: 'OutputVideoSensitiveContentDetected',
+    });
+  });
+
+  it('does not settle while a failed task has a sibling still rendering', async () => {
+    queue(() => failed('boom'), () => respond(200, { status: 'running' }));
+    expect((await checkBytePlusTasks(['t1', 't2'])).done).toBe(false);
+  });
+
+  it('is a plain failure when every task failed', async () => {
+    queue(() => failed('boom'), () => failed('bang'));
+    expect(await checkBytePlusTasks(['t1', 't2'])).toEqual({ done: true, error: 'boom' });
+  });
+
+  it('all good: no failure fields at all', async () => {
+    queue(() => ok('https://cdn/a.mp4'));
+    expect(await checkBytePlusTasks(['t1'])).toEqual({ done: true, videoUrls: ['https://cdn/a.mp4'] });
   });
 });

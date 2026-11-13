@@ -64,11 +64,12 @@ export interface GenerationJob {
   // Edge-compatible: external task tracking (serverless polling)
   provider?: ModelType;
   externalTaskIds?: string[];       // BytePlus/Kling task IDs
-  veoOperationName?: string;        // Veo operation resource name
   // What this job cost, so a provider failure can give exactly that back.
   // `ref` is the id consumeCredits() was called with. Absent on older jobs.
   charge?: { free: number; paid: number; ref: string };
-  refunded?: boolean;               // true once `charge` has been given back
+  refundedCredits?: number;         // set only after the refund was written: what was given back
+  refundHeld?: boolean;             // over the daily auto-refund cap: owed, waits for a manual review
+  failedVideos?: number;            // versions the provider failed while others in this job succeeded
 }
 
 // === Credit System Types ===
@@ -92,6 +93,7 @@ export interface CreditRecord {
   total: number;          // total paid generations purchased
   used: number;           // paid generations consumed
   purchases: PurchaseRecord[];
+  refunds?: string[];     // charge refs already given back (newest last), so a refund never applies twice
 }
 
 export interface PurchaseRecord {

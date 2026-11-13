@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { Logo } from '@/components/Logo';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { GenerationProgress } from '@/components/GenerationProgress';
+import { GenerationProgress, type RefundInfo } from '@/components/GenerationProgress';
 import { ChevronDown, ChevronLeft, ChevronRight, Clock, FolderOpen, Image, Share2 } from 'lucide-react';
 import { trackGenerationComplete, trackGenerationError } from '@/lib/analytics';
 
@@ -42,14 +42,15 @@ export default function GeneratePage({ params }: PageProps) {
   const { id } = use(params);
   const [result, setResult] = useState<CompletionData | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [refunded, setRefunded] = useState(false);
+  const [refund, setRefund] = useState<RefundInfo>({});
   const [retryKey, setRetryKey] = useState(0);
   const [showTechInfo, setShowTechInfo] = useState(false);
   const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
   const videoRef = useRef<HTMLVideoElement>(null);
 
-  const handleComplete = (url: string, urls: string[], analysis?: string) => {
+  const handleComplete = (url: string, urls: string[], analysis?: string, refundInfo?: RefundInfo) => {
     setResult({ url, urls, analysis });
+    setRefund(refundInfo ?? {});
 
     // Track generation complete
     try {
@@ -62,9 +63,9 @@ export default function GeneratePage({ params }: PageProps) {
     } catch { /* ignore */ }
   };
 
-  const handleError = (err: string, wasRefunded?: boolean) => {
+  const handleError = (err: string, refundInfo?: RefundInfo) => {
     setError(err);
-    setRefunded(wasRefunded === true);
+    setRefund(refundInfo ?? {});
 
     // Track generation error
     try {
@@ -125,11 +126,15 @@ export default function GeneratePage({ params }: PageProps) {
                     您可以換一張照片，或稍後再試。<br />
                     每一段回憶都值得被好好珍藏。
                   </p>
-                  {refunded && (
+                  {refund.refundedCredits ? (
                     <p className="text-sm font-medium text-amber-700 dark:text-amber-400">
-                      這次使用的點數已經退還給您。
+                      這次扣除的 {refund.refundedCredits} 點已經退還給您。
                     </p>
-                  )}
+                  ) : refund.refundHeld ? (
+                    <p className="text-sm font-medium text-amber-700 dark:text-amber-400">
+                      這次的點數尚未自動退還。請與我們聯絡，我們會為您人工處理。
+                    </p>
+                  ) : null}
                 </div>
                 <div className="flex flex-col sm:flex-row gap-3 justify-center">
                   <Button asChild>
@@ -172,6 +177,16 @@ export default function GeneratePage({ params }: PageProps) {
                       ? '您的回憶影片已經準備好了'
                       : '已分析您的照片，正準備生成影片'}
                   </p>
+                  {refund.failedVideos ? (
+                    <p className="text-sm text-amber-700 dark:text-amber-400">
+                      有 {refund.failedVideos} 個版本未能生成，其餘已為您保留。
+                      {refund.refundedCredits
+                        ? `未生成的部分已退還 ${refund.refundedCredits} 點。`
+                        : refund.refundHeld
+                          ? '未生成部分的點數尚未自動退還，請與我們聯絡。'
+                          : ''}
+                    </p>
+                  ) : null}
                 </div>
 
                 {/* Preview - Video or Image with Carousel */}

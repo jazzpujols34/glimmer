@@ -98,7 +98,7 @@ export async function setJobComplete(
   id: string,
   videoUrl: string,
   videoUrls?: string[],
-  options?: { paidUser?: boolean; archived?: boolean },
+  options?: { paidUser?: boolean; archived?: boolean; failedVideos?: number },
 ): Promise<GenerationJob | undefined> {
   const ttl = options?.paidUser ? PAID_JOB_TTL : JOB_TTL;
   const job = await getJob(id);
@@ -114,6 +114,7 @@ export async function setJobComplete(
     videoUrl,
     videoUrls: videoUrls || [videoUrl],
     archived: options?.archived,
+    ...(options?.failedVideos ? { failedVideos: options.failedVideos } : {}),
   };
   await kvPut(`${KEY_PREFIX}${id}`, JSON.stringify(updated), { expirationTtl: ttl });
   return updated;
