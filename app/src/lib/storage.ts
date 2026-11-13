@@ -13,6 +13,16 @@ import type {
   QuickJob,
 } from '@/types';
 import { kvGet, kvPut, kvDelete, kvListKeys } from './kv';
+import { logger } from './logger';
+import { mapWithConcurrency } from './admin-kv';
+import {
+  canTransitionJob,
+  canTransitionQuick,
+  deriveBatchStatus,
+  isTerminalBatchStatus,
+  isTerminalJobStatus,
+  missingSegmentIsPending,
+} from './lifecycle';
 
 /**
  * Job storage: uses shared KV abstraction from kv.ts.
@@ -25,6 +35,17 @@ const PAID_JOB_TTL = 2592000;   // 30 days (paid users)
 // --- Public API (all async) ---
 
 const KEY_PREFIX = 'job:';
+
+/** Reads every record under a prefix, a bounded number at a time rather than one by one. */
+async function readAll<T>(prefix: string): Promise<T[]> {
+  const keys = await kvListKeys(prefix);
+  const raw = await mapWithConcurrency(keys, kvGet);
+  return raw.filter((data): data is string => !!data).map(data => JSON.parse(data) as T);
+}
+
+// Stored owner emails are as-typed; requester emails arrive normalised. Compare on equal terms.
+const sameEmail = (stored: string | undefined, wanted: string) =>
+  stored?.toLowerCase().trim() === wanted.toLowerCase().trim();
 
 export async function createJob(
   id: string,
@@ -48,30 +69,27 @@ export async function getJob(id: string): Promise<GenerationJob | undefined> {
 
 
 export async function getCompletedJobs(email?: string): Promise<GenerationJob[]> {
-  const keys = await kvListKeys(KEY_PREFIX);
-  const normalizedEmail = email?.toLowerCase().trim();
-  const jobs: GenerationJob[] = [];
-  for (const key of keys) {
-    const data = await kvGet(key);
-    if (data) {
-      const job: GenerationJob = JSON.parse(data);
-      if (job.status === 'complete' && (job.videoUrl || job.videoUrls?.length)) {
-        // If email filter provided, only return jobs owned by that user
-        if (!normalizedEmail || job.email?.toLowerCase().trim() === normalizedEmail) {
-          jobs.push(job);
-        }
-      }
-    }
-  }
+  const jobs = (await readAll<GenerationJob>(KEY_PREFIX)).filter(job =>
+    job.status === 'complete' && (job.videoUrl || job.videoUrls?.length) &&
+    // If email filter provided, only return jobs owned by that user
+    (!email || sameEmail(job.email, email))
+  );
   return jobs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 }
 
 export async function updateJob(id: string, updates: Partial<GenerationJob>): Promise<GenerationJob | undefined> {
   const job = await getJob(id);
   if (!job) return undefined;
+  // KV has no compare-and-set, so two polls settling the same job is normal:
+  // the first write wins and the late one gets the stored record back.
+  if (updates.status && !canTransitionJob(job.status, updates.status)) {
+    logger.warn(`[Storage] Ignored job ${id} transition ${job.status} -> ${updates.status}`);
+    return job;
+  }
   const updated = { ...job, ...updates };
-  // Preserve 30-day TTL for completed paid jobs; use 24h for everything else
-  const ttl = job.status === 'complete' && job.archived ? PAID_JOB_TTL : JOB_TTL;
+  if (isTerminalJobStatus(job.status)) updated.progress = job.progress;
+  // Preserve 30-day TTL for completed archived jobs; use 24h for everything else
+  const ttl = updated.status === 'complete' && updated.archived ? PAID_JOB_TTL : JOB_TTL;
   await kvPut(`${KEY_PREFIX}${id}`, JSON.stringify(updated), { expirationTtl: ttl });
   return updated;
 }
@@ -85,6 +103,10 @@ export async function setJobComplete(
   const ttl = options?.paidUser ? PAID_JOB_TTL : JOB_TTL;
   const job = await getJob(id);
   if (!job) return undefined;
+  if (job.status === 'complete' || !canTransitionJob(job.status, 'complete')) {
+    logger.warn(`[Storage] Ignored job ${id} transition ${job.status} -> complete`);
+    return job;
+  }
   const updated = {
     ...job,
     status: 'complete' as GenerationStatus,
@@ -138,18 +160,10 @@ export async function getProject(id: string): Promise<Project | undefined> {
 }
 
 export async function getAllProjects(email?: string): Promise<Project[]> {
-  const keys = await kvListKeys(PROJECT_PREFIX);
-  const projects: Project[] = [];
-  for (const key of keys) {
-    const data = await kvGet(key);
-    if (data) {
-      const project: Project = JSON.parse(data);
-      // If email filter provided, only return projects for that user
-      if (!email || project.email === email) {
-        projects.push(project);
-      }
-    }
-  }
+  // If email filter provided, only return projects for that user
+  const projects = (await readAll<Project>(PROJECT_PREFIX)).filter(project =>
+    !email || sameEmail(project.email, email)
+  );
   return projects.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
 }
 
@@ -277,19 +291,10 @@ export async function getStoryboard(id: string): Promise<Storyboard | undefined>
 }
 
 export async function getAllStoryboards(email?: string): Promise<Storyboard[]> {
-  const keys = await kvListKeys(STORYBOARD_PREFIX);
-  const storyboards: Storyboard[] = [];
-
-  for (const key of keys) {
-    const data = await kvGet(key);
-    if (data) {
-      const storyboard: Storyboard = JSON.parse(data);
-      // If email filter provided, only return storyboards for that user
-      if (!email || storyboard.email === email) {
-        storyboards.push(storyboard);
-      }
-    }
-  }
+  // If email filter provided, only return storyboards for that user
+  const storyboards = (await readAll<Storyboard>(STORYBOARD_PREFIX)).filter(storyboard =>
+    !email || sameEmail(storyboard.email, email)
+  );
 
   return storyboards.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
 }
@@ -529,58 +534,29 @@ export async function addSegmentToBatch(
 export async function updateBatchStatus(batchId: string): Promise<BatchJob | undefined> {
   const batch = await getBatch(batchId);
   if (!batch) return undefined;
+  // Segment records expire and the batch record does not, so a finished batch
+  // must not be recounted from records that are no longer there.
+  if (isTerminalBatchStatus(batch.status)) return batch;
 
-  // Count completed and failed segments
   let completed = 0;
   let failed = 0;
-  let processing = 0;
+  let pending = 0;
 
-  for (const jobId of batch.segmentJobIds) {
-    const job = await getJob(jobId);
-    if (!job) continue;
-
-    if (job.status === 'complete') {
-      completed++;
-    } else if (job.status === 'error') {
-      failed++;
-    } else {
-      processing++;
-    }
+  const jobs = await Promise.all(batch.segmentJobIds.map(getJob));
+  for (const job of jobs) {
+    if (job?.status === 'complete') completed++;
+    else if (job?.status === 'error') failed++;
+    else if (job || missingSegmentIsPending(batch.createdAt)) pending++;
+    else failed++;
   }
 
-  // Determine batch status
-  let status: BatchStatus;
-  if (processing > 0) {
-    status = 'processing';
-  } else if (failed === batch.segmentJobIds.length) {
-    status = 'error';
-  } else if (completed === batch.segmentJobIds.length) {
-    status = 'complete';
-  } else if (failed > 0 && completed > 0) {
-    status = 'partial';
-  } else {
-    status = 'processing';
-  }
+  const status: BatchStatus = deriveBatchStatus({ completed, failed, pending });
 
   return updateBatch(batchId, {
     status,
     completedSegments: completed,
     failedSegments: failed,
   });
-}
-
-export async function getBatchJobs(batchId: string): Promise<GenerationJob[]> {
-  const batch = await getBatch(batchId);
-  if (!batch) return [];
-
-  const jobs: GenerationJob[] = [];
-  for (const jobId of batch.segmentJobIds) {
-    const job = await getJob(jobId);
-    if (job) jobs.push(job);
-  }
-
-  // Sort by segment index
-  return jobs.sort((a, b) => (a.segmentIndex ?? 0) - (b.segmentIndex ?? 0));
 }
 
 // === Quick Template Storage ===
@@ -627,6 +603,10 @@ export async function updateQuickJob(
 ): Promise<QuickJob | undefined> {
   const quick = await getQuickJob(id);
   if (!quick) return undefined;
+  if (updates.status && !canTransitionQuick(quick.status, updates.status)) {
+    logger.warn(`[Storage] Ignored quick job ${id} transition ${quick.status} -> ${updates.status}`);
+    return quick;
+  }
 
   const updated = { ...quick, ...updates, updatedAt: new Date().toISOString() };
   await kvPut(`${QUICK_PREFIX}${id}`, JSON.stringify(updated));

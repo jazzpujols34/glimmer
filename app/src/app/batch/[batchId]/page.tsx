@@ -22,11 +22,13 @@ import {
   Music,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { isTerminalBatchStatus, isTerminalQuickStatus } from '@/lib/lifecycle';
+import type { BatchStatus, GenerationStatus, QuickJobStatus } from '@/types';
 
 interface SegmentStatus {
   jobId: string;
   segmentIndex: number;
-  status: string;
+  status: GenerationStatus;
   progress?: number;
   videoUrl?: string;
   error?: string;
@@ -34,7 +36,7 @@ interface SegmentStatus {
 
 interface BatchStatusResponse {
   batchId: string;
-  status: string;
+  status: BatchStatus;
   projectId: string;
   name: string;
   totalSegments: number;
@@ -47,7 +49,7 @@ interface BatchStatusResponse {
 
 interface QuickStatusResponse {
   quickId: string;
-  status: 'generating' | 'exporting' | 'complete' | 'error';
+  status: QuickJobStatus;
   exportStatus?: string;
   exportProgress?: number;
   videoUrl?: string;
@@ -127,12 +129,12 @@ function BatchPageInner() {
   useEffect(() => {
     if (!batch) return;
 
-    // For quick jobs, continue polling until export is done
-    if (quickId && quick) {
-      if (quick.status === 'complete' || quick.status === 'error') return;
-    } else {
-      // Regular batch - stop when batch is done
-      if (batch.status === 'complete' || batch.status === 'error') return;
+    // A quick job is only done when its export is; until its status has been
+    // read at least once, keep polling — that poll is what starts the export.
+    if (quickId) {
+      if (quick && isTerminalQuickStatus(quick.status)) return;
+    } else if (isTerminalBatchStatus(batch.status)) {
+      return;
     }
 
     const interval = setInterval(fetchStatus, 3000);
@@ -145,6 +147,8 @@ function BatchPageInner() {
         return <CheckCircle className="w-5 h-5 text-green-500" />;
       case 'error':
         return <XCircle className="w-5 h-5 text-destructive" />;
+      case 'partial':
+        return <AlertCircle className="w-5 h-5 text-amber-500" />;
       default:
         return <Loader2 className="w-5 h-5 text-primary animate-spin" />;
     }

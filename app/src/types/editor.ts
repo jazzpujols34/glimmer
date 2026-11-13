@@ -100,16 +100,6 @@ export interface SfxItem {
 
 // === Music Types ===
 
-export interface MusicTrack {
-  id: string;
-  name: string;
-  type: 'bundled' | 'uploaded';
-  src: string;             // URL or filename
-  blobUrl: string;         // object URL for playback
-  durationSeconds: number;
-  volume: number;          // 0-1
-}
-
 export interface MusicClip {
   id: string;
   name: string;

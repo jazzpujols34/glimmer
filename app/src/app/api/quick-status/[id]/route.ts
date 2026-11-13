@@ -15,6 +15,7 @@ import { logger } from '@/lib/logger';
 import { checkCredits } from '@/lib/credits';
 import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
 import { errors } from '@/lib/api-response';
+import { missingSegmentIsPending } from '@/lib/lifecycle';
 import { getRequesterEmail, ownsOrAdmin } from '@/lib/owner';
 import type { StoryboardSlot, StoryboardClip, StoryboardTransitionType } from '@/types';
 
@@ -95,8 +96,14 @@ export async function GET(
     const totalSegments = batch.totalSegments;
     const generationProgress = Math.round((completedCount / totalSegments) * 100);
 
-    // Check if batch just completed and we need to start export
-    const batchComplete = completedCount + failedCount >= totalSegments;
+    // Generation is over once every segment that exists has settled. Counting
+    // against the planned total would wait forever for segments that were
+    // never created. An expired segment record is settled; one that is merely not
+    // readable yet is not.
+    const missingCount = batch.segmentJobIds.length - segments.length;
+    const pendingCount = segments.length - completedCount - failedCount
+      + (missingSegmentIsPending(batch.createdAt) ? missingCount : 0);
+    const batchComplete = pendingCount === 0;
     let exportStatus: string | undefined;
     let exportProgress: number | undefined;
     let videoUrl: string | undefined;
@@ -359,7 +366,7 @@ async function checkExportStatus(exportId: string): Promise<{
   return {
     status: data.status,
     progress: data.progress,
-    r2Key: data.r2_key,
+    r2Key: data.r2Key,
     error: data.error,
   };
 }

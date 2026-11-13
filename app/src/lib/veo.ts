@@ -63,7 +63,7 @@ export async function createVideoTask(options: CreateTaskOptions): Promise<Exter
 export async function checkVideoTaskStatus(job: GenerationJob): Promise<TaskCheckResult> {
   switch (job.provider) {
     case 'byteplus':
-      return checkBytePlusTasks(job.externalTaskIds || []);
+      return checkBytePlusTasks(job.externalTaskIds || [], isWithinStatusGrace(job.createdAt));
     case 'veo-3.1':
     case 'veo-3.1-fast':
       return checkVeoTask(job.veoOperationName || '');
@@ -162,7 +162,19 @@ async function createBytePlusTasks(options: CreateTaskOptions, prompt: string): 
   return { provider: 'byteplus', externalTaskIds: taskIds };
 }
 
-async function checkBytePlusTasks(taskIds: string[]): Promise<TaskCheckResult> {
+/**
+ * A young job whose status call hits a busy or broken provider (429 / 5xx) is
+ * still generating — and still billed — so it must not be marked failed. After
+ * the grace window the old behaviour applies, so a dead provider cannot leave
+ * a job spinning forever.
+ */
+const STATUS_GRACE_MS = 30 * 60 * 1000;
+
+export function isWithinStatusGrace(createdAt: string, now = Date.now()): boolean {
+  return now - new Date(createdAt).getTime() < STATUS_GRACE_MS;
+}
+
+export async function checkBytePlusTasks(taskIds: string[], tolerateOutage = false): Promise<TaskCheckResult> {
   const apiKey = process.env.BYTEPLUS_API_KEY;
   if (!apiKey) return { done: true, error: 'BYTEPLUS_API_KEY not set' };
   if (taskIds.length === 0) return { done: true, error: 'No task IDs' };
@@ -174,7 +186,13 @@ async function checkBytePlusTasks(taskIds: string[]): Promise<TaskCheckResult> {
     const res = await fetch(`https://ark.ap-southeast.bytepluses.com/api/v3/contents/generations/tasks/${taskId}`, {
       headers: { 'Authorization': `Bearer ${apiKey}` },
     });
-    if (!res.ok) return { done: true, error: `BytePlus status check failed: ${res.status}` };
+    if (!res.ok) {
+      if (tolerateOutage && (res.status === 429 || res.status >= 500)) {
+        pending++;
+        continue;
+      }
+      return { done: true, error: `BytePlus status check failed: ${res.status}` };
+    }
 
     const data = await res.json();
     const status = data.status || data.task_status;

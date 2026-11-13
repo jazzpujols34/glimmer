@@ -13,7 +13,7 @@ export interface KVNamespaceLike {
   get(key: string): Promise<string | null>;
   put(key: string, value: string, opts?: { expirationTtl?: number }): Promise<void>;
   delete(key: string): Promise<void>;
-  list(opts?: { prefix?: string }): Promise<{ keys: { name: string }[] }>;
+  list(opts?: { prefix?: string; cursor?: string }): Promise<{ keys: { name: string }[]; list_complete?: boolean; cursor?: string }>;
 }
 
 export async function getKV(): Promise<KVNamespaceLike | null> {
@@ -59,8 +59,15 @@ export async function kvDelete(key: string): Promise<void> {
 export async function kvListKeys(prefix: string): Promise<string[]> {
   const kv = await getKV();
   if (kv) {
-    const list = await kv.list({ prefix });
-    return list.keys.map(k => k.name);
+    // KV returns at most 1000 keys per call; follow the cursor or listings truncate silently.
+    const names: string[] = [];
+    let cursor: string | undefined;
+    do {
+      const page = await kv.list({ prefix, cursor });
+      for (const k of page.keys) names.push(k.name);
+      cursor = page.list_complete === false ? page.cursor : undefined;
+    } while (cursor);
+    return names;
   }
   return Array.from(memMap.keys()).filter(k => k.startsWith(prefix));
 }

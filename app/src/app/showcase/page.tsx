@@ -29,6 +29,7 @@ import {
 import { cn, withEmail } from '@/lib/utils';
 import { resolveVideoUrl } from '@/lib/video-url';
 import { logger } from '@/lib/logger';
+import { waitForExport } from '@/lib/export-poll';
 import { useAccess } from '@/hooks/useAccess';
 
 interface ClipData {
@@ -183,36 +184,13 @@ function ShowcaseContent() {
       const { exportId } = startResult;
       setExportProgress(20);
 
-      // Poll for completion
-      let pollCount = 0;
-      const maxPolls = 120;
-      const pollInterval = 5000;
+      const url = await waitForExport(exportId, {
+        timeoutMessage: '匯出逾時',
+        onTick: (fraction) => setExportProgress(Math.min(90, 20 + fraction * 70)),
+      });
 
-      while (pollCount < maxPolls) {
-        await new Promise(resolve => setTimeout(resolve, pollInterval));
-        pollCount++;
-
-        const simulatedProgress = Math.min(90, 20 + (pollCount / maxPolls) * 70);
-        setExportProgress(simulatedProgress);
-
-        const statusResponse = await fetch(`/api/export-status?exportId=${exportId}`);
-        const statusResult = await statusResponse.json();
-
-        if (statusResult.status === 'complete') {
-          setExportProgress(100);
-          if (statusResult.downloadUrl) {
-            // Open download URL
-            window.open(statusResult.downloadUrl, '_blank');
-          }
-          return;
-        }
-
-        if (statusResult.status === 'error') {
-          throw new Error(statusResult.error || '匯出失敗');
-        }
-      }
-
-      throw new Error('匯出逾時');
+      setExportProgress(100);
+      window.open(url, '_blank');
     } catch (err) {
       logger.error('Export failed:', err);
       setExportError(err instanceof Error ? err.message : '匯出失敗');

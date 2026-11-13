@@ -114,16 +114,6 @@ export function validateName(name: unknown): { valid: boolean; error?: string } 
 }
 
 /**
- * Validate email field.
- */
-export function validateEmail(email: unknown): { valid: boolean; error?: string } {
-  if (!email || typeof email !== 'string' || !isValidEmail(email)) {
-    return { valid: false, error: '請提供有效的 Email 地址' };
-  }
-  return { valid: true };
-}
-
-/**
  * Validate photo file. `file.type` is client-supplied and spoofable, so the
  * actual byte content is also checked against known image signatures.
  */

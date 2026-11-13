@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { buildBytePlusContent } from './veo';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { buildBytePlusContent, checkBytePlusTasks, isWithinStatusGrace } from './veo';
 import { defaultSettings } from '@/types';
 import type { GenerationSettings } from '@/types';
 
@@ -59,5 +59,58 @@ describe('buildBytePlusContent', () => {
     expect(getDuration(8)).toBe(8);
     expect(getDuration(12)).toBe(12);
     expect(getDuration(15)).toBe(12);
+  });
+});
+
+describe('checkBytePlusTasks — a provider outage is not a failed video', () => {
+  const realFetch = globalThis.fetch;
+  const respond = (status: number, body: unknown = {}) =>
+    Promise.resolve(new Response(JSON.stringify(body), { status }));
+
+  beforeEach(() => {
+    process.env.BYTEPLUS_API_KEY = 'test-key';
+  });
+  afterEach(() => {
+    globalThis.fetch = realFetch;
+  });
+
+  it('keeps a young job running through a 503', async () => {
+    globalThis.fetch = vi.fn(() => respond(503)) as typeof fetch;
+    const result = await checkBytePlusTasks(['t1'], true);
+    expect(result.done).toBe(false);
+    expect(result.error).toBeUndefined();
+  });
+
+  it('keeps a young job running through a 429', async () => {
+    globalThis.fetch = vi.fn(() => respond(429)) as typeof fetch;
+    expect((await checkBytePlusTasks(['t1'], true)).done).toBe(false);
+  });
+
+  it('still fails a young job on a 404 — the task does not exist', async () => {
+    globalThis.fetch = vi.fn(() => respond(404)) as typeof fetch;
+    const result = await checkBytePlusTasks(['t1'], true);
+    expect(result).toEqual({ done: true, error: 'BytePlus status check failed: 404' });
+  });
+
+  it('fails an old job on a 503, so a dead provider cannot spin forever', async () => {
+    globalThis.fetch = vi.fn(() => respond(503)) as typeof fetch;
+    const result = await checkBytePlusTasks(['t1'], false);
+    expect(result).toEqual({ done: true, error: 'BytePlus status check failed: 503' });
+  });
+
+  it('one finished task plus one unreachable task is progress, not completion', async () => {
+    globalThis.fetch = vi
+      .fn()
+      .mockImplementationOnce(() => respond(200, { status: 'succeeded', content: { video_url: 'https://cdn/a.mp4' } }))
+      .mockImplementationOnce(() => respond(502)) as typeof fetch;
+    const result = await checkBytePlusTasks(['t1', 't2'], true);
+    expect(result.done).toBe(false);
+    expect(result.videoUrls).toBeUndefined();
+  });
+
+  it('the grace window is 30 minutes from job creation', () => {
+    const now = Date.parse('2026-11-13T12:00:00Z');
+    expect(isWithinStatusGrace('2026-11-13T11:31:00Z', now)).toBe(true);
+    expect(isWithinStatusGrace('2026-11-13T11:29:00Z', now)).toBe(false);
   });
 });

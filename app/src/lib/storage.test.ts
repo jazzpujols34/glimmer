@@ -18,7 +18,13 @@ vi.mock('./kv', () => ({
   ),
 }));
 
-import { createJob, setJobComplete } from './storage';
+import { createJob as createQueuedJob, updateJob, setJobComplete } from './storage';
+
+// Jobs only complete from 'processing' (see lifecycle.ts), so fixtures start there.
+async function createJob(id: string, metadata?: Parameters<typeof createQueuedJob>[1]) {
+  await createQueuedJob(id, metadata);
+  await updateJob(id, { status: 'processing' });
+}
 import { getCompletedJobs } from './storage';
 import { createProject, createBatch, createQuickJob, createStoryboard } from './storage';
 import { defaultSettings } from '@/types';
@@ -103,5 +109,21 @@ describe('getCompletedJobs', () => {
 
     const jobs = await getCompletedJobs('a@example.com');
     expect(jobs).toHaveLength(0);
+  });
+});
+
+describe('owner filters compare emails case-insensitively', () => {
+  it('lists a project stored under a mixed-case email for the normalised requester', async () => {
+    await createProject('測試專案', 'Foo@Gmail.com');
+    const { getAllProjects } = await import('./storage');
+    expect(await getAllProjects('foo@gmail.com')).toHaveLength(1);
+    expect(await getAllProjects('other@gmail.com')).toHaveLength(0);
+  });
+
+  it('lists a storyboard stored under a mixed-case email for the normalised requester', async () => {
+    await createStoryboard('測試', 2, '16:9', 'Foo@Gmail.com');
+    const { getAllStoryboards } = await import('./storage');
+    expect(await getAllStoryboards('foo@gmail.com')).toHaveLength(1);
+    expect(await getAllStoryboards('other@gmail.com')).toHaveLength(0);
   });
 });

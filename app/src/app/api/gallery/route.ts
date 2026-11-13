@@ -1,18 +1,15 @@
 export const runtime = 'edge';
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getCompletedJobs, updateJob, setJobComplete, setJobError } from '@/lib/storage';
-import { archiveVideos } from '@/lib/r2';
+import { getCompletedJobs } from '@/lib/storage';
+import { settleJob, archiveIfNeeded } from '@/lib/job-settle';
 import { captureError } from '@/lib/errors';
 import { getVideoUrl, getVideoUrls } from '@/lib/video-url';
-import { logger } from '@/lib/logger';
 import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
 import { errors } from '@/lib/api-response';
 import { resolveReaderEmail } from '@/lib/identity';
-import { isAdmin, checkCredits } from '@/lib/credits';
+import { isAdmin } from '@/lib/credits';
 import { kvGet, kvListKeys } from '@/lib/kv';
-import { checkVideoTaskStatus } from '@/lib/veo';
-import { sendCompletionEmail } from '@/lib/email';
 import { ownsOrAdmin } from '@/lib/owner';
 import type { GenerationJob } from '@/types';
 
@@ -34,29 +31,10 @@ export async function GET(request: NextRequest) {
     const requesterEmail = resolved.email;
 
     // Admins see every job; everyone else only sees their own
-    const jobs = await getCompletedJobs(isAdmin(requesterEmail) ? undefined : requesterEmail);
-
     // Retry archival for any unarchived jobs (CDN URLs expire in 24h)
-    for (const job of jobs) {
-      if (!job.archived && job.videoUrls?.some(u => u.startsWith('http'))) {
-        try {
-          const archive = await archiveVideos(job.id, job.videoUrls);
-          if (archive.archived) {
-            await updateJob(job.id, {
-              videoUrls: archive.urls,
-              videoUrl: archive.urls[0],
-              archived: true,
-            });
-            job.videoUrls = archive.urls;
-            job.videoUrl = archive.urls[0];
-            job.archived = true;
-            logger.debug('R2', `Gallery: archived job ${job.id} on retry`);
-          }
-        } catch {
-          // Non-blocking — still return the CDN URLs
-        }
-      }
-    }
+    const found = await getCompletedJobs(isAdmin(requesterEmail) ? undefined : requesterEmail);
+    const jobs: GenerationJob[] = [];
+    for (const job of found) jobs.push(await archiveIfNeeded(job));
 
     return NextResponse.json({
       jobs: jobs.map(job => ({
@@ -135,50 +113,11 @@ export async function POST(request: NextRequest) {
 
       checked++;
 
-      try {
-        const result = await checkVideoTaskStatus(job);
-
-        if (result.done) {
-          if (result.error) {
-            await setJobError(job.id, result.error);
-            failed++;
-          } else if (result.videoUrls && result.videoUrls.length > 0) {
-            // Archive videos to R2
-            const archive = await archiveVideos(job.id, result.videoUrls);
-            const finalUrls = archive.urls;
-
-            // Check if paid user for TTL
-            let paidUser = false;
-            if (job.email) {
-              try {
-                const balance = await checkCredits(job.email);
-                paidUser = balance.paidTotal > 0;
-              } catch {
-                // Non-critical
-              }
-            }
-
-            await setJobComplete(job.id, finalUrls[0], finalUrls, {
-              paidUser,
-              archived: archive.archived,
-            });
-
-            // Send completion email (fire-and-forget)
-            if (job.email) {
-              sendCompletionEmail(job.email, job.id, job.name || '').catch(err =>
-                logger.error(`[Email] Completion notification failed for job ${job.id}:`, err)
-              );
-            }
-
-            updated++;
-            updatedJobIds.push(job.id);
-          }
-        } else if (result.progress) {
-          // Update progress even if not done
-          await updateJob(job.id, { progress: result.progress });
-        }
-      } catch (err) {
-        logger.error(`[Refresh] Failed to check job ${job.id}:`, err);
+      const settled = await settleJob(job);
+      if (settled.status === 'complete') {
+        updated++;
+        updatedJobIds.push(job.id);
+      } else if (settled.status === 'error') {
         failed++;
       }
     }

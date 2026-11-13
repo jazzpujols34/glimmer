@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import type { NextRequest } from 'next/server';
 
 // Mock the KV module before importing anything that (transitively) depends on it.
@@ -21,8 +21,13 @@ vi.mock('@/lib/kv', () => ({
   getKV: vi.fn(() => Promise.resolve(null)),
 }));
 
+// The route reads this at module load.
+vi.hoisted(() => {
+  process.env.EXPORT_SERVICE_URL = 'https://export.test';
+});
+
 import { GET } from './route';
-import { createBatch, addSegmentToBatch, createJob, updateJob, createQuickJob } from '@/lib/storage';
+import { createBatch, addSegmentToBatch, createJob, updateJob, createQuickJob, updateQuickJob, getQuickJob } from '@/lib/storage';
 import { defaultSettings } from '@/types';
 
 beforeEach(() => {
@@ -78,5 +83,70 @@ describe('GET /api/quick-status/[id] — name is owner-gated PII', () => {
     const body = await res.json();
 
     expect(body.name).toBeUndefined();
+  });
+});
+
+describe('GET /api/quick-status/[id] — the quick job reaches an end state', () => {
+  const realFetch = globalThis.fetch;
+  afterEach(() => {
+    globalThis.fetch = realFetch;
+  });
+
+  const call = (id: string) => GET(buildRequest(id), { params: Promise.resolve({ id }) });
+
+  it('marks the job complete when the export service reports the finished file', async () => {
+    const quickJob = await makeQuickJob('owner@example.com');
+    await updateQuickJob(quickJob.id, { status: 'exporting', exportId: 'exp_1' });
+    // Exact shape of ExportStatusResponse in cloud-run/export-service/main.py
+    globalThis.fetch = vi.fn(() =>
+      Promise.resolve(new Response(JSON.stringify({ exportId: 'exp_1', status: 'complete', r2Key: 'exports/sb/exp_1.mp4' })))
+    ) as typeof fetch;
+
+    const body = await (await call(quickJob.id)).json();
+
+    expect(body.status).toBe('complete');
+    expect(body.videoUrl).toContain('/api/proxy-r2?key=exports%2Fsb%2Fexp_1.mp4');
+    expect((await getQuickJob(quickJob.id))?.videoR2Key).toBe('exports/sb/exp_1.mp4');
+  });
+
+  it('starts the export once every segment that exists has settled, even if fewer were created than planned', async () => {
+    // Planned 3 segments, but only one was ever created (e.g. credits ran out mid-loop).
+    const batch = await createBatch('爺爺', 'owner@example.com', 'memorial', defaultSettings, 3, 'proj_1');
+    await createJob('job_only', { email: 'owner@example.com' });
+    await updateJob('job_only', { status: 'processing' });
+    await updateJob('job_only', { status: 'complete', videoUrl: 'videos/job_only/0.mp4', videoUrls: ['videos/job_only/0.mp4'] });
+    await addSegmentToBatch(batch.id, 'job_only');
+    const quickJob = await createQuickJob('owner@example.com', 'memorial-gentle', '爺爺', batch.id);
+    const fetchMock = vi.fn((_url: string) => Promise.resolve(new Response(JSON.stringify({ exportId: 'exp_2', status: 'processing' }))));
+    globalThis.fetch = fetchMock as typeof fetch;
+
+    const body = await (await call(quickJob.id)).json();
+
+    expect(body.status).toBe('exporting');
+    expect(String(fetchMock.mock.calls[0][0])).toBe('https://export.test/export-async');
+  });
+
+  it('ends in error, not an endless wait, when no segment was ever created', async () => {
+    const batch = await createBatch('爺爺', 'owner@example.com', 'memorial', defaultSettings, 2, 'proj_1');
+    const quickJob = await createQuickJob('owner@example.com', 'memorial-gentle', '爺爺', batch.id);
+
+    const body = await (await call(quickJob.id)).json();
+
+    expect(body.status).toBe('error');
+  });
+});
+
+describe('GET /api/quick-status/[id] — a segment record that is not readable yet', () => {
+  it('keeps a young quick job generating instead of exporting without that segment', async () => {
+    const batch = await createBatch('爺爺', 'owner@example.com', 'memorial', defaultSettings, 2, 'proj_1');
+    await createJob('job_seen', { email: 'owner@example.com' });
+    await updateJob('job_seen', { status: 'processing' });
+    await updateJob('job_seen', { status: 'complete', videoUrl: 'videos/job_seen/0.mp4', videoUrls: ['videos/job_seen/0.mp4'] });
+    await addSegmentToBatch(batch.id, 'job_seen');
+    await addSegmentToBatch(batch.id, 'job_not_visible_yet');
+    const quickJob = await createQuickJob('owner@example.com', 'memorial-gentle', '爺爺', batch.id);
+
+    const res = await GET(buildRequest(quickJob.id), { params: Promise.resolve({ id: quickJob.id }) });
+    expect((await res.json()).status).toBe('generating');
   });
 });

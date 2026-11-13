@@ -58,9 +58,9 @@ No server-side video processing. No uploads of your final video. Everything stay
 
 ### Platform
 - **Edge-native** — Runs on Cloudflare Pages, no server required
-- **Pay-per-video** — No subscription; 1 free video per email
+- **Pay-per-video** — No subscription; 3 free generations per email
 - **Taiwan payments** — ECPay integration (credit card, ATM, CVS)
-- **Email-only auth** — No passwords, no OAuth, just verify your email
+- **Passwordless** — Verify your email to start; optional Google sign-in or email login link for a signed session
 
 ## Architecture
 
@@ -93,7 +93,7 @@ Client (Browser)                    Cloudflare Edge
 | Storage | Cloudflare KV (job state) + R2 (video files) |
 | Video Export | FFmpeg WASM (in-browser) |
 | AI Video | BytePlus Seedance, Google Veo 3.1, Kling AI |
-| Payments | ECPay (Taiwan), Stripe (international) |
+| Payments | ECPay (Taiwan) |
 | Email | Resend |
 | Monitoring | Sentry (Edge-compatible, raw HTTP) |
 
@@ -135,7 +135,6 @@ Copy `.env.example` to `.env.local`. Key variables:
 | `KLING_ACCESS_KEY` | Kling AI access key | Optional |
 | `KLING_SECRET_KEY` | Kling AI secret key | Optional |
 | `RESEND_API_KEY` | Email verification | Optional |
-| `STRIPE_SECRET_KEY` | Stripe payments | Optional |
 | `ECPAY_MERCHANT_ID` | ECPay payments (Taiwan) | Optional |
 | `ADMIN_EMAILS` | Comma-separated admin emails | Optional |
 
@@ -146,7 +145,7 @@ See `.env.example` for the full list.
 ```bash
 npm run dev -- --port 3200   # Dev server
 npm run build                 # Production build (Cloudflare Pages)
-npm test                      # Run tests (Vitest, 51 tests)
+npm test                      # Run tests (Vitest)
 ```
 
 ### Batch Video Generation (CLI)
@@ -163,18 +162,18 @@ node scripts/batch-generate.mjs /path/to/photos \
 node scripts/batch-status.mjs --base-url https://glimmer.video
 ```
 
-Options: `--clips 1-4`, `--model byteplus|veo-3.1|kling-ai`, `--occasion memorial|birthday|wedding|pet|other`, `--dry-run`
+Options: `--clips 1-4`, `--model byteplus` (the server accepts only byteplus today), `--occasion memorial|birthday|wedding|pet|other`, `--dry-run`
 
 ## Project Structure
 
 ```
 app/src/
 ├── app/                    # Next.js App Router
-│   ├── api/                # 34 API routes (all Edge Runtime)
+│   ├── api/                # 35 API routes (all Edge Runtime)
 │   │   ├── generate/       # Video generation (POST)
 │   │   ├── status/[id]/    # Job polling (GET)
 │   │   ├── gallery/        # Gallery listing
-│   │   ├── checkout/       # Stripe payment
+│   │   ├── checkout/       # ECPay checkout
 │   │   └── webhooks/       # ECPay webhook
 │   ├── create/             # Upload + generate page
 │   ├── edit/[id]/          # Video editor
@@ -210,7 +209,7 @@ Built with `@cloudflare/next-on-pages`. Every API route must export `runtime = '
 This app runs entirely on Cloudflare's Edge Runtime — no Node.js APIs:
 - No `fs`, `path`, `crypto.createHmac` — uses Web Crypto API instead
 - No background tasks — uses client-driven polling + KV
-- No heavy SDKs — Stripe/ECPay via raw `fetch()`
+- No heavy SDKs — ECPay via raw `fetch()`
 - In-memory state not shared across isolates — KV for all persistence
 
 ## Business Model
@@ -219,9 +218,9 @@ Pay-per-video credits, not subscriptions. Optimized for event-driven usage.
 
 | Plan | Price | Credits |
 |------|-------|---------|
-| Free | NT$0 | 1 video per email |
-| Single | NT$499 | 1 credit |
-| 5-Pack | NT$1,999 | 5 credits (NT$400/ea) |
+| Free | NT$0 | 3 generations per email (standard spec) |
+| 20 點 | NT$299 | 20 credits |
+| 50 點 | NT$599 | 50 credits |
 | Enterprise | Contact us | Custom |
 
 ## Contributing

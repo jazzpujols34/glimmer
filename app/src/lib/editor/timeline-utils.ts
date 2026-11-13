@@ -56,15 +56,6 @@ export function getOutroStart(state: EditorState): number {
   return maxEnd;
 }
 
-/** Map of clip ID -> timeline start position (seconds) */
-export function getClipStartPositions(state: EditorState): Map<string, number> {
-  const positions = new Map<string, number>();
-  for (const clip of state.clips) {
-    positions.set(clip.id, clip.timelinePosition);
-  }
-  return positions;
-}
-
 /** Sort clips by their timeline position */
 export function clipsSortedByPosition(clips: TimelineClip[]): TimelineClip[] {
   return [...clips].sort((a, b) => a.timelinePosition - b.timelinePosition);
