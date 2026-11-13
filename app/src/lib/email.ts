@@ -64,7 +64,9 @@ export async function sendCompletionEmail(
   }
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://glimmer.video';
-  const viewUrl = `${appUrl}/generate/${encodeURIComponent(jobId)}`;
+  // A batch has its own page; /generate/<batch id> would be a dead link.
+  const viewPath = jobId.startsWith('batch_') ? 'batch' : 'generate';
+  const viewUrl = `${appUrl}/${viewPath}/${encodeURIComponent(jobId)}`;
   const from = process.env.RESEND_FROM_EMAIL || FROM_EMAIL_FALLBACK;
 
   const res = await fetch(RESEND_API_URL, {

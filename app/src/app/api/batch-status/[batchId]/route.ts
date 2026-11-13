@@ -1,14 +1,10 @@
 export const runtime = 'edge';
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getBatch, getJob, updateJob, setJobComplete, setJobError, updateBatchStatus } from '@/lib/storage';
-import { checkVideoTaskStatus } from '@/lib/veo';
-import { archiveVideos } from '@/lib/r2';
-import { checkCredits } from '@/lib/credits';
-import { sendCompletionEmail } from '@/lib/email';
+import { getBatch, getJob, updateBatchStatus } from '@/lib/storage';
+import { settleJob } from '@/lib/job-settle';
 import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
 import { captureError } from '@/lib/errors';
-import { logger } from '@/lib/logger';
 import { getVideoUrl } from '@/lib/video-url';
 import { getRequesterEmail, ownsOrAdmin } from '@/lib/owner';
 
@@ -55,7 +51,6 @@ export async function GET(
     }
 
     const segments: SegmentStatus[] = [];
-    let _hasProcessing = false;
 
     // Check each segment job
     for (const jobId of batch.segmentJobIds) {
@@ -70,90 +65,15 @@ export async function GET(
         continue;
       }
 
-      // If job is still processing, poll external API
-      if (job.status === 'processing' && job.provider) {
-        _hasProcessing = true;
-
-        try {
-          const result = await checkVideoTaskStatus(job);
-
-          if (result.done) {
-            if (result.error) {
-              await setJobError(jobId, result.error);
-              segments.push({
-                jobId,
-                segmentIndex: job.segmentIndex ?? segments.length,
-                status: 'error',
-                error: result.error,
-              });
-            } else if (result.videoUrls && result.videoUrls.length > 0) {
-              // Archive videos to R2
-              const archive = await archiveVideos(jobId, result.videoUrls);
-              const finalUrls = archive.urls;
-
-              // Check if paid user for TTL
-              let paidUser = false;
-              if (job.email) {
-                try {
-                  const balance = await checkCredits(job.email);
-                  paidUser = balance.paidTotal > 0;
-                } catch {
-                  // Non-critical
-                }
-              }
-
-              await setJobComplete(jobId, finalUrls[0], finalUrls, {
-                paidUser,
-                archived: archive.archived,
-              });
-
-              segments.push({
-                jobId,
-                segmentIndex: job.segmentIndex ?? segments.length,
-                status: 'complete',
-                progress: 100,
-                videoUrl: getVideoUrl(jobId, finalUrls[0]),
-              });
-
-              // Send completion email for first segment only (as notification)
-              if (job.segmentIndex === 0 && job.email) {
-                sendCompletionEmail(job.email, batchId, batch.name || '').catch(err =>
-                  logger.error(`[Email] Batch completion notification failed:`, err)
-                );
-              }
-            }
-          } else {
-            // Still processing
-            if (result.progress) {
-              await updateJob(jobId, { progress: result.progress });
-            }
-            segments.push({
-              jobId,
-              segmentIndex: job.segmentIndex ?? segments.length,
-              status: 'processing',
-              progress: result.progress || job.progress || 10,
-            });
-          }
-        } catch (err) {
-          logger.error(`[Batch] Error checking segment ${jobId}:`, err);
-          segments.push({
-            jobId,
-            segmentIndex: job.segmentIndex ?? segments.length,
-            status: 'processing',
-            progress: job.progress || 10,
-          });
-        }
-      } else {
-        // Job already complete or errored
-        segments.push({
-          jobId,
-          segmentIndex: job.segmentIndex ?? segments.length,
-          status: job.status,
-          progress: job.status === 'complete' ? 100 : job.progress,
-          videoUrl: getVideoUrl(jobId, job.videoUrl),
-          error: job.error,
-        });
-      }
+      const current = await settleJob(job, { batchName: batch.name });
+      segments.push({
+        jobId,
+        segmentIndex: current.segmentIndex ?? segments.length,
+        status: current.status,
+        progress: current.status === 'complete' ? 100 : current.status === 'processing' ? current.progress || 10 : current.progress,
+        videoUrl: getVideoUrl(jobId, current.videoUrl),
+        error: current.error,
+      });
     }
 
     // Sort by segment index
