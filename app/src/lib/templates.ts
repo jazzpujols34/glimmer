@@ -33,25 +33,6 @@ export interface QuickTemplate {
   previewColor: string;  // For UI card background
 }
 
-export interface QuickGenerateInput {
-  templateId: string;
-  photos: File[];
-
-  // User inputs for template placeholders
-  name: string;           // Person/pet name
-  date?: string;          // Date or date range
-  message?: string;       // Custom message
-
-  // Generation settings
-  model: string;
-  aspectRatio: '16:9' | '9:16';
-
-  // User identity
-  email: string;
-}
-
-// === Template Definitions ===
-
 export const QUICK_TEMPLATES: QuickTemplate[] = [
   // --- Memorial Templates ---
   {
@@ -254,11 +235,6 @@ export function getTemplatesByOccasion(occasion: OccasionType): QuickTemplate[] 
   return QUICK_TEMPLATES.filter(t => t.occasion === occasion);
 }
 
-export function getDefaultTemplate(occasion: OccasionType): QuickTemplate {
-  const templates = getTemplatesByOccasion(occasion);
-  return templates[0] || QUICK_TEMPLATES[QUICK_TEMPLATES.length - 1]; // fallback to 'other-simple'
-}
-
 /**
  * Fill template placeholders with user inputs
  */
@@ -380,21 +356,4 @@ export function buildEditorTransitions(
     transitions.push({ type, durationMs });
   }
   return transitions;
-}
-
-/**
- * Build suggested music clip from template (for adding to timeline)
- */
-export function buildSuggestedMusic(template: QuickTemplate): {
-  name: string;
-  type: 'bundled' | 'uploaded';
-  src: string;
-  volume: number;
-} {
-  return {
-    name: template.music.name,
-    type: template.music.type,
-    src: template.music.src,
-    volume: template.music.volume,
-  };
 }

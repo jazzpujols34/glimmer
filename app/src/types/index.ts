@@ -14,9 +14,6 @@ export type AspectRatio = '16:9' | '9:16';
 // Resolution options
 export type Resolution = '720p' | '1080p';
 
-// Video duration options for Kling AI (Veo is fixed at 8s)
-export type KlingDuration = 5 | 10;
-
 // Generation settings
 export interface GenerationSettings {
   taskType: TaskType;
@@ -24,7 +21,7 @@ export interface GenerationSettings {
   prompt: string;
   aspectRatio: AspectRatio;
   numResults: number;      // 1-4
-  videoLength: number;     // Veo: fixed 8s, Kling: 5 or 10
+  videoLength: number;     // seconds; BytePlus accepts 4-12
   resolution: Resolution;
   cameraFixed: boolean;    // true = fixed camera, false = dynamic
   seed?: number;           // optional, user input only
@@ -37,18 +34,11 @@ export const defaultSettings: GenerationSettings = {
   prompt: '',
   aspectRatio: '16:9',
   numResults: 1,
-  videoLength: 5,          // BytePlus: 2-12s
+  videoLength: 5,          // BytePlus: 4-12s
   resolution: '720p',
   cameraFixed: false,      // dynamic camera by default
   seed: undefined,
 };
-
-export interface GenerationRequest {
-  name: string;
-  occasion: OccasionType;
-  settings: GenerationSettings;
-  photos: File[];
-}
 
 export interface GenerationJob {
   id: string;
@@ -77,12 +67,6 @@ export interface GenerationJob {
   veoOperationName?: string;        // Veo operation resource name
 }
 
-export interface ApiResponse<T> {
-  success: boolean;
-  data?: T;
-  error?: string;
-}
-
 // === Credit System Types ===
 // "Generation" = one AI video clip (5-12 sec)
 // "Video" = final edited product (90-180 sec, made from multiple generations)
@@ -93,8 +77,8 @@ export interface CreditBalance {
   email: string;
   paidTotal: number;      // total generations ever purchased
   paidUsed: number;       // paid generations consumed
-  freeUsed: number;       // free generations used (0-10)
-  freeTotal: number;      // free generations available (10)
+  freeUsed: number;       // free generations used (0-FREE_GENERATIONS)
+  freeTotal: number;      // free generations available (FREE_GENERATIONS)
   remaining: number;      // computed: (paidTotal - paidUsed) + (freeTotal - freeUsed)
   verified: boolean;      // whether email ownership has been verified
   isAdmin?: boolean;      // admin users have unlimited generations
@@ -118,18 +102,8 @@ export interface PurchaseRecord {
 }
 
 export interface FreeRecord {
-  used: number;           // number of free generations used (max 10)
+  used: number;           // number of free generations used (max FREE_GENERATIONS)
   jobs?: string[];        // job IDs created with free generations
-}
-
-export interface GenerationPack {
-  id: string;             // 'pack20' | 'pack50' | 'pack100'
-  generations: number;
-  priceTWD: number;
-  perGenPriceTWD: number;
-  label: string;          // "20 次生成"
-  labelEn: string;        // "20 Generations"
-  savings?: string;       // "省 20%"
 }
 
 // === Project System Types ===

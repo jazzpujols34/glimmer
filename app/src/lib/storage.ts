@@ -557,20 +557,6 @@ export async function updateBatchStatus(batchId: string): Promise<BatchJob | und
   });
 }
 
-export async function getBatchJobs(batchId: string): Promise<GenerationJob[]> {
-  const batch = await getBatch(batchId);
-  if (!batch) return [];
-
-  const jobs: GenerationJob[] = [];
-  for (const jobId of batch.segmentJobIds) {
-    const job = await getJob(jobId);
-    if (job) jobs.push(job);
-  }
-
-  // Sort by segment index
-  return jobs.sort((a, b) => (a.segmentIndex ?? 0) - (b.segmentIndex ?? 0));
-}
-
 // === Quick Template Storage ===
 // Quick = one-click video generation with templates
 
