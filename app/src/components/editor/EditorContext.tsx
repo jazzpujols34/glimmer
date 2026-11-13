@@ -15,7 +15,7 @@ const EditorHistoryContext = createContext<{ canUndo: boolean; canRedo: boolean 
 const UI_ONLY_ACTIONS = new Set([
   'SET_PLAYHEAD', 'SET_PLAYING', 'SELECT_CLIP', 'SELECT_ALL_CLIPS',
   'DESELECT_ALL', 'SELECT_SUBTITLE', 'SELECT_MUSIC_CLIP',
-  'SET_ACTIVE_PANEL', 'SET_EXPORT_PROGRESS', 'UNDO', 'REDO',
+  'SET_ACTIVE_PANEL', 'SET_EXPORT_PROGRESS',
 ]);
 
 export function EditorProvider({ children }: { children: ReactNode }) {
@@ -58,21 +58,30 @@ export function EditorProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [wrappedDispatch]);
 
-  // Auto-save: debounced 1s after persistent state changes
+  // Auto-save: debounced 1s after persistent state changes. A UI-only change
+  // (selection, playhead tick) must neither start a save nor cancel a pending
+  // one — cancelling is how an edit made during playback used to be lost.
+  const stateRef = useRef(state);
   useEffect(() => {
+    stateRef.current = state;
     if (!state.jobId || state.clips.length === 0) return;
     if (UI_ONLY_ACTIONS.has(lastActionRef.current)) return;
     if (lastActionRef.current === 'RESTORE') return;
 
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(() => {
-      saveEditorState(state);
+      saveTimerRef.current = null;
+      saveEditorState(stateRef.current);
     }, 1000);
-
-    return () => {
-      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-    };
   }, [state]);
+
+  // Leaving the editor with a save still pending: write it now.
+  useEffect(() => () => {
+    if (saveTimerRef.current) {
+      clearTimeout(saveTimerRef.current);
+      saveEditorState(stateRef.current);
+    }
+  }, []);
 
   const historyInfo = {
     canUndo: history.past.length > 0,
