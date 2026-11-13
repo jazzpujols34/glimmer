@@ -95,8 +95,11 @@ export async function GET(
     const totalSegments = batch.totalSegments;
     const generationProgress = Math.round((completedCount / totalSegments) * 100);
 
-    // Check if batch just completed and we need to start export
-    const batchComplete = completedCount + failedCount >= totalSegments;
+    // Generation is over once every segment that exists has settled. Counting
+    // against the planned total would wait forever for segments that were
+    // never created, and an expired segment record is settled too.
+    const pendingCount = segments.length - completedCount - failedCount;
+    const batchComplete = pendingCount === 0;
     let exportStatus: string | undefined;
     let exportProgress: number | undefined;
     let videoUrl: string | undefined;
@@ -359,7 +362,7 @@ async function checkExportStatus(exportId: string): Promise<{
   return {
     status: data.status,
     progress: data.progress,
-    r2Key: data.r2_key,
+    r2Key: data.r2Key,
     error: data.error,
   };
 }
