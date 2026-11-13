@@ -129,11 +129,11 @@ export default function PrivacyPage() {
             <h2 className="text-xl font-semibold mb-3">8. Cookie 政策 Cookies</h2>
             <p>
               我們使用必要的 Cookie 來維持您的登入狀態和偏好設定。
-              我們不使用追蹤型 Cookie 或第三方廣告 Cookie。
+              我們使用 Google Analytics 的 Cookie 統計網站使用情況。我們不使用第三方廣告 Cookie。
             </p>
             <p className="text-muted-foreground text-sm mt-2">
-              We use essential cookies for login sessions and preferences. We do not use
-              tracking cookies or third-party advertising cookies.
+              We use essential cookies for login sessions and preferences. We use Google Analytics
+              cookies to measure site usage. We do not use third-party advertising cookies.
             </p>
           </section>
 
