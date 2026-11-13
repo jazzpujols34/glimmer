@@ -171,12 +171,24 @@ export function AuthButton() {
           </div>
 
           {sendState === 'sent' ? (
-            <div className="flex items-start gap-2 text-sm">
-              <Check className="w-4 h-4 mt-0.5 shrink-0 text-primary" aria-hidden="true" />
-              <p>
-                登入連結已寄到 <span className="font-medium break-all">{email.trim()}</span>，請點擊信中的連結（15
-                分鐘內有效）。
-              </p>
+            <div className="space-y-2">
+              <div className="flex items-start gap-2 text-sm">
+                <Check className="w-4 h-4 mt-0.5 shrink-0 text-primary" aria-hidden="true" />
+                <p>
+                  登入連結已寄到 <span className="font-medium break-all">{email.trim()}</span>，請點擊信中的連結（15
+                  分鐘內有效）。
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setSendState('idle');
+                  setSendError('');
+                }}
+                className="text-xs text-muted-foreground underline hover:text-foreground transition-colors"
+              >
+                換一個信箱
+              </button>
             </div>
           ) : (
             <form onSubmit={sendLoginLink} className="space-y-2">

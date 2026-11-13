@@ -9,7 +9,6 @@ import {
   getSnapLeftDelta,
   getSnapRightDelta,
   rippleDeleteClips,
-  findNextClip,
 } from './timeline-utils';
 import type { EditorState, TimelineClip, MusicClip, SubtitleSegment } from '@/types/editor';
 
@@ -308,22 +307,5 @@ describe('rippleDeleteClips', () => {
     expect(result).toHaveLength(1);
     expect(result[0].id).toBe('b');
     expect(result[0].timelinePosition).toBe(0);
-  });
-});
-
-describe('findNextClip', () => {
-  it('finds the next clip after a position', () => {
-    const clips = [
-      makeClip({ id: 'a', timelinePosition: 0 }),
-      makeClip({ id: 'b', timelinePosition: 5 }),
-      makeClip({ id: 'c', timelinePosition: 10 }),
-    ];
-    const result = findNextClip(3, clips);
-    expect(result?.clip.id).toBe('b');
-  });
-
-  it('returns null when no clip after position', () => {
-    const clips = [makeClip({ id: 'a', timelinePosition: 0 })];
-    expect(findNextClip(5, clips)).toBeNull();
   });
 });

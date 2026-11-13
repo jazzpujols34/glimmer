@@ -256,18 +256,6 @@ export async function refundCredits(
 }
 
 /**
- * Use 1 generation. Checks free tier first, then paid credits.
- * Returns { success, usedFree } — success=false if no generations available.
- */
-export async function consumeCredit(
-  email: string,
-  jobId: string,
-): Promise<{ success: boolean; usedFree: boolean }> {
-  const result = await consumeCredits(email, jobId, 1);
-  return { success: result.success, usedFree: result.usedFree > 0 };
-}
-
-/**
  * Add generations after a successful payment.
  * Idempotent: rejects duplicate purchase IDs.
  */
