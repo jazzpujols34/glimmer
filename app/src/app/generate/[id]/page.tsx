@@ -82,9 +82,8 @@ export default function GeneratePage({ params }: PageProps) {
   const totalVideos = result?.urls?.length || 1;
   const hasMultipleVideos = totalVideos > 1;
 
-  // Check if result is an image or video - improved detection
-  const isImage = result?.url?.startsWith('data:image/');
-  const isVideo = !isImage && result?.url != null; // If not an image, assume it's a video
+  // The server only ever returns video URLs (proxy / CDN); no image preview path exists.
+  const isVideo = result?.url != null;
 
   const goToPreviousVideo = () => {
     setCurrentVideoIndex((prev) => (prev > 0 ? prev - 1 : totalVideos - 1));
@@ -213,13 +212,6 @@ export default function GeneratePage({ params }: PageProps) {
                           alt="生成的影片預覽"
                           className="w-full h-full object-contain"
                         />
-                        {isImage && (
-                          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4">
-                            <p className="text-white text-sm text-center">
-                              預覽圖片 - 完整影片生成需要 Veo API 存取權限
-                            </p>
-                          </div>
-                        )}
                       </>
                     )}
                   </div>
@@ -351,15 +343,6 @@ export default function GeneratePage({ params }: PageProps) {
                       <FolderOpen className="w-4 h-4" />
                       前往影片庫查看所有影片
                     </Link>
-                  </div>
-                )}
-
-                {isImage && (
-                  <div className="p-4 rounded-lg bg-primary/10 border border-primary/20">
-                    <p className="text-sm text-center">
-                      <strong>提示：</strong>您的 Google API 金鑰目前僅支援 Gemini。
-                      如需完整影片生成功能，請啟用 Veo API 存取權限或使用 Vertex AI。
-                    </p>
                   </div>
                 )}
               </div>

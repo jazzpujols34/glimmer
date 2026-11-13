@@ -1,4 +1,5 @@
 import { buildPrompt } from './prompts';
+import { logger } from './logger';
 import { captureError, ProviderUnavailableError, isProviderUnavailable } from './errors';
 import type { GenerationSettings, GenerationJob, OccasionType, ModelType } from '@/types';
 
@@ -165,7 +166,8 @@ export async function checkBytePlusTasks(taskIds: string[]): Promise<TaskCheckRe
       headers: { 'Authorization': `Bearer ${apiKey}` },
     });
     if (!res.ok) {
-      captureError(new Error(`BytePlus status check failed: ${res.status}`), { provider: 'byteplus', taskId });
+      // Logged, not reported: during an outage every poll of every job lands here.
+      logger.warn(`[BytePlus] status check for ${taskId} answered ${res.status}; treating as still running`);
       pending++;
       continue;
     }

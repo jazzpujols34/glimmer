@@ -41,7 +41,7 @@ No server-side video processing. No uploads of your final video. Everything stay
 ## Key Features
 
 ### AI Video Generation
-- **Multi-provider** — BytePlus Seedance, Google Veo 3.1, Kling AI
+- **AI video generation** — BytePlus Seedance
 - **Smart prompts** — Category-aware prompt engine (person vs. pet, occasion-specific)
 - **Multiple aspect ratios** — 16:9, 9:16, 1:1
 - **Batch generation** — Generate multiple clips from a folder of photos via CLI
@@ -75,9 +75,9 @@ Client (Browser)                    Cloudflare Edge
                                    └────────┬─────────┘
                                             │
                                    ┌────────▼─────────┐
-                                   │  AI Providers     │
-                                   │  BytePlus / Veo   │
-                                   │  / Kling AI       │
+                                   │  AI Provider      │
+                                   │  BytePlus         │
+                                   │  Seedance         │
                                    └──────────────────┘
 ```
 
@@ -92,7 +92,7 @@ Client (Browser)                    Cloudflare Edge
 | Hosting | Cloudflare Pages (Edge Runtime) |
 | Storage | Cloudflare KV (job state) + R2 (video files) |
 | Video Export | FFmpeg WASM (in-browser) |
-| AI Video | BytePlus Seedance, Google Veo 3.1, Kling AI |
+| AI Video | BytePlus Seedance |
 | Payments | ECPay (Taiwan) |
 | Email | Resend |
 | Monitoring | Sentry (Edge-compatible, raw HTTP) |
@@ -102,7 +102,7 @@ Client (Browser)                    Cloudflare Edge
 ### Prerequisites
 
 - Node.js 18+
-- API key for at least one video generation provider (BytePlus recommended)
+- BytePlus Seedance API key
 
 ### Setup
 
@@ -129,11 +129,8 @@ Copy `.env.example` to `.env.local`. Key variables:
 
 | Variable | Description | Required |
 |----------|-------------|----------|
-| `BYTEPLUS_API_KEY` | BytePlus Seedance API key | Yes (primary provider) |
+| `BYTEPLUS_API_KEY` | BytePlus Seedance API key | Yes |
 | `BYTEPLUS_MODEL_ID` | BytePlus model endpoint ID | Yes |
-| `GOOGLE_CLOUD_PROJECT_ID` | GCP project for Veo 3.1 | Optional |
-| `KLING_ACCESS_KEY` | Kling AI access key | Optional |
-| `KLING_SECRET_KEY` | Kling AI secret key | Optional |
 | `RESEND_API_KEY` | Email verification | Optional |
 | `ECPAY_MERCHANT_ID` | ECPay payments (Taiwan) | Optional |
 | `ADMIN_EMAILS` | Comma-separated admin emails | Optional |
@@ -184,7 +181,7 @@ app/src/
 │   ├── storyboard/         # Multi-slot storyboard editor
 │   └── ui/                 # shadcn/ui primitives
 ├── lib/                    # Core business logic
-│   ├── veo.ts              # Multi-provider video generation
+│   ├── veo.ts              # BytePlus video generation
 │   ├── credits.ts          # Credit system + admin gating
 │   ├── prompts.ts          # Category-aware AI prompt builder
 │   ├── ecpay.ts            # ECPay payment (Web Crypto HMAC)

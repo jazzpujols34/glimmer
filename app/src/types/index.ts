@@ -6,9 +6,9 @@ export type GenerationStatus = 'queued' | 'processing' | 'complete' | 'error';
 export type TaskType = 'image-to-video' | 'first-last-frame';
 
 // Model options
-export type ModelType = 'veo-3.1' | 'veo-3.1-fast' | 'kling-ai' | 'byteplus';
+export type ModelType = 'byteplus';
 
-// Aspect ratio options (Veo & Kling both support 16:9 and 9:16)
+// Aspect ratio options (both are supported)
 export type AspectRatio = '16:9' | '9:16';
 
 // Resolution options
@@ -63,7 +63,7 @@ export interface GenerationJob {
   segmentIndex?: number;    // 0-based index in batch (0 = first segment)
   // Edge-compatible: external task tracking (serverless polling)
   provider?: ModelType;
-  externalTaskIds?: string[];       // BytePlus/Kling task IDs
+  externalTaskIds?: string[];       // provider task IDs
   // What this job cost, so a provider failure can give exactly that back.
   // `ref` is the id consumeCredits() was called with. Absent on older jobs.
   charge?: { free: number; paid: number; ref: string };
@@ -101,7 +101,7 @@ export interface PurchaseRecord {
   credits: number;        // generations purchased
   amountTWD: number;
   createdAt: string;
-  provider?: 'ecpay' | 'stripe' | 'admin';  // Payment provider or admin grant
+  provider?: 'ecpay' | 'admin';  // Payment provider or admin grant
   ecpayTradeNo?: string;          // ECPay transaction number
   adminGrantedBy?: string;        // Admin email who granted (for admin grants)
   adminReason?: string;           // Reason for admin grant

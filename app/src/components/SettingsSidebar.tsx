@@ -16,7 +16,7 @@ import {
 } from '@/components/ui/select';
 import { Coins, Info } from 'lucide-react';
 import { creditsForGeneration } from '@/lib/credit-cost';
-import type { GenerationSettings, TaskType, ModelType, AspectRatio, Resolution } from '@/types';
+import type { GenerationSettings, TaskType, AspectRatio, Resolution } from '@/types';
 
 interface SettingsSidebarProps {
   settings: GenerationSettings;
@@ -34,13 +34,6 @@ const taskTypes: { value: TaskType; label: string; description: string }[] = [
   { value: 'first-last-frame', label: 'First + Last Frame', description: '首幀末幀，平滑過渡' },
 ];
 
-const models: { value: ModelType; label: string; description: string; disabled?: boolean }[] = [
-  { value: 'byteplus', label: 'BytePlus Seedance', description: '推薦，4-12秒影片' },
-  { value: 'veo-3.1', label: 'Veo 3.1', description: 'Google，8秒固定 (coming soon)', disabled: true },
-  { value: 'veo-3.1-fast', label: 'Veo 3.1 Fast', description: 'Google 快速 (coming soon)', disabled: true },
-  { value: 'kling-ai', label: 'Kling AI', description: '5或10秒 (coming soon)', disabled: true },
-];
-
 const aspectRatios: { value: AspectRatio; label: string }[] = [
   { value: '16:9', label: '16:9 (橫向)' },
   { value: '9:16', label: '9:16 (直向)' },
@@ -51,37 +44,10 @@ const resolutions: { value: Resolution; label: string }[] = [
   { value: '1080p', label: '1080p (Full HD)' },
 ];
 
-// Helper to check model type
-const isVeoModel = (model: ModelType) => model === 'veo-3.1' || model === 'veo-3.1-fast';
-const isBytePlusModel = (model: ModelType) => model === 'byteplus';
-const isKlingModel = (model: ModelType) => model === 'kling-ai';
-
 function SettingsContent({ settings, onSettingsChange, paidRemaining }: Omit<SettingsSidebarProps, 'isOpen' | 'onOpenChange'>) {
   const updateSetting = <K extends keyof GenerationSettings>(key: K, value: GenerationSettings[K]) => {
     onSettingsChange({ ...settings, [key]: value });
   };
-
-  // Handle model change with auto-adjustment of dependent settings
-  const handleModelChange = (newModel: ModelType) => {
-    const updates: Partial<GenerationSettings> = { model: newModel };
-
-    if (isVeoModel(newModel)) {
-      // Veo: fixed 8s, can use 720p or 1080p
-      updates.videoLength = 8;
-    } else if (isBytePlusModel(newModel)) {
-      // BytePlus: 4-12s, 720p or 1080p
-      updates.videoLength = Math.min(Math.max(settings.videoLength, 4), 12);
-    } else if (isKlingModel(newModel)) {
-      // Kling: 5s or 10s, locked to 720p
-      updates.videoLength = settings.videoLength <= 5 ? 5 : 10;
-      updates.resolution = '720p';
-    }
-
-    onSettingsChange({ ...settings, ...updates });
-  };
-
-  const isVeo = isVeoModel(settings.model);
-  const isBytePlus = isBytePlusModel(settings.model);
 
   return (
     <div className="space-y-6 py-4">
@@ -98,26 +64,6 @@ function SettingsContent({ settings, onSettingsChange, paidRemaining }: Omit<Set
                 <div>
                   <div className="font-medium">{task.label}</div>
                   <div className="text-xs text-muted-foreground">{task.description}</div>
-                </div>
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      {/* Model */}
-      <div className="space-y-2">
-        <Label>模型</Label>
-        <Select value={settings.model} onValueChange={(v) => handleModelChange(v as ModelType)}>
-          <SelectTrigger>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {models.map((model) => (
-              <SelectItem key={model.value} value={model.value} disabled={model.disabled}>
-                <div>
-                  <div className={`font-medium ${model.disabled ? 'text-muted-foreground' : ''}`}>{model.label}</div>
-                  <div className="text-xs text-muted-foreground">{model.description}</div>
                 </div>
               </SelectItem>
             ))}
@@ -210,74 +156,34 @@ function SettingsContent({ settings, onSettingsChange, paidRemaining }: Omit<Set
           <Label>影片長度</Label>
           <span className="text-sm text-muted-foreground">{settings.videoLength} 秒</span>
         </div>
-        {isVeo ? (
-          // Veo: Fixed 8 seconds
-          <div className="text-sm text-muted-foreground p-2 bg-muted rounded-md">
-            Veo 模型固定為 8 秒
-          </div>
-        ) : isBytePlus ? (
-          // BytePlus: 4-12 seconds slider
-          <>
-            <Slider
-              value={[settings.videoLength]}
-              onValueChange={([v]) => updateSetting('videoLength', v)}
-              min={4}
-              max={12}
-              step={1}
-            />
-            <div className="flex justify-between text-xs text-muted-foreground">
-              <span>4秒</span>
-              <span>12秒</span>
-            </div>
-          </>
-        ) : (
-          // Kling: 5s or 10s toggle
-          <div className="flex gap-2">
-            <Button
-              type="button"
-              variant={settings.videoLength === 5 ? 'default' : 'outline'}
-              size="sm"
-              className="flex-1"
-              onClick={() => updateSetting('videoLength', 5)}
-            >
-              5 秒
-            </Button>
-            <Button
-              type="button"
-              variant={settings.videoLength === 10 ? 'default' : 'outline'}
-              size="sm"
-              className="flex-1"
-              onClick={() => updateSetting('videoLength', 10)}
-            >
-              10 秒
-            </Button>
-          </div>
-        )}
+        <Slider
+          value={[settings.videoLength]}
+          onValueChange={([v]) => updateSetting('videoLength', v)}
+          min={4}
+          max={12}
+          step={1}
+        />
+        <div className="flex justify-between text-xs text-muted-foreground">
+          <span>4秒</span>
+          <span>12秒</span>
+        </div>
       </div>
 
       {/* Resolution */}
       <div className="space-y-2">
         <Label>輸出解析度</Label>
-        {(isVeo || isBytePlus) ? (
-          // Veo & BytePlus: 720p or 1080p
-          <Select value={settings.resolution} onValueChange={(v) => updateSetting('resolution', v as Resolution)}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {resolutions.map((res) => (
-                <SelectItem key={res.value} value={res.value}>
-                  {res.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        ) : (
-          // Kling: locked to 720p
-          <div className="text-sm text-muted-foreground p-2 bg-muted rounded-md">
-            Kling AI 免費版固定為 720p
-          </div>
-        )}
+        <Select value={settings.resolution} onValueChange={(v) => updateSetting('resolution', v as Resolution)}>
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {resolutions.map((res) => (
+              <SelectItem key={res.value} value={res.value}>
+                {res.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Credit cost preview — updates live as settings change */}

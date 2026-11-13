@@ -425,9 +425,6 @@ function CreatePageInner() {
           <section className="container mx-auto px-4 pb-4">
             <div className="max-w-2xl mx-auto">
               <div className="flex flex-wrap gap-2 text-xs">
-                <span className="px-2 py-1 rounded-full bg-primary/10 text-primary">
-                  {settings.model === 'byteplus' ? 'BytePlus Seedance' : settings.model === 'veo-3.1' ? 'Veo 3.1' : settings.model === 'veo-3.1-fast' ? 'Veo 3.1 Fast' : 'Kling AI'}
-                </span>
                 {settings.taskType === 'first-last-frame' && (
                   <span className="px-2 py-1 rounded-full bg-primary/10 text-primary">
                     首末幀

@@ -4,7 +4,7 @@
 
 ## Project Overview
 
-**拾光 Glimmer** is an AI-powered memorial video generation platform. Users upload photos and the app generates cinematic videos via multiple AI providers (Google Veo 3.1, BytePlus Seedance, Kling AI).
+**拾光 Glimmer** is an AI-powered memorial video generation platform. Users upload photos and the app generates cinematic videos via one AI provider (BytePlus Seedance, internal id `byteplus`).
 
 **Stack:** Next.js 16, React, TypeScript, Tailwind CSS, Cloudflare Pages (Edge Runtime), Cloudflare KV, Cloudflare R2
 
@@ -48,7 +48,7 @@ app/                          # Next.js application
 │   │   ├── storage.ts        # KV/in-memory job storage abstraction (enforces lifecycle.ts on write)
 │   │   ├── kv.ts             # Low-level KV helpers (kvGet, kvPut, kvDelete, getKV)
 │   │   ├── r2.ts             # R2 video archival
-│   │   ├── veo.ts            # Multi-provider video generation (BytePlus, Veo, Kling)
+│   │   ├── veo.ts            # BytePlus Seedance video generation (single provider)
 │   │   ├── credits.ts        # Credit system + isAdmin + ADMIN_EMAILS
 │   │   ├── prompts.ts        # Category-aware AI prompt builder
 │   │   ├── validation.ts     # Shared validators (isValidEmail, etc.)
@@ -95,9 +95,8 @@ The app uses a **client-driven polling** architecture for video generation:
 - **Local dev:** In-memory `Map` on `globalThis` (survives HMR). All storage functions are `async`.
 - **Video URL resolution:** R2 keys (not starting with `http`) → proxy URL (`/api/proxy-video?jobId=xxx&index=0`). CDN URLs (starting with `http`) used directly. Consolidated in `lib/video-url.ts`.
 
-### Multi-Provider Video Generation
-`veo.ts` dispatches to provider-specific functions, returns uniform `TaskCheckResult`.
-Providers: `byteplus`, `veo-3.1`, `veo-3.1-fast`, `kling-ai`
+### Video Generation (single provider)
+There is one provider: BytePlus Seedance, internal id `byteplus` (`ModelType` is just that). Veo and Kling are gone. `veo.ts` creates tasks and `checkBytePlusTasks` returns a `TaskCheckResult` that reports a per-video outcome. Customer-facing UI never names the vendor or model.
 
 ### Shared Modules (consolidated 2026-03-04)
 Avoid re-declaring these — always import from the canonical source:

@@ -25,6 +25,9 @@ vi.mock('./credits', () => ({
   refundCredits: (...a: unknown[]) => refundCredits(...a),
 }));
 
+const sendAdminAlert = vi.fn(() => Promise.resolve());
+vi.mock('./telegram', () => ({ sendAdminAlert: (...a: unknown[]) => sendAdminAlert(...(a as [])) }));
+
 const sendCompletionEmail = vi.fn();
 vi.mock('./email', () => ({ sendCompletionEmail: (...a: unknown[]) => sendCompletionEmail(...a) }));
 
@@ -269,6 +272,7 @@ describe('settleJob — automatic refunds are capped, so failing on purpose is n
 
     expect(fourth.status).toBe('error');
     expect(fourth.refundHeld).toBe(true);
+    expect(sendAdminAlert).toHaveBeenCalledTimes(1);
     expect(fourth.refundedCredits).toBeUndefined();
     expect(refundCredits).toHaveBeenCalledTimes(3);
   });

@@ -22,7 +22,7 @@ vi.mock('@/lib/kv', () => ({
 }));
 
 // Mock the provider dispatcher — we're testing credit bookkeeping around task
-// creation, not the real BytePlus/Veo/Kling HTTP calls.
+// creation, not the real provider HTTP calls.
 vi.mock('@/lib/veo', () => ({
   createVideoTask: vi.fn(),
 }));

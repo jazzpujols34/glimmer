@@ -14,6 +14,7 @@ import { sendCompletionEmail } from './email';
 import { getJob, updateJob, setJobComplete, setJobError } from './storage';
 import { captureError, normalizeError } from './errors';
 import { kvGet, kvPut } from './kv';
+import { sendAdminAlert } from './telegram';
 import { logger } from './logger';
 
 /**
@@ -117,6 +118,8 @@ export async function refundIfOwed(job: GenerationJob): Promise<GenerationJob> {
       captureError(new Error(`Refund held for review: job ${job.id}, ${paid + free} credit(s)`), {
         route: 'refundIfOwed.held', jobId: job.id, email: job.email,
       });
+      // The owner must see this: the customer is owed credits until someone reviews it.
+      await sendAdminAlert(`拾光退點待審：影片 ${job.id} 失敗，${paid + free} 點未自動退還（已達每日自動退點上限）`);
       return (await updateJob(job.id, { refundHeld: true })) ?? job;
     }
     await refundCredits(job.email, job.charge.ref, free, paid);
