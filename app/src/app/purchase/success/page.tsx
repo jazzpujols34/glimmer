@@ -7,51 +7,63 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { CheckCircle2, Sparkles } from 'lucide-react';
 import { trackPurchaseComplete } from '@/lib/analytics';
+import { isPurchaseConfirmed } from '@/lib/purchase-confirm';
 
 export default function PurchaseSuccessPage() {
   const [remaining, setRemaining] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
+  const [confirmed, setConfirmed] = useState(false);
 
   useEffect(() => {
+    let cleanup = () => {};
     const email = localStorage.getItem('glimmer_email');
     if (!email) {
       setLoading(false);
       return;
     }
 
-    // Retry a few times — webhook may take a moment to add credits
+    // The payment notice may arrive after this page loads — keep asking for ~30s.
     let attempts = 0;
     const maxAttempts = 15;
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    let pending: { packId?: string; amount?: number; orderId?: string; remainingBefore?: number | null } | null = null;
+    try {
+      pending = JSON.parse(localStorage.getItem('glimmer_pending_purchase') || 'null');
+    } catch { /* ignore */ }
 
     const checkCredits = async () => {
+      let confirmedNow = false;
       try {
         const res = await fetch(`/api/credits?email=${encodeURIComponent(email)}`);
+        if (cancelled) return;
         if (res.ok) {
           const data = await res.json();
           setRemaining(data.remaining);
-          // If credits are 0, webhook may not have fired yet — retry (up to ~30s)
-          if (data.remaining === 0 && attempts < maxAttempts) {
-            attempts++;
-            setTimeout(checkCredits, 2000);
-            return;
-          }
-          // Track purchase complete when we have credits
-          if (data.remaining > 0) {
-            try {
-              const pending = localStorage.getItem('glimmer_pending_purchase');
-              if (pending) {
-                const { packId, amount, orderId } = JSON.parse(pending);
-                trackPurchaseComplete(packId, amount, orderId);
-                localStorage.removeItem('glimmer_pending_purchase');
-              }
-            } catch { /* ignore */ }
-          }
+          confirmedNow = isPurchaseConfirmed(data.remaining, pending?.remainingBefore);
         }
       } catch { /* ignore */ }
+
+      if (confirmedNow) {
+        setConfirmed(true);
+        if (pending?.packId && pending.orderId) {
+          trackPurchaseComplete(pending.packId, pending.amount ?? 0, pending.orderId);
+        }
+        try { localStorage.removeItem('glimmer_pending_purchase'); } catch { /* ignore */ }
+      } else if (attempts < maxAttempts) {
+        attempts++;
+        timer = setTimeout(checkCredits, 2000);
+        return;
+      }
       setLoading(false);
     };
-
+    cleanup = () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+    };
     checkCredits();
+    return () => cleanup();
   }, []);
 
   return (
@@ -83,7 +95,7 @@ export default function PurchaseSuccessPage() {
                 <p className="text-sm text-muted-foreground">正在確認付款...</p>
                 <p className="text-xs text-muted-foreground">ECPay 確認可能需要數秒，請稍候</p>
               </div>
-            ) : remaining !== null ? (
+            ) : confirmed && remaining !== null ? (
               <div className="p-4 rounded-lg bg-primary/10">
                 <p className="flex items-center justify-center gap-2 text-lg font-medium">
                   <Sparkles className="w-5 h-5 text-primary" />
@@ -95,7 +107,7 @@ export default function PurchaseSuccessPage() {
               </div>
             ) : (
               <p className="text-sm text-muted-foreground">
-                點數已加入您的帳戶，請返回製作頁面開始使用。
+                付款已送出，點數入帳可能需要幾分鐘。若稍後在製作頁面仍未看到點數，請與我們聯絡。
               </p>
             )}
 

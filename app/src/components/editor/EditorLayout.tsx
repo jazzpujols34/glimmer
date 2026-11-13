@@ -134,7 +134,10 @@ export function EditorLayout() {
             {state.activePanel === 'sfx' && <SfxPanel />}
             {state.activePanel === 'titles' && <TitleCardPanel />}
             {state.activePanel === 'templates' && <TemplatePanel />}
-            {state.activePanel === 'export' && <ExportPanel />}
+            {/* Stays mounted: a running export must survive a tab switch. */}
+            <div className={state.activePanel === 'export' ? undefined : 'hidden'}>
+              <ExportPanel />
+            </div>
           </div>
         </div>
       </div>
