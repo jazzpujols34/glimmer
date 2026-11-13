@@ -16,12 +16,12 @@ Deployed on Cloudflare Pages.
 app/                          # Next.js application
 ├── src/
 │   ├── app/                  # Pages and API routes (App Router)
-│   │   ├── api/              # 34 API routes (Edge Runtime)
+│   │   ├── api/              # 35 API routes (Edge Runtime)
 │   │   │   ├── generate/     # Video generation (POST)
 │   │   │   ├── status/[id]/  # Job status polling (GET)
 │   │   │   ├── gallery/      # Gallery listing + detail
-│   │   │   ├── admin/        # Stats, users, cleanup (admin-gated)
-│   │   │   ├── checkout/     # Stripe payment
+│   │   │   ├── admin/        # Overview, users, cleanup (admin-gated)
+│   │   │   ├── checkout/     # ECPay checkout
 │   │   │   ├── webhooks/     # ECPay webhook
 │   │   │   ├── proxy-video/  # R2/CDN video proxy (for editor Canvas ops)
 │   │   │   └── ...           # credits, export, storyboards, verify, etc.
@@ -42,7 +42,10 @@ app/                          # Next.js application
 │   │   ├── constants.ts      # Shared UI constants (OCCASION_LABELS, BUNDLED_TRACKS, COLOR_PRESETS)
 │   │   ├── media-utils.ts    # Shared getVideoDuration, getAudioDuration
 │   │   ├── video-url.ts      # R2 key → proxy URL transform (getVideoUrl, getVideoUrls)
-│   │   ├── storage.ts        # KV/in-memory job storage abstraction
+│   │   ├── lifecycle.ts      # Status transition tables + isTerminal* predicates (pure, client-safe)
+│   │   ├── job-settle.ts     # settleJob / archiveIfNeeded — the only code that moves a job out of `processing`
+│   │   ├── export-poll.ts    # waitForExport — the one client loop for server exports
+│   │   ├── storage.ts        # KV/in-memory job storage abstraction (enforces lifecycle.ts on write)
 │   │   ├── kv.ts             # Low-level KV helpers (kvGet, kvPut, kvDelete, getKV)
 │   │   ├── r2.ts             # R2 video archival
 │   │   ├── veo.ts            # Multi-provider video generation (BytePlus, Veo, Kling)
@@ -83,7 +86,7 @@ The proxy-video endpoint has a fallback that serves directly from R2 if the KV r
 ### Client-Driven Polling Pattern
 The app uses a **client-driven polling** architecture for video generation:
 1. `POST /api/generate` — creates external task, saves tracking data to KV, returns job ID immediately
-2. `GET /api/status/[id]` — client polls this; each request checks external API once, updates KV, archives to R2 on completion
+2. `GET /api/status/[id]` — client polls this; each request calls `settleJob()` (`lib/job-settle.ts`), which checks the external API once, updates KV, archives to R2 on completion
 3. No background tasks or fire-and-forget — everything is request-scoped for Edge compatibility
 
 ### Storage & Video Lifecycle
@@ -107,6 +110,9 @@ Avoid re-declaring these — always import from the canonical source:
 | `isValidEmail` | `@/lib/validation` | Email format validator (never inline regex) |
 | `normalizeError` | `@/lib/errors` | Error object/string normalization |
 | `getKV`, `KVNamespaceLike` | `@/lib/kv` | Low-level KV access |
+| `canTransitionJob`, `isTerminalBatchStatus`, `deriveBatchStatus`, … | `@/lib/lifecycle` | Status rules. Never compare status strings to decide "is it done" — use a predicate |
+| `settleJob`, `archiveIfNeeded` | `@/lib/job-settle` | Never call `checkVideoTaskStatus` + `setJobComplete` from a route |
+| `waitForExport` | `@/lib/export-poll` | Never hand-roll an `/api/export-status` loop |
 
 ## Assigned Ports
 
@@ -134,15 +140,15 @@ node scripts/batch-generate.mjs /path/to/photos --email user@example.com --base-
 node scripts/batch-status.mjs --base-url https://glimmer.video
 ```
 
-Options: `--clips 1-4` (default 3), `--model byteplus|veo-3.1|kling-ai`, `--occasion memorial|birthday|wedding|pet|other`, `--delay` seconds, `--dry-run`. Aspect ratio auto-detected from photo dimensions.
+Options: `--clips 1-4` (default 3), `--model byteplus` (the server accepts only byteplus today), `--occasion memorial|birthday|wedding|pet|other`, `--delay` seconds, `--dry-run`. Aspect ratio auto-detected from photo dimensions.
 
 ## Business Model
 
-Pay-per-generation credits (not subscriptions). Email-only identity (no passwords/OAuth).
+Pay-per-generation credits (not subscriptions). Passwordless identity: a typed, verified email, plus optional Google sign-in or an email login link that mints a signed session.
 - Free: 3 generations per email (`FREE_GENERATIONS` in `src/types/index.ts`), full quality, no watermark
-- Credit packs: 20 次 NT$299, 50 次 NT$599 — single source of truth in `src/lib/packs.ts`
+- Credit packs: 20 點 NT$299, 50 點 NT$599 — single source of truth in `src/lib/packs.ts`
 - Enterprise: 請洽業務 (contact sales)
-- Payment: ECPay (Taiwan-native), Stripe as fallback
+- Payment: ECPay (Taiwan-native) only; there is no Stripe code
 
 ## CI/CD
 
@@ -157,7 +163,7 @@ Pay-per-generation credits (not subscriptions). Email-only identity (no password
 - No `fs`, `path`, `crypto.createHmac` — use Web Crypto API (`crypto.subtle`) for HMAC
 - No background tasks (`waitUntil`, `setTimeout` polling) — use client-driven polling + KV
 - In-memory state not shared across isolates — always use KV for persistence
-- Stripe/ECPay via raw `fetch()` — no SDK packages needed
+- ECPay via raw `fetch()` — no SDK package needed
 
 ### Provider APIs
 - Provider errors may be objects (`{code, message}`), not strings. Always normalize with `normalizeError()` before storing or returning to client.
@@ -184,9 +190,9 @@ Pay-per-generation credits (not subscriptions). Email-only identity (no password
 
 - **[2026-08-02] Progressive Google identity Phase 2b enforcement — LIVE (flag ON in prod).** Merged (`de1293b`) and `REQUIRE_SESSION_FOR_PAID=true` set in CF Pages + redeployed (`2a4d92d`), verified live end-to-end (throwaway-email probe: no `sessionreq` marker → passes through; marker set → 401 `SESSION_REQUIRED`). `enforceIdentity()` (`src/lib/identity.ts`) is wired into the spend/destructive routes (`generate`, `generate-batch`, `quick-generate`, `transcribe`, and the DELETE/batch-delete handlers on `gallery`/`projects`/`storyboards`) — with the flag OFF every wired route was byte-identical to pre-Phase-2b (proven by all 366 pre-existing tests green, flag unset); with it ON, a valid session wins (spoof-proof) and an account carrying `sessionreq:<email>` is refused typed-email spend/delete without a session. Auto-migrate: the OAuth callback writes `sessionreq:<email>` at sign-in, so an account only becomes session-required once it has signed in — a never-signed-in email (e.g. Albert today) is never locked out. Recovery from lockout = the app-wide "Sign in with Google" button. GET/list reads deliberately left unwired (deferred). KV write propagation to the edge can lag up to ~60s. Bundle: 24.899 → 24.933 MiB, ~67 KiB headroom — **the deferred follow-ups (magic-link email session for non-Google users, self-serve verify-to-claim linking, GET/list enforcement) each need a bundle fold-or-retire first.**
 
-- **[2026-08-02] Progressive Google identity Phase 1 shipped dormant** (branch `feature/oauth-phase1`, not yet merged/deployed) — session library (`src/lib/session.ts`, Web Crypto HMAC-SHA256, no jose dep), one OAuth catch-all route (`src/app/api/auth/[...auth]/route.ts`: login/callback/session/logout), a dormant `resolveIdentity()` bridge (`src/lib/identity.ts`, session → `submap:<sub>` → email), and a "Sign in with Google" button in the landing header. Nothing requires a session yet — every existing route still resolves identity by client-typed email exactly as before. Bundle only fit under 25 MiB by first folding `/api/access` into `/api/credits` (Step 0, see the corollary below) to net one function back before adding the new auth route: 24.878 → 24.561 → 24.886 MiB, ~114 KiB headroom left afterward — the next new route on this app needs its own fold-or-retire first. Phase 2 (enforcing sessions on money/PII routes) is a separate, later change — see `docs/oauth-identity-design.html`.
+- **[2026-08-02] Progressive Google identity Phase 1** (merged `dc73212`; superseded by the Phase 2b entry above, which made sessions enforced) — session library (`src/lib/session.ts`, Web Crypto HMAC-SHA256, no jose dep), one OAuth catch-all route (`src/app/api/auth/[...auth]/route.ts`: login/callback/session/logout), a dormant `resolveIdentity()` bridge (`src/lib/identity.ts`, session → `submap:<sub>` → email), and a "Sign in with Google" button in the landing header. Nothing requires a session yet — every existing route still resolves identity by client-typed email exactly as before. Bundle only fit under 25 MiB by first folding `/api/access` into `/api/credits` (Step 0, see the corollary below) to net one function back before adding the new auth route: 24.878 → 24.561 → 24.886 MiB, ~114 KiB headroom left afterward — the next new route on this app needs its own fold-or-retire first. Phase 2 (enforcing sessions on money/PII routes) is a separate, later change — see `docs/oauth-identity-design.html`.
 
-- **[2026-08-02] Progressive Google identity Phase 2a: session wakes up on the client** (branch `feature/oauth-phase2a`, not yet merged/deployed) — `/api/auth/session` now returns the email resolved through `resolveIdentity()` (submap-mapped, not the raw session claim), and a new no-render `SessionIdentitySync` component (mounted once in `src/app/layout.tsx`) fetches it on load and promotes it into `localStorage['glimmer_email']` when it differs, dispatching a `storage` event so already-mounted pages (`create/page.tsx`) pick it up without a manual refresh. Decision logic (`resolveSyncedEmail`) lives in `src/lib/session-sync.ts`, split out purely so it's unit-testable — this repo's vitest config is `environment: 'node'` with `include: ['src/**/*.test.ts']` only, i.e. **no component-rendering tests exist or are supported without adding `@testing-library/react`**; keep React glue thin and push logic into plain `.ts` modules to stay testable under the current harness. `AuthButton` was considered as the sync point but only mounts on the landing page (`src/app/page.tsx`), never `/create` — confirms a shared-header-less app needs the root-layout home, not a per-component fix. Still display/client-identity only — no route enforces the session (Phase 2b). Bundle: 24.886 → 24.899 MiB, ~101 KiB headroom left.
+- **[2026-08-02] Progressive Google identity Phase 2a: session wakes up on the client** (merged `86fa744`) — `/api/auth/session` now returns the email resolved through `resolveIdentity()` (submap-mapped, not the raw session claim), and a new no-render `SessionIdentitySync` component (mounted once in `src/app/layout.tsx`) fetches it on load and promotes it into `localStorage['glimmer_email']` when it differs, dispatching a `storage` event so already-mounted pages (`create/page.tsx`) pick it up without a manual refresh. Decision logic (`resolveSyncedEmail`) lives in `src/lib/session-sync.ts`, split out purely so it's unit-testable — this repo's vitest config is `environment: 'node'` with `include: ['src/**/*.test.ts']` only, i.e. **no component-rendering tests exist or are supported without adding `@testing-library/react`**; keep React glue thin and push logic into plain `.ts` modules to stay testable under the current harness. `AuthButton` was considered as the sync point but only mounts on the landing page (`src/app/page.tsx`), never `/create` — confirms a shared-header-less app needs the root-layout home, not a per-component fix. Still display/client-identity only — no route enforces the session (Phase 2b). Bundle: 24.886 → 24.899 MiB, ~101 KiB headroom left.
 
 - **[2026-08-02] CF Pages has a 25 MiB Functions bundle limit and ONLY Cloudflare's deploy step enforces it** — local `next build` AND local `npx @cloudflare/next-on-pages` both pass on a bundle that CF rejects ("Generated Pages Functions bundle size is over the limit of 25.0 MiB"). The Next 16.1.4→16.2.12 bump inflated the worker to 26.03 MiB and **silently broke every deploy from 2026-08-01 until the revert (`9fc180d`)**; prod kept serving the last good build, so nothing looked wrong. Before ANY dep bump or large feature: build with `npx @cloudflare/next-on-pages`, then measure `find .vercel/output/static/_worker.js -name "*.js" -o -name "*.wasm" | xargs stat -f%z | awk '{s+=$1} END {print s/1048576}'` — headroom is under 100 KiB (see the newer bundle note above for the latest figure). Retrying the Next 16.2.x upgrade REQUIRES a bundle diet first, done against a preview deployment. After every push to main, verify the deployment actually succeeded (`npx wrangler pages deployment list --project-name=glimmer`) — a red build is silent otherwise. Build logs are fetchable via the CF API: `GET /accounts/{acct}/pages/projects/glimmer/deployments/{id}/history/logs` with wrangler's OAuth token.
   - **Corollary, verified while building the admin portal (same day):** each Cloudflare Pages Function (`__next-on-pages-dist__/functions/**/*.func.js`) carries a **fixed ~320-330 KiB bundle overhead regardless of route logic size** — even a near-trivial route (`api/webhooks/ecpay-return.func.js`) is ~312 KiB, while a full route with real business logic (`api/admin/overview.func.js`) is only ~334 KiB, i.e. the route's own code was <25 KiB of that. With only ~190-200 KiB of headroom at baseline, **adding even ONE new `route.ts` file can blow the budget** — code-golfing the new route's logic does nothing, since the fixed per-function cost dwarfs it. The fix is architectural, not stylistic: fold new read endpoints into an existing route's query-param space (e.g. `?jobsEmail=`) instead of creating a new `route.ts`, or retire an old route to net the function count back to zero. Always confirm with a real `next build` — `/some-page` routes with no server data dependency (e.g. `/admin`, a pure `'use client'` page) come out `○` static and cost nothing against this limit; only new `ƒ` (dynamic) routes/functions do.
@@ -215,7 +221,7 @@ Pay-per-generation credits (not subscriptions). Email-only identity (no password
 
 - **[2026-03-04] Code Cleanup**: Consolidated duplicated code across 34 files into shared modules (`constants.ts`, `media-utils.ts`, `video-url.ts`). Fixed 4 bugs: pet occasion label undefined, updateJob resetting 30-day TTL, upload-music returning fake R2 key, export-server validating after credit check. Removed 6 dead exports. Net -320 lines.
 
-- **[2026-03-03] Gallery Polling**: Gallery reads KV without checking providers — jobs stay `processing` until status endpoint is polled. Solution: "Refresh" button that bulk-polls `/api/status` for processing jobs.
+- **[2026-11-13] Status lifecycles are explicit**: `lib/lifecycle.ts` holds the legal transitions (job: queued → processing → complete|error; batch: … → complete|partial|error; quick: generating → exporting → complete|error) and `storage.ts` refuses anything else as a logged no-op — KV has no compare-and-set, so two polls settling one job is normal and the first write wins. A new status value means: add it to the table, then the compiler and `storage-lifecycle.test.ts` show what else must change. Jobs only leave `processing` through `settleJob()`; the gallery "Refresh" button (`POST /api/gallery`) is just a bulk call of it. A provider 429/5xx on a status call keeps a job under 30 minutes old running instead of failing it. The export service answers in camelCase (`r2Key`) — `quick-status` read `r2_key` for nine months and the quick flow could never finish.
 
 - **[2026-02-28] FFmpeg xfade**: 13 transition types via `xfade` filter. Both `xfade` and `acrossfade` require all inputs to have video+audio streams — add silent audio to video-only clips first.
 
