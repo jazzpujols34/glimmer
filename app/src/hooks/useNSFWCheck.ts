@@ -15,6 +15,8 @@ async function getModel(): Promise<NSFWModel> {
       // Use the smaller/faster MobileNetV2 model
       return nsfwjs.load();
     })();
+    // A failed load must not be cached, or every later check fails open until reload.
+    modelPromise.catch(() => { modelPromise = null; });
   }
   return modelPromise;
 }

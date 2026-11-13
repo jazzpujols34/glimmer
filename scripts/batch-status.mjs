@@ -48,6 +48,8 @@ console.log(`API: ${baseUrl}\n`);
 async function checkStatus(jobId) {
   try {
     const res = await fetch(`${baseUrl}/api/status/${jobId}`);
+    // 429 = we asked too fast, not a failed video; it is picked up on the next run.
+    if (res.status === 429) return { status: 'processing' };
     if (!res.ok) return { status: 'error', error: `HTTP ${res.status}` };
     return await res.json();
   } catch (err) {

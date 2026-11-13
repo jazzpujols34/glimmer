@@ -151,11 +151,12 @@ function StoryboardEditorPageContent() {
   const syncToServer = useCallback(async (s: Storyboard) => {
     setSaveStatus('saving');
     try {
-      await fetch(withEmail(`/api/storyboards/${storyboardId}`, email), {
+      const res = await fetch(withEmail(`/api/storyboards/${storyboardId}`, email), {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'fullUpdate', storyboard: s }),
       });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       markSaved();
     } catch (err) {
       logger.error('Error syncing to server:', err);
@@ -424,6 +425,7 @@ function StoryboardEditorPageContent() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'addSlot', position }),
         });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
         if (res.ok) {
           const data = await res.json();
           setStoryboardDirect(data.storyboard);
@@ -471,6 +473,7 @@ function StoryboardEditorPageContent() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'removeSlot', slotIndex }),
         });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
         if (res.ok) {
           const data = await res.json();
           setStoryboardDirect(data.storyboard);
@@ -526,11 +529,12 @@ function StoryboardEditorPageContent() {
     setSaveStatus('saving');
     try {
       // Update title card
-      await fetch(withEmail(`/api/storyboards/${storyboardId}`, email), {
+      const titleRes = await fetch(withEmail(`/api/storyboards/${storyboardId}`, email), {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'updateTitleCard', titleCard }),
       });
+      if (!titleRes.ok) throw new Error(`HTTP ${titleRes.status}`);
 
       // Update outro card
       const res = await fetch(withEmail(`/api/storyboards/${storyboardId}`, email), {
@@ -539,6 +543,7 @@ function StoryboardEditorPageContent() {
         body: JSON.stringify({ action: 'updateOutroCard', outroCard }),
       });
 
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       if (res.ok) {
         const data = await res.json();
         setStoryboardDirect(data.storyboard);
@@ -568,6 +573,7 @@ function StoryboardEditorPageContent() {
         body: JSON.stringify({ action: 'updateMusicTracks', musicTracks: tracks }),
       });
 
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       if (res.ok) {
         const data = await res.json();
         setStoryboardDirect(data.storyboard);
@@ -596,6 +602,7 @@ function StoryboardEditorPageContent() {
         body: JSON.stringify({ action: 'updateSubtitles', subtitles }),
       });
 
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       if (res.ok) {
         const data = await res.json();
         setStoryboardDirect(data.storyboard);

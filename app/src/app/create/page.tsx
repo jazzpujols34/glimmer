@@ -18,7 +18,7 @@ import { useAccess } from '@/hooks/useAccess';
 import type { OccasionType, GenerationSettings, CreditBalance, Project } from '@/types';
 import { defaultSettings } from '@/types';
 import { creditsForGeneration } from '@/lib/credit-cost';
-import { PACK_LIST } from '@/lib/packs';
+import { PACK_LIST, getPack } from '@/lib/packs';
 import { FolderOpen, ChevronDown, Layers, CheckCircle2 } from 'lucide-react';
 import { trackGenerationStart, trackPurchaseStart } from '@/lib/analytics';
 import { isValidEmail as checkEmail } from '@/lib/validation';
@@ -318,7 +318,16 @@ function CreatePageInner() {
 
       if (!res.ok) {
         if (data.code === 'EMAIL_NOT_VERIFIED') {
-          setCreditBalance(prev => prev ? { ...prev, verified: false } : null);
+          // The verify prompt hangs off the balance. If it never loaded, fetch it
+          // now, and failing that say so — never leave the button doing nothing.
+          let balance = creditBalance;
+          if (!balance) {
+            balance = await fetch(`/api/credits?email=${encodeURIComponent(email)}`)
+              .then(r => (r.ok ? r.json() : null))
+              .catch(() => null);
+          }
+          if (balance) setCreditBalance({ ...balance, verified: false });
+          else setError(data.error || '請先驗證您的 Email');
           setIsSubmitting(false);
           return;
         }
@@ -933,11 +942,16 @@ function PurchaseButton({ email, packId, label }: { email: string; packId: strin
     setLoading(true);
     setPurchaseError(null);
     // Track purchase start
-    const packAmount = packId === 'pack20' ? 299 : packId === 'pack50' ? 599 : 0;
+    const packAmount = getPack(packId)?.priceTWD ?? 0;
     trackPurchaseStart(packId, packAmount);
 
     try {
       localStorage.setItem('glimmer_email', email);
+      // Balance before paying, so the success page can tell when the payment has landed.
+      const remainingBefore: number | null = await fetch(`/api/credits?email=${encodeURIComponent(email)}`)
+        .then(r => (r.ok ? r.json() : null))
+        .then(b => (typeof b?.remaining === 'number' ? b.remaining : null))
+        .catch(() => null);
       const res = await fetch('/api/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -946,7 +960,7 @@ function PurchaseButton({ email, packId, label }: { email: string; packId: strin
       const data = await res.json();
       // Store purchase info for completion tracking
       if (data.orderId) {
-        localStorage.setItem('glimmer_pending_purchase', JSON.stringify({ packId, amount: packAmount, orderId: data.orderId }));
+        localStorage.setItem('glimmer_pending_purchase', JSON.stringify({ packId, amount: packAmount, orderId: data.orderId, remainingBefore }));
       }
 
       if (data.paymentUrl && data.formData) {
