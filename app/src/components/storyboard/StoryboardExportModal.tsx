@@ -6,6 +6,7 @@ import { Progress } from '@/components/ui/progress';
 import { Download, Loader2, CheckCircle, X, AlertTriangle } from 'lucide-react';
 import type { Storyboard } from '@/types';
 import { logger } from '@/lib/logger';
+import { waitForExport } from '@/lib/export-poll';
 import { withEmail } from '@/lib/utils';
 
 interface StoryboardExportModalProps {
@@ -52,43 +53,19 @@ export function StoryboardExportModal({ storyboard, onClose }: StoryboardExportM
       setProgress(15);
       setStatusText('伺服器處理中...');
 
-      // Poll for completion
-      let pollCount = 0;
-      const maxPolls = 120; // 10 minutes with 5s interval
-      const pollInterval = 5000;
+      const url = await waitForExport(exportId, {
+        onTick: (fraction) => {
+          // Simulate progress (15% to 90% over polling period)
+          const simulatedProgress = Math.min(90, 15 + fraction * 75);
+          setProgress(simulatedProgress);
+          setStatusText(`伺服器處理中... (${Math.round(simulatedProgress)}%)`);
+        },
+      });
 
-      while (pollCount < maxPolls) {
-        await new Promise(resolve => setTimeout(resolve, pollInterval));
-        pollCount++;
-
-        // Simulate progress (15% to 90% over polling period)
-        const simulatedProgress = Math.min(90, 15 + (pollCount / maxPolls) * 75);
-        setProgress(simulatedProgress);
-        setStatusText(`伺服器處理中... (${Math.round(simulatedProgress)}%)`);
-
-        const statusResponse = await fetch(`/api/export-status?exportId=${exportId}`);
-        const statusResult = await statusResponse.json();
-
-        if (statusResult.status === 'complete') {
-          setProgress(100);
-          setStatus('complete');
-          setStatusText('匯出完成！');
-
-          if (statusResult.downloadUrl) {
-            setDownloadUrl(statusResult.downloadUrl);
-          } else {
-            throw new Error('未收到下載連結');
-          }
-          return;
-        }
-
-        if (statusResult.status === 'error') {
-          throw new Error(statusResult.error || '匯出失敗');
-        }
-      }
-
-      // Timeout
-      throw new Error('匯出逾時，請重試');
+      setProgress(100);
+      setStatus('complete');
+      setStatusText('匯出完成！');
+      setDownloadUrl(url);
 
     } catch (err) {
       logger.error('Storyboard export failed:', err);

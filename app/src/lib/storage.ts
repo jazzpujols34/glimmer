@@ -14,6 +14,7 @@ import type {
 } from '@/types';
 import { kvGet, kvPut, kvDelete, kvListKeys } from './kv';
 import { logger } from './logger';
+import { mapWithConcurrency } from './admin-kv';
 import {
   canTransitionJob,
   canTransitionQuick,
@@ -33,6 +34,17 @@ const PAID_JOB_TTL = 2592000;   // 30 days (paid users)
 // --- Public API (all async) ---
 
 const KEY_PREFIX = 'job:';
+
+/** Reads every record under a prefix, a bounded number at a time rather than one by one. */
+async function readAll<T>(prefix: string): Promise<T[]> {
+  const keys = await kvListKeys(prefix);
+  const raw = await mapWithConcurrency(keys, kvGet);
+  return raw.filter((data): data is string => !!data).map(data => JSON.parse(data) as T);
+}
+
+// Stored owner emails are as-typed; requester emails arrive normalised. Compare on equal terms.
+const sameEmail = (stored: string | undefined, wanted: string) =>
+  stored?.toLowerCase().trim() === wanted.toLowerCase().trim();
 
 export async function createJob(
   id: string,
@@ -56,21 +68,11 @@ export async function getJob(id: string): Promise<GenerationJob | undefined> {
 
 
 export async function getCompletedJobs(email?: string): Promise<GenerationJob[]> {
-  const keys = await kvListKeys(KEY_PREFIX);
-  const normalizedEmail = email?.toLowerCase().trim();
-  const jobs: GenerationJob[] = [];
-  for (const key of keys) {
-    const data = await kvGet(key);
-    if (data) {
-      const job: GenerationJob = JSON.parse(data);
-      if (job.status === 'complete' && (job.videoUrl || job.videoUrls?.length)) {
-        // If email filter provided, only return jobs owned by that user
-        if (!normalizedEmail || job.email?.toLowerCase().trim() === normalizedEmail) {
-          jobs.push(job);
-        }
-      }
-    }
-  }
+  const jobs = (await readAll<GenerationJob>(KEY_PREFIX)).filter(job =>
+    job.status === 'complete' && (job.videoUrl || job.videoUrls?.length) &&
+    // If email filter provided, only return jobs owned by that user
+    (!email || sameEmail(job.email, email))
+  );
   return jobs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 }
 
@@ -157,18 +159,10 @@ export async function getProject(id: string): Promise<Project | undefined> {
 }
 
 export async function getAllProjects(email?: string): Promise<Project[]> {
-  const keys = await kvListKeys(PROJECT_PREFIX);
-  const projects: Project[] = [];
-  for (const key of keys) {
-    const data = await kvGet(key);
-    if (data) {
-      const project: Project = JSON.parse(data);
-      // If email filter provided, only return projects for that user
-      if (!email || project.email === email) {
-        projects.push(project);
-      }
-    }
-  }
+  // If email filter provided, only return projects for that user
+  const projects = (await readAll<Project>(PROJECT_PREFIX)).filter(project =>
+    !email || sameEmail(project.email, email)
+  );
   return projects.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
 }
 
@@ -296,19 +290,10 @@ export async function getStoryboard(id: string): Promise<Storyboard | undefined>
 }
 
 export async function getAllStoryboards(email?: string): Promise<Storyboard[]> {
-  const keys = await kvListKeys(STORYBOARD_PREFIX);
-  const storyboards: Storyboard[] = [];
-
-  for (const key of keys) {
-    const data = await kvGet(key);
-    if (data) {
-      const storyboard: Storyboard = JSON.parse(data);
-      // If email filter provided, only return storyboards for that user
-      if (!email || storyboard.email === email) {
-        storyboards.push(storyboard);
-      }
-    }
-  }
+  // If email filter provided, only return storyboards for that user
+  const storyboards = (await readAll<Storyboard>(STORYBOARD_PREFIX)).filter(storyboard =>
+    !email || sameEmail(storyboard.email, email)
+  );
 
   return storyboards.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
 }

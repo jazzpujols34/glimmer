@@ -92,6 +92,9 @@ export function GenerationProgress({ jobId, onComplete, onError }: GenerationPro
             return;
           }
 
+          // A server hiccup says nothing about the job — retry like a network error.
+          if (res.status >= 500) throw new Error(`HTTP ${res.status}`);
+
           onError(data.error || '發生錯誤');
           return;
         }

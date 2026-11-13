@@ -111,3 +111,19 @@ describe('getCompletedJobs', () => {
     expect(jobs).toHaveLength(0);
   });
 });
+
+describe('owner filters compare emails case-insensitively', () => {
+  it('lists a project stored under a mixed-case email for the normalised requester', async () => {
+    await createProject('測試專案', 'Foo@Gmail.com');
+    const { getAllProjects } = await import('./storage');
+    expect(await getAllProjects('foo@gmail.com')).toHaveLength(1);
+    expect(await getAllProjects('other@gmail.com')).toHaveLength(0);
+  });
+
+  it('lists a storyboard stored under a mixed-case email for the normalised requester', async () => {
+    await createStoryboard('測試', 2, '16:9', 'Foo@Gmail.com');
+    const { getAllStoryboards } = await import('./storage');
+    expect(await getAllStoryboards('foo@gmail.com')).toHaveLength(1);
+    expect(await getAllStoryboards('other@gmail.com')).toHaveLength(0);
+  });
+});
