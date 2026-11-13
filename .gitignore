@@ -56,3 +56,4 @@ prompts/
 __pycache__/
 *.pyc
 .wrangler/
+.gstack/
