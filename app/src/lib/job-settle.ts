@@ -9,7 +9,7 @@
 import type { GenerationJob } from '@/types';
 import { checkVideoTaskStatus } from './veo';
 import { archiveVideos } from './r2';
-import { checkCredits, refundCredits } from './credits';
+import { canonicalFreeTierEmail, checkCredits, refundCredits } from './credits';
 import { sendCompletionEmail } from './email';
 import { getJob, updateJob, setJobComplete, setJobError } from './storage';
 import { captureError, normalizeError } from './errors';
@@ -63,8 +63,7 @@ export async function settleJob(job: GenerationJob, opts?: { batchName?: string 
     return failJob(job, normalizeError(result.error ?? 'Generation failed'));
   }
 
-  // Generation takes minutes. Hours of "still working" means the provider lost the task.
-  if (Date.now() - new Date(job.createdAt).getTime() > STUCK_AFTER_MS) {
+  if (isOverdue(job)) {
     return failJob(job, '系統處理逾時，請重新生成。');
   }
 
@@ -74,7 +73,21 @@ export async function settleJob(job: GenerationJob, opts?: { batchName?: string 
   return job;
 }
 
+// Generation takes minutes. Hours of "still working" means the provider lost the task.
 const STUCK_AFTER_MS = 3 * 60 * 60 * 1000;
+const isOverdue = (job: GenerationJob) => Date.now() - new Date(job.createdAt).getTime() > STUCK_AFTER_MS;
+
+/**
+ * Nothing runs on a timer here, and the progress page stops polling long
+ * before a job is overdue. So the gallery load passes the owner's jobs through
+ * this: overdue ones are failed and refunded, owed refunds are retried.
+ */
+export async function settleOverdue(jobs: GenerationJob[]): Promise<void> {
+  for (const job of jobs) {
+    if (job.status === 'processing' && isOverdue(job)) await settleJob(job);
+    else if (job.status === 'error') await refundIfOwed(job);
+  }
+}
 
 async function failJob(job: GenerationJob, message: string): Promise<GenerationJob> {
   const stored = (await setJobError(job.id, message)) ?? job;
@@ -112,14 +125,14 @@ export async function refundIfOwed(job: GenerationJob): Promise<GenerationJob> {
 
   try {
     const allowed =
-      (await claimRefundSlot(`email:${job.email.toLowerCase()}`, job.charge.ref, REFUNDS_PER_EMAIL_PER_DAY)) &&
+      (await claimRefundSlot(`email:${canonicalFreeTierEmail(job.email)}`, job.charge.ref, REFUNDS_PER_EMAIL_PER_DAY)) &&
       (!job.ip || (await claimRefundSlot(`ip:${job.ip}`, job.charge.ref, REFUNDS_PER_IP_PER_DAY)));
     if (!allowed) {
       captureError(new Error(`Refund held for review: job ${job.id}, ${paid + free} credit(s)`), {
         route: 'refundIfOwed.held', jobId: job.id, email: job.email,
       });
       // The owner must see this: the customer is owed credits until someone reviews it.
-      await sendAdminAlert(`拾光退點待審：影片 ${job.id} 失敗，${paid + free} 點未自動退還（已達每日自動退點上限）`);
+      await sendAdminAlert(`拾光退點待審：${job.email} 的影片 ${job.id} 失敗，應退 ${paid} 點付費、${free} 次免費，未自動退還（已達每日自動退點上限）。處理方式見 RUNBOOK「退點待審」。`);
       return (await updateJob(job.id, { refundHeld: true })) ?? job;
     }
     await refundCredits(job.email, job.charge.ref, free, paid);

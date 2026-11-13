@@ -319,3 +319,10 @@ Use this section to record incidents and what was learned.
   - `SENTRY_DSN` set in prod
   - Known provider errors throw `ProviderUnavailableError` → user sees 503 + friendly message
   - `generate_audio: false` halves BytePlus per-clip cost
+
+## 退點待審 (a refund held for review)
+
+A failed video is refunded automatically, up to 3 times per person and 5 per IP address per day. Past that, the job is marked `refundHeld` and the admin Telegram chat gets "拾光退點待審" with the email, the job id and the amount owed. Nothing was refunded yet.
+
+To decide: look at the customer's recent jobs in the admin page. A few falsely filtered family photos is normal; dozens of failures in a day is someone failing on purpose. To pay it back, grant the credits from the admin page (admin grant) for the paid amount in the alert. A held free use is not worth restoring by hand unless the customer asks.
+

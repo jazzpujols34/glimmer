@@ -20,7 +20,8 @@ vi.mock('./r2', () => ({ archiveVideos: (...a: unknown[]) => archiveVideos(...a)
 
 const checkCredits = vi.fn();
 const refundCredits = vi.fn();
-vi.mock('./credits', () => ({
+vi.mock('./credits', async (orig) => ({
+  canonicalFreeTierEmail: (await orig<typeof import('./credits')>()).canonicalFreeTierEmail,
   checkCredits: (...a: unknown[]) => checkCredits(...a),
   refundCredits: (...a: unknown[]) => refundCredits(...a),
 }));
@@ -36,7 +37,7 @@ vi.mock('./errors', async (orig) => ({
   captureError: vi.fn(),
 }));
 
-import { settleJob, archiveIfNeeded, refundIfOwed } from './job-settle';
+import { settleJob, archiveIfNeeded, refundIfOwed, settleOverdue } from './job-settle';
 import { createJob, getJob, updateJob } from './storage';
 import type { GenerationJob } from '@/types';
 
@@ -381,5 +382,56 @@ describe('settleJob — a job the provider never finishes', () => {
     checkVideoTaskStatus.mockResolvedValue({ done: false, progress: 10 });
     expect((await settleJob(job)).status).toBe('processing');
     expect(refundCredits).not.toHaveBeenCalled();
+  });
+});
+
+describe('settleOverdue — what opening the gallery does for jobs nobody is watching', () => {
+  async function aged(id: string, hours: number, extra: Partial<GenerationJob> = {}) {
+    await processingJob(id, { charge: { free: 0, paid: 1, ref: id }, ...extra });
+    const raw = JSON.parse(mockStore.get(`job:${id}`)!);
+    raw.createdAt = new Date(Date.now() - hours * 3600 * 1000).toISOString();
+    mockStore.set(`job:${id}`, JSON.stringify(raw));
+    return (await getJob(id))!;
+  }
+
+  it('fails and refunds a job stuck for hours, and leaves a fresh one alone without asking the provider', async () => {
+    const stuck = await aged('job_o1', 5);
+    const fresh = await aged('job_o2', 1);
+    checkVideoTaskStatus.mockResolvedValue({ done: false });
+
+    await settleOverdue([stuck, fresh]);
+
+    expect(checkVideoTaskStatus).toHaveBeenCalledTimes(1);
+    expect((await getJob('job_o1'))?.status).toBe('error');
+    expect((await getJob('job_o1'))?.refundedCredits).toBe(1);
+    expect((await getJob('job_o2'))?.status).toBe('processing');
+  });
+
+  it('retries a refund that is still owed on a failed job', async () => {
+    const job = await processingJob('job_o3', { charge: { free: 0, paid: 2, ref: 'job_o3' } });
+    checkVideoTaskStatus.mockResolvedValue({ done: true, error: 'boom' });
+    refundCredits.mockRejectedValueOnce(new Error('kv down'));
+    const failed = await settleJob(job);
+
+    await settleOverdue([failed]);
+
+    expect((await getJob('job_o3'))?.refundedCredits).toBe(2);
+  });
+});
+
+describe('the cap counts one person once', () => {
+  it('gmail dots and plus-aliases share the same three refunds a day', async () => {
+    const emails = ['jo.hn@gmail.com', 'john+1@gmail.com', 'john+2@gmail.com', 'j.o.h.n+3@gmail.com'];
+    const results: GenerationJob[] = [];
+    for (const [i, email] of emails.entries()) {
+      await createJob(`job_a${i}`, { email });
+      const job = (await updateJob(`job_a${i}`, {
+        status: 'processing', provider: 'byteplus', externalTaskIds: ['t'], charge: { free: 1, paid: 0, ref: `job_a${i}` },
+      }))!;
+      checkVideoTaskStatus.mockResolvedValue({ done: true, error: 'boom' });
+      results.push(await settleJob(job));
+    }
+    expect(results.map(r => r.refundedCredits)).toEqual([1, 1, 1, undefined]);
+    expect(results[3].refundHeld).toBe(true);
   });
 });

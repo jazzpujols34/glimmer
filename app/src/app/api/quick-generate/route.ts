@@ -288,6 +288,10 @@ export async function POST(request: NextRequest) {
         // Job may already exist in KV as 'queued' (createJob succeeded before
         // a later step threw) — mark it errored so it doesn't stay a zombie.
         if (jobId) await setJobError(jobId, normalizeError(err));
+        // Recorded as done, so nothing later treats this refund as still owed.
+        if (jobId && creditResult?.success) {
+          await updateJob(jobId, { refundedCredits: creditResult.usedFree + creditResult.usedPaid });
+        }
         segmentResults.push({ index: i, jobId: '', success: false });
       }
     }

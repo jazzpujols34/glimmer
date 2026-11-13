@@ -68,12 +68,15 @@ export async function getJob(id: string): Promise<GenerationJob | undefined> {
 }
 
 
-export async function getCompletedJobs(email?: string): Promise<GenerationJob[]> {
-  const jobs = (await readAll<GenerationJob>(KEY_PREFIX)).filter(job =>
-    job.status === 'complete' && (job.videoUrl || job.videoUrls?.length) &&
-    // If email filter provided, only return jobs owned by that user
-    (!email || sameEmail(job.email, email))
-  );
+/** Every job of one owner (all owners when no email is given), in any status. */
+export async function getOwnedJobs(email?: string): Promise<GenerationJob[]> {
+  return (await readAll<GenerationJob>(KEY_PREFIX)).filter(job => !email || sameEmail(job.email, email));
+}
+
+export const completedNewestFirst = (jobs: GenerationJob[]): GenerationJob[] =>
+  sortNewest(jobs.filter(job => job.status === 'complete' && (job.videoUrl || job.videoUrls?.length)));
+
+function sortNewest(jobs: GenerationJob[]): GenerationJob[] {
   return jobs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 }
 

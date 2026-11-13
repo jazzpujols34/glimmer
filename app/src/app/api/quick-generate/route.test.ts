@@ -100,6 +100,14 @@ describe('POST /api/quick-generate — credit refund on task-creation failure', 
     const after = await checkCredits(email);
     expect(after.remaining).toBe(FREE_GENERATIONS);
     expect(after.freeUsed).toBe(0);
+
+    // The failed segment's record says the refund is done, so nothing later
+    // treats it as still owed (which would alert the owner to refund it again).
+    const failedJobs = Array.from(mockStore.entries())
+      .filter(([k]) => k.startsWith('job:'))
+      .map(([, v]) => JSON.parse(v));
+    expect(failedJobs).toHaveLength(1);
+    expect(failedJobs[0]).toMatchObject({ status: 'error', refundedCredits: 1 });
     expect(after.paidUsed).toBe(0);
   });
 
