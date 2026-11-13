@@ -253,6 +253,10 @@ export async function POST(request: NextRequest) {
     if (creditResult.usedFree > 0) {
       await recordFreeIpUsage(ip);
     }
+    if (creditResult.success) {
+      // Remembered so settleJob can refund exactly this if the provider fails.
+      await updateJob(jobId, { charge: { free: creditResult.usedFree, paid: creditResult.usedPaid, ref: jobId } });
+    }
 
     // Add job to project if projectId provided
     if (projectId) {

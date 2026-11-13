@@ -65,6 +65,10 @@ export interface GenerationJob {
   provider?: ModelType;
   externalTaskIds?: string[];       // BytePlus/Kling task IDs
   veoOperationName?: string;        // Veo operation resource name
+  // What this job cost, so a provider failure can give exactly that back.
+  // `ref` is the id consumeCredits() was called with. Absent on older jobs.
+  charge?: { free: number; paid: number; ref: string };
+  refunded?: boolean;               // true once `charge` has been given back
 }
 
 // === Credit System Types ===

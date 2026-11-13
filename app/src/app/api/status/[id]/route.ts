@@ -43,6 +43,7 @@ export async function GET(
       videoUrl: getVideoUrl(current.id, current.videoUrl, 0),
       videoUrls: getVideoUrls(current.id, current.videoUrls),
       error: current.error ? normalizeError(current.error) : undefined,
+      refunded: current.refunded,
     });
   } catch (error) {
     captureError(error, { route: '/api/status' });

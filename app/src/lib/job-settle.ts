@@ -9,7 +9,7 @@
 import type { GenerationJob } from '@/types';
 import { checkVideoTaskStatus } from './veo';
 import { archiveVideos } from './r2';
-import { checkCredits } from './credits';
+import { checkCredits, refundCredits } from './credits';
 import { sendCompletionEmail } from './email';
 import { getJob, updateJob, setJobComplete, setJobError } from './storage';
 import { captureError, normalizeError } from './errors';
@@ -32,7 +32,7 @@ export async function settleJob(job: GenerationJob, opts?: { batchName?: string 
   }
 
   if (result.done && result.error) {
-    return (await setJobError(job.id, normalizeError(result.error))) ?? job;
+    return failJob(job, normalizeError(result.error));
   }
 
   if (result.done && result.videoUrls?.length) {
@@ -60,10 +60,39 @@ export async function settleJob(job: GenerationJob, opts?: { batchName?: string 
     return stored ?? job;
   }
 
+  // Generation takes minutes. Hours of "still working" means the provider lost the task.
+  if (!result.done && Date.now() - new Date(job.createdAt).getTime() > STUCK_AFTER_MS) {
+    return failJob(job, job.charge
+      ? '系統處理逾時，本次點數已退還，請重新生成。'
+      : '系統處理逾時，請重新生成。');
+  }
+
   if (!result.done && result.progress) {
     return (await updateJob(job.id, { progress: result.progress })) ?? job;
   }
   return job;
+}
+
+const STUCK_AFTER_MS = 3 * 60 * 60 * 1000;
+
+/**
+ * Marks the job failed and gives back what it was charged. The failure is the
+ * system's, never the customer's, so they should not pay for it.
+ */
+async function failJob(job: GenerationJob, message: string): Promise<GenerationJob> {
+  const stored = (await setJobError(job.id, message)) ?? job;
+  // A completion may have won the race; a finished job is never refunded.
+  if (stored.status !== 'error' || !stored.email || !stored.charge || stored.refunded) return stored;
+
+  // Mark before refunding: KV has no transactions, and a refund that might
+  // run twice is worse than one that needs a manual retry.
+  const marked = (await updateJob(job.id, { refunded: true })) ?? stored;
+  try {
+    await refundCredits(stored.email, stored.charge.ref, stored.charge.free, stored.charge.paid);
+  } catch (err) {
+    captureError(err, { route: 'settleJob.refund', jobId: job.id, email: stored.email });
+  }
+  return marked;
 }
 
 /** One email per piece of work: per job, or once per batch on its first segment. */

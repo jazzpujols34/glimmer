@@ -248,7 +248,12 @@ export async function POST(request: NextRequest) {
         // Add to project and batch
         await addJobToProject(project.id, jobId);
         await addSegmentToBatch(batch.id, jobId);
-        await updateJob(jobId, { projectId: project.id, segmentIndex: i, batchId: batch.id });
+        await updateJob(jobId, {
+          projectId: project.id,
+          segmentIndex: i,
+          batchId: batch.id,
+          charge: { free: creditResult.usedFree, paid: creditResult.usedPaid, ref: `${batch.id}_${i}` },
+        });
 
         // Create video task with first-last-frame mode
         const taskResult = await createVideoTask({
@@ -284,6 +289,8 @@ export async function POST(request: NextRequest) {
         // Job may already exist in KV as 'queued' (createJob succeeded before
         // a later step threw) — mark it errored so it doesn't stay a zombie.
         if (jobId) await setJobError(jobId, normalizeError(err));
+        // Already refunded just above — make sure nothing refunds this job again.
+        if (jobId && creditResult?.success) await updateJob(jobId, { refunded: true });
         segmentResults.push({ index: i, jobId: '', success: false });
       }
     }

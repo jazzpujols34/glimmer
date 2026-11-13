@@ -9,7 +9,7 @@ import { logger } from '@/lib/logger';
 interface GenerationProgressProps {
   jobId: string;
   onComplete: (videoUrl: string, videoUrls: string[], analysis?: string) => void;
-  onError: (error: string) => void;
+  onError: (error: string, refunded?: boolean) => void;
 }
 
 const statusMessages: Record<GenerationStatus, string> = {
@@ -130,7 +130,7 @@ export function GenerationProgress({ jobId, onComplete, onError }: GenerationPro
           onComplete(data.videoUrl, videoUrls, data.analysis);
           return; // Stop polling
         } else if (data.status === 'error') {
-          onError(normalizeError(data.error));
+          onError(normalizeError(data.error), data.refunded === true);
           return; // Stop polling
         }
 

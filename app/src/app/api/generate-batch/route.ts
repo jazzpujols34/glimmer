@@ -259,6 +259,7 @@ export async function POST(request: NextRequest) {
         const creditResult = await consumeCredits(actingEmail, jobId, perSegmentCost);
         if (creditResult.success) {
           creditsUsed += perSegmentCost;
+          await updateJob(jobId, { charge: { free: creditResult.usedFree, paid: creditResult.usedPaid, ref: jobId } });
         }
         if (creditResult.usedFree > 0) {
           await recordFreeIpUsage(ip);

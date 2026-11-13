@@ -42,6 +42,7 @@ export default function GeneratePage({ params }: PageProps) {
   const { id } = use(params);
   const [result, setResult] = useState<CompletionData | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [refunded, setRefunded] = useState(false);
   const [retryKey, setRetryKey] = useState(0);
   const [showTechInfo, setShowTechInfo] = useState(false);
   const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
@@ -61,8 +62,9 @@ export default function GeneratePage({ params }: PageProps) {
     } catch { /* ignore */ }
   };
 
-  const handleError = (err: string) => {
+  const handleError = (err: string, wasRefunded?: boolean) => {
     setError(err);
+    setRefunded(wasRefunded === true);
 
     // Track generation error
     try {
@@ -123,6 +125,11 @@ export default function GeneratePage({ params }: PageProps) {
                     您可以換一張照片，或稍後再試。<br />
                     每一段回憶都值得被好好珍藏。
                   </p>
+                  {refunded && (
+                    <p className="text-sm font-medium text-amber-700 dark:text-amber-400">
+                      這次使用的點數已經退還給您。
+                    </p>
+                  )}
                 </div>
                 <div className="flex flex-col sm:flex-row gap-3 justify-center">
                   <Button asChild>
