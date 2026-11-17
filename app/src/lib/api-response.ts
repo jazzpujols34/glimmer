@@ -4,6 +4,7 @@
  */
 
 import { NextResponse } from 'next/server';
+import { MAINTENANCE_MESSAGE } from './maintenance';
 
 // Error codes for programmatic handling
 export type ErrorCode =
@@ -18,6 +19,7 @@ export type ErrorCode =
   | 'SERVER_ERROR'
   | 'PROVIDER_ERROR'
   | 'PROVIDER_UNAVAILABLE'
+  | 'MAINTENANCE'
   | 'FREE_TIER_STANDARD_SPEC_ONLY'
   | 'FREE_TIER_IP_CAP'
   | 'SESSION_REQUIRED';
@@ -99,6 +101,8 @@ export const errors = {
 
   serverError: () =>
     errorResponse('發生錯誤，請稍後再試', 500, 'SERVER_ERROR'),
+
+  maintenance: () => errorResponse(MAINTENANCE_MESSAGE, 503, 'MAINTENANCE'),
 
   serviceUnavailable: () =>
     errorResponse(

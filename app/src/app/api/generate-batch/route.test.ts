@@ -279,3 +279,20 @@ describe('POST /api/generate-batch — Phase 2b enforcement (dormant unless REQU
     expect(balance.freeUsed).toBe(0);
   });
 });
+
+describe('POST /api/generate-batch — maintenance mode', () => {
+  it('refuses with MAINTENANCE, creates no task and spends nothing', async () => {
+    process.env.NEXT_PUBLIC_MAINTENANCE_MODE = 'true';
+    try {
+      const email = 'maintenance-batch@example.com';
+      await setEmailVerified(email);
+      const res = await POST(buildRequest({ email, settings: standardSettings, photoCount: 3 }));
+      expect(res.status).toBe(503);
+      expect((await res.json()).code).toBe('MAINTENANCE');
+      expect(mockCreateVideoTask).not.toHaveBeenCalled();
+      expect((await checkCredits(email)).freeUsed).toBe(0);
+    } finally {
+      delete process.env.NEXT_PUBLIC_MAINTENANCE_MODE;
+    }
+  });
+});

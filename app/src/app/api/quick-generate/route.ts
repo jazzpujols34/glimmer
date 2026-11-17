@@ -22,6 +22,7 @@ import { captureError, normalizeError } from '@/lib/errors';
 import { getTemplateById } from '@/lib/templates';
 import { isValidEmail, isValidOccasion, validateName, validatePhoto } from '@/lib/validation';
 import { successResponse, errors } from '@/lib/api-response';
+import { isMaintenance } from '@/lib/maintenance';
 import { enforceIdentity } from '@/lib/identity';
 import { submitFingerprint, findRecentSubmit, claimSubmit } from '@/lib/submit-guard';
 import { logger } from '@/lib/logger';
@@ -34,6 +35,7 @@ const MAX_MESSAGE_LENGTH = 500;
 
 export async function POST(request: NextRequest) {
   try {
+    if (isMaintenance()) return errors.maintenance();
     // Rate limiting
     const ip = getClientIP(request);
     const rateCheck = await checkRateLimit(`quick:${ip}`, 3, 60);

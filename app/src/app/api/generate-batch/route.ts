@@ -11,6 +11,7 @@ import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
 import { captureError, normalizeError } from '@/lib/errors';
 import { isValidEmail, isValidOccasion, validateSettings, validateName, validatePhoto } from '@/lib/validation';
 import { successResponse, errors } from '@/lib/api-response';
+import { isMaintenance } from '@/lib/maintenance';
 import { enforceIdentity } from '@/lib/identity';
 import { submitFingerprint, findRecentSubmit, claimSubmit } from '@/lib/submit-guard';
 import { logger } from '@/lib/logger';
@@ -18,6 +19,7 @@ import type { OccasionType } from '@/types';
 
 export async function POST(request: NextRequest) {
   try {
+    if (isMaintenance()) return errors.maintenance();
     // --- Rate limiting (3 batch requests per minute per IP) ---
     const ip = getClientIP(request);
     const rateCheck = await checkRateLimit(`batch:${ip}`, 3, 60);

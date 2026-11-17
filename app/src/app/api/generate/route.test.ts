@@ -366,3 +366,20 @@ describe('POST /api/generate then a provider failure — the charge comes back (
     expect((await checkCredits(email)).freeUsed).toBe(1);
   });
 });
+
+describe('POST /api/generate — maintenance mode', () => {
+  it('refuses with MAINTENANCE, creates no task and spends nothing', async () => {
+    process.env.NEXT_PUBLIC_MAINTENANCE_MODE = 'true';
+    try {
+      const email = 'maintenance-generate@example.com';
+      await setEmailVerified(email);
+      const res = await POST(buildRequest({ email, settings: standardSettings }));
+      expect(res.status).toBe(503);
+      expect((await res.json()).code).toBe('MAINTENANCE');
+      expect(mockCreateVideoTask).not.toHaveBeenCalled();
+      expect((await checkCredits(email)).freeUsed).toBe(0);
+    } finally {
+      delete process.env.NEXT_PUBLIC_MAINTENANCE_MODE;
+    }
+  });
+});

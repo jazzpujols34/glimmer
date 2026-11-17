@@ -18,6 +18,7 @@ import { useAccess } from '@/hooks/useAccess';
 import type { OccasionType, GenerationSettings, CreditBalance, Project } from '@/types';
 import { defaultSettings } from '@/types';
 import { creditsForGeneration } from '@/lib/credit-cost';
+import { isMaintenance } from '@/lib/maintenance';
 import { PACK_LIST, getPack } from '@/lib/packs';
 import { FolderOpen, ChevronDown, Layers, CheckCircle2 } from 'lucide-react';
 import { trackGenerationStart, trackPurchaseStart } from '@/lib/analytics';
@@ -847,6 +848,7 @@ function CreatePageInner() {
                         size="lg"
                         className="w-full"
                         disabled={
+                          isMaintenance() ||
                           isSubmitting ||
                           !isValidEmail ||
                           (creditBalance?.remaining ?? 1) < (batchMode && canEnableBatch
@@ -863,6 +865,8 @@ function CreatePageInner() {
                             </svg>
                             {t('create.processing')}
                           </>
+                        ) : isMaintenance() ? (
+                          '維護中，暫停生成'
                         ) : (
                           t('create.submit')
                         )}
@@ -994,9 +998,9 @@ function PurchaseButton({ email, packId, label }: { email: string; packId: strin
         variant="outline"
         size="sm"
         onClick={handlePurchase}
-        disabled={loading}
+        disabled={loading || isMaintenance()}
       >
-        {loading ? '處理中...' : label}
+        {isMaintenance() ? '維護期間暫停販售' : loading ? '處理中...' : label}
       </Button>
       {purchaseError && (
         <span className="text-xs text-destructive mt-1">{purchaseError}</span>
