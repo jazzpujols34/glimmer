@@ -2,7 +2,7 @@ export const runtime = 'edge';
 
 import { NextRequest } from 'next/server';
 import imageSize from 'image-size';
-import { createJob, updateJob, addJobToProject, getProject, setJobError } from '@/lib/storage';
+import { createJob, updateJob, addJobToProject, getProject, setJobError, newJobId } from '@/lib/storage';
 import { createVideoTask } from '@/lib/veo';
 import { checkCredits, consumeCredits, isAdmin } from '@/lib/credits';
 import { creditsForGeneration } from '@/lib/credit-cost';
@@ -194,7 +194,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Generate job ID
-    const jobId = `job_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const jobId = newJobId();
 
     // Create job record in KV
     await createJob(jobId, {

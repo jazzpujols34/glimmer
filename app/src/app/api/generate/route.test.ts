@@ -253,6 +253,15 @@ describe('POST /api/generate — IP forensics on job records', () => {
     const job = await getJob(body.id);
     expect(job?.ip).toBe(ip);
   });
+
+  // The id is the only thing standing between a stranger and a family's video page.
+  it('gives the job an unguessable id (job_ + a random UUID)', async () => {
+    const email = 'unguessable-id@example.com';
+    await setEmailVerified(email);
+    const res = await POST(buildRequest({ email, settings: standardSettings }));
+    const body = await res.json();
+    expect(body.id).toMatch(/^job_[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+  });
 });
 
 describe('POST /api/generate — Phase 2b enforcement (dormant unless REQUIRE_SESSION_FOR_PAID=true)', () => {

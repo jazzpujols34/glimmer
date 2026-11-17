@@ -123,6 +123,9 @@ describe('POST /api/quick-generate — credit refund on task-creation failure', 
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.startedSegments).toBe(1);
+    const jobKeys = [...mockStore.keys()].filter(k => k.startsWith('job:'));
+    expect(jobKeys.length).toBeGreaterThan(0);
+    for (const key of jobKeys) expect(key.slice('job:'.length)).toMatch(/^job_[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
 
     const after = await checkCredits(email);
     expect(after.remaining).toBe(FREE_GENERATIONS - 1);

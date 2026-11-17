@@ -36,6 +36,9 @@ const PAID_JOB_TTL = 2592000;   // 30 days (paid users)
 
 const KEY_PREFIX = 'job:';
 
+// A job id alone opens its video page, so it must not be guessable.
+export const newJobId = (): string => `job_${crypto.randomUUID()}`;
+
 /** Reads every record under a prefix, a bounded number at a time rather than one by one. */
 async function readAll<T>(prefix: string): Promise<T[]> {
   const keys = await kvListKeys(prefix);

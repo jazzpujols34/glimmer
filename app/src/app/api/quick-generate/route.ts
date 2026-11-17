@@ -10,6 +10,7 @@ import {
   addSegmentToBatch,
   createQuickJob,
   setJobError,
+  newJobId,
 } from '@/lib/storage';
 import { createVideoTask } from '@/lib/veo';
 import { checkCredits, consumeCredits, refundCredits, isAdmin } from '@/lib/credits';
@@ -236,7 +237,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Create job
-        jobId = `job_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        jobId = newJobId();
         const _job = await createJob(jobId, {
           name: `${name} - 片段 ${i + 1}`,
           occasion: occasion as OccasionType,
