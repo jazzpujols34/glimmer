@@ -28,3 +28,36 @@ jobs:
 
       - name: Build (includes type check)
         run: npm run build
+
+  deploy:
+    # Production deploy to the glimmer-worker Worker; only after tests pass on main.
+    needs: test-and-build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+    defaults:
+      run:
+        working-directory: app
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      # NEXT_PUBLIC_* values are baked in at build time. Toggle maintenance with the repo variable, then re-run this job.
+      NEXT_PUBLIC_MAINTENANCE_MODE: ${{ vars.NEXT_PUBLIC_MAINTENANCE_MODE }}
+      NEXT_PUBLIC_APP_URL: https://glimmer.video
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build and deploy
+        run: npx opennextjs-cloudflare build && npx opennextjs-cloudflare deploy
