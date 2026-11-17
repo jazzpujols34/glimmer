@@ -1,5 +1,3 @@
-export const runtime = 'edge';
-
 import { NextRequest } from 'next/server';
 import { isValidEmail } from '@/lib/validation';
 import { errorResponse, successResponse, errors } from '@/lib/api-response';

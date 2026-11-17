@@ -1,5 +1,3 @@
-export const runtime = 'edge';
-
 import { NextRequest, NextResponse } from 'next/server';
 import { getOwnedJobs, completedNewestFirst } from '@/lib/storage';
 import { settleJob, archiveIfNeeded, settleOverdue } from '@/lib/job-settle';

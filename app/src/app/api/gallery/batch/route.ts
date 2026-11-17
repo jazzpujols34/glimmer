@@ -1,5 +1,3 @@
-export const runtime = 'edge';
-
 import { NextRequest, NextResponse } from 'next/server';
 import { getJob, deleteJob, getProject, addJobToProject, removeJobFromProject } from '@/lib/storage';
 import { captureError } from '@/lib/errors';

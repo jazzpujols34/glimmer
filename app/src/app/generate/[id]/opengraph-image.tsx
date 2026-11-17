@@ -1,7 +1,5 @@
 import { ImageResponse } from 'next/og';
 
-export const runtime = 'edge';
-
 export const alt = '拾光 Glimmer — AI 回憶影片';
 export const size = {
   width: 1200,

@@ -1,5 +1,3 @@
-export const runtime = 'edge';
-
 import { NextRequest, NextResponse } from 'next/server';
 import { getProject, getProjectJobs, deleteJob, updateProject } from '@/lib/storage';
 import { r2Delete } from '@/lib/r2';

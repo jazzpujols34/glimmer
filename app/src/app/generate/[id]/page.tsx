@@ -1,7 +1,5 @@
 'use client';
 
-export const runtime = 'edge';
-
 import { useState, useRef, use } from 'react';
 import Link from 'next/link';
 import { Logo } from '@/components/Logo';

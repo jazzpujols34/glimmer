@@ -1,5 +1,3 @@
-export const runtime = 'edge';
-
 import { NextRequest } from 'next/server';
 import imageSize from 'image-size';
 import { createJob, updateJob, addJobToProject, getProject, setJobError, newJobId } from '@/lib/storage';

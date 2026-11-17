@@ -7,8 +7,6 @@ import { resolveReaderEmail } from '@/lib/identity';
 import { isAdmin } from '@/lib/credits';
 import type { AspectRatio } from '@/types';
 
-export const runtime = 'edge';
-
 function requireRequesterEmail(request: Request) {
   const requesterEmail = getRequesterEmail(request);
   if (!requesterEmail) {

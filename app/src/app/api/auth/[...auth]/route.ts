@@ -1,5 +1,3 @@
-export const runtime = 'edge';
-
 /**
  * Progressive Google identity — OAuth + session endpoints (Phase 2a: the
  * client now syncs its active identity from this route; see
@@ -29,6 +27,8 @@ import { captureError } from '@/lib/errors';
 import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
 import { resolveIdentity } from '@/lib/identity';
 import {
+  STATE_COOKIE,
+  PKCE_COOKIE,
   signSession,
   sessionCookieHeader,
   clearSessionCookieHeader,
@@ -43,8 +43,6 @@ import {
 const GOOGLE_AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
 const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token';
 
-export const STATE_COOKIE = 'glimmer_oauth_state';
-export const PKCE_COOKIE = 'glimmer_oauth_pkce';
 const SHORT_LIVED_TTL_SECONDS = 5 * 60; // 5 minutes
 
 function appUrl(): string {
