@@ -88,3 +88,11 @@ describe('creditsForGeneration', () => {
     });
   });
 });
+
+describe('more than one version always costs more than one credit', () => {
+  // Partial refunds rely on this: a multi-version job is paid-only, so giving
+  // back a share of it never has to touch the free tier.
+  it.each([2, 3, 4])('%i versions at the cheapest settings', (numResults) => {
+    expect(creditsForGeneration({ ...defaultSettings, resolution: '720p', videoLength: 4, numResults })).toBeGreaterThan(1);
+  });
+});

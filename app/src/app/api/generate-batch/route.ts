@@ -1,7 +1,7 @@
 export const runtime = 'edge';
 
 import { NextRequest } from 'next/server';
-import { createJob, updateJob, createProject, addJobToProject, createBatch, addSegmentToBatch, updateBatch, setJobError } from '@/lib/storage';
+import { createJob, updateJob, createProject, addJobToProject, createBatch, addSegmentToBatch, updateBatch, setJobError, newJobId } from '@/lib/storage';
 import { createVideoTask } from '@/lib/veo';
 import { checkCredits, consumeCredits, isAdmin } from '@/lib/credits';
 import { creditsForGeneration } from '@/lib/credit-cost';
@@ -216,7 +216,7 @@ export async function POST(request: NextRequest) {
       const firstFrame = photos[i];
       const lastFrame = photos[i + 1];
 
-      const jobId = `job_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const jobId = newJobId();
 
       try {
         // Create job record
@@ -249,7 +249,6 @@ export async function POST(request: NextRequest) {
           progress: 10,
           provider: taskData.provider,
           externalTaskIds: taskData.externalTaskIds,
-          veoOperationName: taskData.veoOperationName,
         });
 
         // Record estimated provider spend AFTER this segment's task was actually created
@@ -259,6 +258,7 @@ export async function POST(request: NextRequest) {
         const creditResult = await consumeCredits(actingEmail, jobId, perSegmentCost);
         if (creditResult.success) {
           creditsUsed += perSegmentCost;
+          await updateJob(jobId, { charge: { free: creditResult.usedFree, paid: creditResult.usedPaid, ref: jobId } });
         }
         if (creditResult.usedFree > 0) {
           await recordFreeIpUsage(ip);

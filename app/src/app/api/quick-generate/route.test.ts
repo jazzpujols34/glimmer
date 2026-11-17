@@ -22,7 +22,7 @@ vi.mock('@/lib/kv', () => ({
 }));
 
 // Mock the provider dispatcher — we're testing credit bookkeeping around task
-// creation, not the real BytePlus/Veo/Kling HTTP calls.
+// creation, not the real provider HTTP calls.
 vi.mock('@/lib/veo', () => ({
   createVideoTask: vi.fn(),
 }));
@@ -100,6 +100,14 @@ describe('POST /api/quick-generate — credit refund on task-creation failure', 
     const after = await checkCredits(email);
     expect(after.remaining).toBe(FREE_GENERATIONS);
     expect(after.freeUsed).toBe(0);
+
+    // The failed segment's record says the refund is done, so nothing later
+    // treats it as still owed (which would alert the owner to refund it again).
+    const failedJobs = Array.from(mockStore.entries())
+      .filter(([k]) => k.startsWith('job:'))
+      .map(([, v]) => JSON.parse(v));
+    expect(failedJobs).toHaveLength(1);
+    expect(failedJobs[0]).toMatchObject({ status: 'error', refundedCredits: 1 });
     expect(after.paidUsed).toBe(0);
   });
 
@@ -115,6 +123,9 @@ describe('POST /api/quick-generate — credit refund on task-creation failure', 
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.startedSegments).toBe(1);
+    const jobKeys = [...mockStore.keys()].filter(k => k.startsWith('job:'));
+    expect(jobKeys.length).toBeGreaterThan(0);
+    for (const key of jobKeys) expect(key.slice('job:'.length)).toMatch(/^job_[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
 
     const after = await checkCredits(email);
     expect(after.remaining).toBe(FREE_GENERATIONS - 1);

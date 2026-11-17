@@ -2,7 +2,7 @@ export const runtime = 'edge';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getJob } from '@/lib/storage';
-import { settleJob, archiveIfNeeded } from '@/lib/job-settle';
+import { settleJob, archiveIfNeeded, refundIfOwed } from '@/lib/job-settle';
 import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
 import { captureError, normalizeError } from '@/lib/errors';
 import { errors } from '@/lib/api-response';
@@ -33,7 +33,9 @@ export async function GET(
 
     // Ask the provider once if still processing; retry archival if a finished
     // job still points at expiring provider links.
-    const current = job.status === 'complete' ? await archiveIfNeeded(job) : await settleJob(job);
+    const current = job.status === 'complete' ? await refundIfOwed(await archiveIfNeeded(job))
+      : job.status === 'error' ? await refundIfOwed(job)
+      : await settleJob(job);
 
     // Return current state (complete, error, or queued)
     return NextResponse.json({
@@ -43,6 +45,9 @@ export async function GET(
       videoUrl: getVideoUrl(current.id, current.videoUrl, 0),
       videoUrls: getVideoUrls(current.id, current.videoUrls),
       error: current.error ? normalizeError(current.error) : undefined,
+      refundedCredits: current.refundedCredits,
+      refundHeld: current.refundHeld,
+      failedVideos: current.failedVideos,
     });
   } catch (error) {
     captureError(error, { route: '/api/status' });

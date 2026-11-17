@@ -15,7 +15,7 @@ vi.mock('./kv', () => ({
   }),
 }));
 
-import { checkCredits, consumeCredit, consumeCredits, refundCredits, addCredits, isEmailVerified, setEmailVerified, canonicalFreeTierEmail, FREE_GENERATIONS } from './credits';
+import { checkCredits, consumeCredits, refundCredits, addCredits, isEmailVerified, setEmailVerified, canonicalFreeTierEmail, FREE_GENERATIONS } from './credits';
 import { isValidEmail } from './validation';
 
 beforeEach(() => {
@@ -73,15 +73,16 @@ describe('checkCredits', () => {
   });
 });
 
-describe('consumeCredit', () => {
+describe('consumeCredits(email, jobId, 1)', () => {
   it('uses free generations first', async () => {
-    const result = await consumeCredit('user@example.com', 'job_1');
+    const result = await consumeCredits('user@example.com', 'job_1', 1);
     expect(result.success).toBe(true);
-    expect(result.usedFree).toBe(true);
+    expect(result.usedFree).toBe(1);
+    expect(result.usedPaid).toBe(0);
   });
 
   it('tracks free generation usage', async () => {
-    await consumeCredit('user@example.com', 'job_1');
+    await consumeCredits('user@example.com', 'job_1', 1);
     const balance = await checkCredits('user@example.com');
     expect(balance.freeUsed).toBe(1);
     expect(balance.remaining).toBe(FREE_GENERATIONS - 1);
@@ -89,21 +90,23 @@ describe('consumeCredit', () => {
 
   it('uses all free generations before failing', async () => {
     for (let i = 0; i < FREE_GENERATIONS; i++) {
-      const result = await consumeCredit('user@example.com', `job_${i}`);
+      const result = await consumeCredits('user@example.com', `job_${i}`, 1);
       expect(result.success).toBe(true);
-      expect(result.usedFree).toBe(true);
+      expect(result.usedFree).toBe(1);
+    expect(result.usedPaid).toBe(0);
     }
 
     // Next request should fail (no paid credits)
-    const result = await consumeCredit('user@example.com', 'job_extra');
+    const result = await consumeCredits('user@example.com', 'job_extra', 1);
     expect(result.success).toBe(false);
-    expect(result.usedFree).toBe(false);
+    expect(result.usedFree).toBe(0);
+    expect(result.usedPaid).toBe(0);
   });
 
   it('uses paid generations after free is exhausted', async () => {
     // Use all free generations
     for (let i = 0; i < FREE_GENERATIONS; i++) {
-      await consumeCredit('user@example.com', `job_${i}`);
+      await consumeCredits('user@example.com', `job_${i}`, 1);
     }
 
     // Add paid credits
@@ -112,9 +115,10 @@ describe('consumeCredit', () => {
     });
 
     // Should now use paid credits
-    const result = await consumeCredit('user@example.com', 'job_paid_1');
+    const result = await consumeCredits('user@example.com', 'job_paid_1', 1);
     expect(result.success).toBe(true);
-    expect(result.usedFree).toBe(false);
+    expect(result.usedFree).toBe(0);
+    expect(result.usedPaid).toBe(1);
 
     const balance = await checkCredits('user@example.com');
     expect(balance.paidUsed).toBe(1);
@@ -192,9 +196,9 @@ describe('consumeCredits (variable amount)', () => {
     expect(balance.remaining).toBe(FREE_GENERATIONS);
   });
 
-  it('consumeCredit (singular) still works and delegates to consumeCredits(..., 1)', async () => {
-    const result = await consumeCredit('legacy-single@example.com', 'job_single');
-    expect(result).toEqual({ success: true, usedFree: true });
+  it('amount 1 consumes one free generation', async () => {
+    const result = await consumeCredits('legacy-single@example.com', 'job_single', 1);
+    expect(result).toEqual({ success: true, usedFree: 1, usedPaid: 0 });
   });
 });
 
@@ -462,5 +466,28 @@ describe('free-tier identity canonicalization (gmail alias dedup)', () => {
     await consumeCredits('plainuser@gmail.com', 'job_1', 1);
     const balance = await checkCredits('plainuser@gmail.com');
     expect(balance.freeUsed).toBe(1);
+  });
+});
+
+describe('refundCredits — one refund per charge, however many times it is asked', () => {
+  it('a repeated paid refund does not eat into credits spent later', async () => {
+    const email = 'idem-paid@example.com';
+    await addCredits(email, 30, { id: 'idem-p1', credits: 30, amountTWD: 999, createdAt: new Date().toISOString() });
+    await consumeCredits(email, 'job_a', 6);
+    await refundCredits(email, 'job_a', 0, 6);
+    await consumeCredits(email, 'job_b', 4);
+
+    await refundCredits(email, 'job_a', 0, 6);
+
+    expect((await checkCredits(email)).paidUsed).toBe(4);
+  });
+
+  it('a repeated free refund does not give back a second free use', async () => {
+    const email = 'idem-free@example.com';
+    await consumeCredits(email, 'job_a', 1);
+    await consumeCredits(email, 'job_b', 1);
+    await refundCredits(email, 'job_a', 1, 0);
+    await refundCredits(email, 'job_a', 1, 0);
+    expect((await checkCredits(email)).freeUsed).toBe(1);
   });
 });

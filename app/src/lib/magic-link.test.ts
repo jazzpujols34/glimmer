@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseLinkPurpose, shouldArmSession, emailSub, isEmailSub } from './magic-link';
+import { parseLinkPurpose, shouldArmSession, emailSub } from './magic-link';
 
 describe('parseLinkPurpose', () => {
   it('recognises an explicit login link', () => {
@@ -37,8 +37,6 @@ describe('shouldArmSession', () => {
 describe('emailSub', () => {
   it('namespaces the sub so it cannot collide with a Google numeric sub', () => {
     expect(emailSub('a@b.com')).toBe('email:a@b.com');
-    expect(isEmailSub(emailSub('a@b.com'))).toBe(true);
-    expect(isEmailSub('104715399479452712199')).toBe(false);
   });
 
   it('is stable across logins for the same address', () => {

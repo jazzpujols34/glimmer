@@ -19,7 +19,7 @@ export default function PrivacyPage() {
       <main className="container mx-auto px-4 py-12 max-w-3xl">
         <h1 className="text-3xl font-bold mb-2">隱私政策</h1>
         <p className="text-muted-foreground mb-8">Privacy Policy</p>
-        <p className="text-sm text-muted-foreground mb-8">最後更新 Last updated: 2026-01-30</p>
+        <p className="text-sm text-muted-foreground mb-8">最後更新 Last updated: 2026-11-13</p>
 
         <div className="prose prose-invert max-w-none space-y-8 text-foreground/90">
           <section>
@@ -28,12 +28,12 @@ export default function PrivacyPage() {
             <ul className="list-disc pl-6 space-y-1 mt-2">
               <li><strong>您提供的資訊：</strong>姓名、電子郵件地址（註冊時）、上傳的照片</li>
               <li><strong>自動收集的資訊：</strong>IP 地址、瀏覽器類型、使用記錄</li>
-              <li><strong>付款資訊：</strong>透過第三方支付處理商（Stripe）處理，我們不直接儲存信用卡資訊</li>
+              <li><strong>付款資訊：</strong>透過綠界科技（ECPay）處理，我們不儲存信用卡資訊</li>
             </ul>
             <p className="text-muted-foreground text-sm mt-2">
               We collect: information you provide (name, email, uploaded photos);
               automatically collected data (IP address, browser type, usage logs);
-              payment information processed through Stripe (we do not store credit card details).
+              payment information processed through ECPay (we do not store credit card details).
             </p>
           </section>
 
@@ -55,12 +55,12 @@ export default function PrivacyPage() {
           <section>
             <h2 className="text-xl font-semibold mb-3">3. 照片與影片處理 Photo &amp; Video Processing</h2>
             <p>
-              您上傳的照片會被傳送至第三方 AI 服務提供商（包括 BytePlus、Google Vertex AI、Kling AI）
-              進行影片生成。這些提供商有各自的資料處理政策。照片在處理完成後不會被我們長期保留。
+              您上傳的照片會被傳送至第三方 AI 影片生成服務供應商
+              進行影片生成。該供應商有自己的資料處理政策。照片在處理完成後不會被我們長期保留。
             </p>
             <p className="text-muted-foreground text-sm mt-2">
-              Uploaded photos are sent to third-party AI providers (BytePlus, Google Vertex AI, Kling AI)
-              for video generation. These providers have their own data processing policies. Photos are
+              Uploaded photos are sent to a third-party AI video generation provider
+              for video generation. This provider has its own data processing policies. Photos are
               not retained by us after processing is complete.
             </p>
           </section>
@@ -93,14 +93,20 @@ export default function PrivacyPage() {
             <h2 className="text-xl font-semibold mb-3">6. 第三方服務 Third-Party Services</h2>
             <p>本服務使用以下第三方服務：</p>
             <ul className="list-disc pl-6 space-y-1 mt-2">
-              <li><strong>Cloudflare：</strong>託管與 CDN</li>
-              <li><strong>BytePlus / Google AI / Kling AI：</strong>影片生成</li>
-              <li><strong>Stripe：</strong>付款處理</li>
+              <li><strong>Cloudflare：</strong>託管、CDN 與檔案儲存</li>
+              <li><strong>第三方 AI 影片生成服務供應商：</strong>影片生成</li>
+              <li><strong>綠界科技（ECPay）：</strong>付款處理</li>
               <li><strong>OpenAI：</strong>語音轉文字（字幕功能）</li>
+              <li><strong>Resend：</strong>寄送驗證與通知電子郵件</li>
+              <li><strong>Google：</strong>選用的 Google 帳號登入</li>
+              <li><strong>Sentry：</strong>錯誤監控</li>
+              <li><strong>Google Analytics：</strong>使用統計</li>
             </ul>
             <p className="text-muted-foreground text-sm mt-2">
-              We use: Cloudflare (hosting &amp; CDN), BytePlus / Google AI / Kling AI (video generation),
-              Stripe (payment processing), OpenAI (speech-to-text for subtitles).
+              We use: Cloudflare (hosting, CDN &amp; file storage), a third-party AI video generation provider
+              (video generation), ECPay (payment processing), OpenAI (speech-to-text for subtitles),
+              Resend (verification and notification email), Google (optional sign-in),
+              Sentry (error monitoring), Google Analytics (usage statistics).
             </p>
           </section>
 
@@ -123,11 +129,11 @@ export default function PrivacyPage() {
             <h2 className="text-xl font-semibold mb-3">8. Cookie 政策 Cookies</h2>
             <p>
               我們使用必要的 Cookie 來維持您的登入狀態和偏好設定。
-              我們不使用追蹤型 Cookie 或第三方廣告 Cookie。
+              我們使用 Google Analytics 的 Cookie 統計網站使用情況。我們不使用第三方廣告 Cookie。
             </p>
             <p className="text-muted-foreground text-sm mt-2">
-              We use essential cookies for login sessions and preferences. We do not use
-              tracking cookies or third-party advertising cookies.
+              We use essential cookies for login sessions and preferences. We use Google Analytics
+              cookies to measure site usage. We do not use third-party advertising cookies.
             </p>
           </section>
 

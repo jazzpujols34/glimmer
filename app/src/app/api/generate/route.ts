@@ -2,7 +2,7 @@ export const runtime = 'edge';
 
 import { NextRequest } from 'next/server';
 import imageSize from 'image-size';
-import { createJob, updateJob, addJobToProject, getProject, setJobError } from '@/lib/storage';
+import { createJob, updateJob, addJobToProject, getProject, setJobError, newJobId } from '@/lib/storage';
 import { createVideoTask } from '@/lib/veo';
 import { checkCredits, consumeCredits, isAdmin } from '@/lib/credits';
 import { creditsForGeneration } from '@/lib/credit-cost';
@@ -194,7 +194,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Generate job ID
-    const jobId = `job_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const jobId = newJobId();
 
     // Create job record in KV
     await createJob(jobId, {
@@ -234,7 +234,6 @@ export async function POST(request: NextRequest) {
       progress: 10,
       provider: taskData.provider,
       externalTaskIds: taskData.externalTaskIds,
-      veoOperationName: taskData.veoOperationName,
     });
 
     // Record estimated provider spend AFTER the task was actually created
@@ -252,6 +251,10 @@ export async function POST(request: NextRequest) {
     }
     if (creditResult.usedFree > 0) {
       await recordFreeIpUsage(ip);
+    }
+    if (creditResult.success) {
+      // Remembered so settleJob can refund exactly this if the provider fails.
+      await updateJob(jobId, { charge: { free: creditResult.usedFree, paid: creditResult.usedPaid, ref: jobId } });
     }
 
     // Add job to project if projectId provided

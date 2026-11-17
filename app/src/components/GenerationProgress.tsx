@@ -8,9 +8,22 @@ import { logger } from '@/lib/logger';
 
 interface GenerationProgressProps {
   jobId: string;
-  onComplete: (videoUrl: string, videoUrls: string[], analysis?: string) => void;
-  onError: (error: string) => void;
+  onComplete: (videoUrl: string, videoUrls: string[], analysis?: string, refund?: RefundInfo) => void;
+  onError: (error: string, refund?: RefundInfo) => void;
 }
+
+/** What the server did about the charge when all or part of a job failed. */
+export interface RefundInfo {
+  refundedCredits?: number;
+  refundHeld?: boolean;
+  failedVideos?: number;
+}
+
+const refundInfo = (data: RefundInfo): RefundInfo => ({
+  refundedCredits: data.refundedCredits,
+  refundHeld: data.refundHeld,
+  failedVideos: data.failedVideos,
+});
 
 const statusMessages: Record<GenerationStatus, string> = {
   queued: '準備中...',
@@ -127,10 +140,10 @@ export function GenerationProgress({ jobId, onComplete, onError }: GenerationPro
 
         if (data.status === 'complete' && data.videoUrl) {
           const videoUrls = data.videoUrls || [data.videoUrl];
-          onComplete(data.videoUrl, videoUrls, data.analysis);
+          onComplete(data.videoUrl, videoUrls, data.analysis, refundInfo(data));
           return; // Stop polling
         } else if (data.status === 'error') {
-          onError(normalizeError(data.error));
+          onError(normalizeError(data.error), refundInfo(data));
           return; // Stop polling
         }
 

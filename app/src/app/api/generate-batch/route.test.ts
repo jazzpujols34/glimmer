@@ -247,6 +247,7 @@ describe('POST /api/generate-batch — IP forensics on job records', () => {
     for (const jobId of body.segmentJobIds) {
       const job = await getJob(jobId);
       expect(job?.ip).toBe(ip);
+      expect(jobId).toMatch(/^job_[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
     }
   });
 });

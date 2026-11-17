@@ -22,13 +22,15 @@ vi.mock('@/lib/kv', () => ({
 }));
 
 // Mock the provider dispatcher — we're testing credit/abuse-guard bookkeeping
-// around task creation, not the real BytePlus/Veo/Kling HTTP calls.
+// around task creation, not the real provider HTTP calls.
 vi.mock('@/lib/veo', () => ({
   createVideoTask: vi.fn(),
+  checkVideoTaskStatus: vi.fn(),
 }));
 
 import { POST } from './route';
-import { createVideoTask } from '@/lib/veo';
+import { createVideoTask, checkVideoTaskStatus } from '@/lib/veo';
+import { settleJob } from '@/lib/job-settle';
 import { checkCredits, consumeCredits, setEmailVerified, addCredits } from '@/lib/credits';
 import { recordFreeIpUsage, FREE_IP_MONTHLY_CAP } from '@/lib/free-ip-cap';
 import { getJob } from '@/lib/storage';
@@ -251,6 +253,15 @@ describe('POST /api/generate — IP forensics on job records', () => {
     const job = await getJob(body.id);
     expect(job?.ip).toBe(ip);
   });
+
+  // The id is the only thing standing between a stranger and a family's video page.
+  it('gives the job an unguessable id (job_ + a random UUID)', async () => {
+    const email = 'unguessable-id@example.com';
+    await setEmailVerified(email);
+    const res = await POST(buildRequest({ email, settings: standardSettings }));
+    const body = await res.json();
+    expect(body.id).toMatch(/^job_[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+  });
 });
 
 describe('POST /api/generate — Phase 2b enforcement (dormant unless REQUIRE_SESSION_FOR_PAID=true)', () => {
@@ -297,5 +308,61 @@ describe('POST /api/generate — Phase 2b enforcement (dormant unless REQUIRE_SE
 describe('sanity', () => {
   it('consumeCredits is importable', () => {
     expect(typeof consumeCredits).toBe('function');
+  });
+});
+
+describe('POST /api/generate then a provider failure — the charge comes back (real credit code)', () => {
+  const buildAndSend = (opts: { email: string; settings?: Partial<GenerationSettings> }) => POST(buildRequest(opts));
+
+  async function jobIdOf(res: Response): Promise<string> {
+    const body = await res.json();
+    return body.data?.id ?? body.id;
+  }
+
+  it('paid generation: records the charge, and refunds exactly it once', async () => {
+    const email = 'refund-paid@example.com';
+    await setEmailVerified(email);
+    await addCredits(email, 30, { id: 'p-refund', credits: 30, amountTWD: 999, createdAt: new Date().toISOString() });
+
+    const id = await jobIdOf(await buildAndSend({ email, settings: nonStandardSettings }));
+    const job = (await getJob(id))!;
+    expect(job.charge).toEqual({ free: 0, paid: 22, ref: id });
+    expect((await checkCredits(email)).paidUsed).toBe(22);
+
+    vi.mocked(checkVideoTaskStatus).mockResolvedValue({ done: true, error: 'OutputVideoSensitiveContentDetected' });
+    const settled = await settleJob(job);
+    expect(settled.status).toBe('error');
+    expect((await checkCredits(email)).paidUsed).toBe(0);
+
+    // A later generation spends again; a repeat poll of the failed job must not eat into it.
+    await consumeCredits(email, 'job_other', 6);
+    await settleJob(job);
+    await settleJob((await getJob(id))!);
+    expect((await checkCredits(email)).paidUsed).toBe(6);
+  });
+
+  it('free generation: the free use comes back', async () => {
+    const email = 'refund-free@example.com';
+    await setEmailVerified(email);
+
+    const id = await jobIdOf(await buildAndSend({ email }));
+    const job = (await getJob(id))!;
+    expect(job.charge).toEqual({ free: 1, paid: 0, ref: id });
+    expect((await checkCredits(email)).freeUsed).toBe(1);
+
+    vi.mocked(checkVideoTaskStatus).mockResolvedValue({ done: true, error: 'boom' });
+    await settleJob(job);
+    expect((await checkCredits(email)).freeUsed).toBe(0);
+  });
+
+  it('a finished video keeps its charge', async () => {
+    const email = 'refund-none@example.com';
+    await setEmailVerified(email);
+    const id = await jobIdOf(await buildAndSend({ email }));
+
+    vi.mocked(checkVideoTaskStatus).mockResolvedValue({ done: true, videoUrls: ['https://cdn/a.mp4'] });
+    const settled = await settleJob((await getJob(id))!);
+    expect(settled.status).toBe('complete');
+    expect((await checkCredits(email)).freeUsed).toBe(1);
   });
 });

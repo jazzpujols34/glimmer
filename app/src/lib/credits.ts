@@ -243,29 +243,22 @@ export async function refundCredits(
 
   const [free, record] = await Promise.all([getFreeRecord(norm), getCreditRecord(norm)]);
 
-  if (usedFree > 0) {
+  // Each check sits in the same record write as its decrement, so two polls
+  // racing to refund one charge both write the same value instead of two refunds.
+  if (usedFree > 0 && (free.jobs || []).includes(jobId)) {
     free.used = Math.max(0, free.used - usedFree);
     free.jobs = (free.jobs || []).filter(j => j !== jobId);
     await saveFreeRecord(norm, free);
   }
 
-  if (usedPaid > 0) {
+  if (usedPaid > 0 && !(record.refunds || []).includes(jobId)) {
     record.used = Math.max(0, record.used - usedPaid);
+    record.refunds = [...(record.refunds || []), jobId].slice(-REFUND_REFS_KEPT);
     await saveCreditRecord(norm, record);
   }
 }
 
-/**
- * Use 1 generation. Checks free tier first, then paid credits.
- * Returns { success, usedFree } — success=false if no generations available.
- */
-export async function consumeCredit(
-  email: string,
-  jobId: string,
-): Promise<{ success: boolean; usedFree: boolean }> {
-  const result = await consumeCredits(email, jobId, 1);
-  return { success: result.success, usedFree: result.usedFree > 0 };
-}
+const REFUND_REFS_KEPT = 200;
 
 /**
  * Add generations after a successful payment.

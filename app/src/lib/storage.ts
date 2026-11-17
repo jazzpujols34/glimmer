@@ -36,6 +36,9 @@ const PAID_JOB_TTL = 2592000;   // 30 days (paid users)
 
 const KEY_PREFIX = 'job:';
 
+// A job id alone opens its video page, so it must not be guessable.
+export const newJobId = (): string => `job_${crypto.randomUUID()}`;
+
 /** Reads every record under a prefix, a bounded number at a time rather than one by one. */
 async function readAll<T>(prefix: string): Promise<T[]> {
   const keys = await kvListKeys(prefix);
@@ -68,12 +71,15 @@ export async function getJob(id: string): Promise<GenerationJob | undefined> {
 }
 
 
-export async function getCompletedJobs(email?: string): Promise<GenerationJob[]> {
-  const jobs = (await readAll<GenerationJob>(KEY_PREFIX)).filter(job =>
-    job.status === 'complete' && (job.videoUrl || job.videoUrls?.length) &&
-    // If email filter provided, only return jobs owned by that user
-    (!email || sameEmail(job.email, email))
-  );
+/** Every job of one owner (all owners when no email is given), in any status. */
+export async function getOwnedJobs(email?: string): Promise<GenerationJob[]> {
+  return (await readAll<GenerationJob>(KEY_PREFIX)).filter(job => !email || sameEmail(job.email, email));
+}
+
+export const completedNewestFirst = (jobs: GenerationJob[]): GenerationJob[] =>
+  sortNewest(jobs.filter(job => job.status === 'complete' && (job.videoUrl || job.videoUrls?.length)));
+
+function sortNewest(jobs: GenerationJob[]): GenerationJob[] {
   return jobs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 }
 
@@ -98,7 +104,7 @@ export async function setJobComplete(
   id: string,
   videoUrl: string,
   videoUrls?: string[],
-  options?: { paidUser?: boolean; archived?: boolean },
+  options?: { paidUser?: boolean; archived?: boolean; failedVideos?: number },
 ): Promise<GenerationJob | undefined> {
   const ttl = options?.paidUser ? PAID_JOB_TTL : JOB_TTL;
   const job = await getJob(id);
@@ -114,6 +120,7 @@ export async function setJobComplete(
     videoUrl,
     videoUrls: videoUrls || [videoUrl],
     archived: options?.archived,
+    ...(options?.failedVideos ? { failedVideos: options.failedVideos } : {}),
   };
   await kvPut(`${KEY_PREFIX}${id}`, JSON.stringify(updated), { expirationTtl: ttl });
   return updated;

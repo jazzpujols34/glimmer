@@ -25,7 +25,9 @@ async function createJob(id: string, metadata?: Parameters<typeof createQueuedJo
   await createQueuedJob(id, metadata);
   await updateJob(id, { status: 'processing' });
 }
-import { getCompletedJobs } from './storage';
+import { getOwnedJobs, completedNewestFirst } from './storage';
+
+const getCompletedJobs = async (email?: string) => completedNewestFirst(await getOwnedJobs(email));
 import { createProject, createBatch, createQuickJob, createStoryboard } from './storage';
 import { defaultSettings } from '@/types';
 

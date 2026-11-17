@@ -4,7 +4,7 @@
 
 ## Project Overview
 
-**拾光 Glimmer** is an AI-powered memorial video generation platform. Users upload photos and the app generates cinematic videos via multiple AI providers (Google Veo 3.1, BytePlus Seedance, Kling AI).
+**拾光 Glimmer** is an AI-powered memorial video generation platform. Users upload photos and the app generates cinematic videos via one AI provider (BytePlus Seedance, internal id `byteplus`).
 
 **Stack:** Next.js 16, React, TypeScript, Tailwind CSS, Cloudflare Pages (Edge Runtime), Cloudflare KV, Cloudflare R2
 
@@ -48,7 +48,7 @@ app/                          # Next.js application
 │   │   ├── storage.ts        # KV/in-memory job storage abstraction (enforces lifecycle.ts on write)
 │   │   ├── kv.ts             # Low-level KV helpers (kvGet, kvPut, kvDelete, getKV)
 │   │   ├── r2.ts             # R2 video archival
-│   │   ├── veo.ts            # Multi-provider video generation (BytePlus, Veo, Kling)
+│   │   ├── veo.ts            # BytePlus Seedance video generation (single provider)
 │   │   ├── credits.ts        # Credit system + isAdmin + ADMIN_EMAILS
 │   │   ├── prompts.ts        # Category-aware AI prompt builder
 │   │   ├── validation.ts     # Shared validators (isValidEmail, etc.)
@@ -95,9 +95,8 @@ The app uses a **client-driven polling** architecture for video generation:
 - **Local dev:** In-memory `Map` on `globalThis` (survives HMR). All storage functions are `async`.
 - **Video URL resolution:** R2 keys (not starting with `http`) → proxy URL (`/api/proxy-video?jobId=xxx&index=0`). CDN URLs (starting with `http`) used directly. Consolidated in `lib/video-url.ts`.
 
-### Multi-Provider Video Generation
-`veo.ts` dispatches to provider-specific functions, returns uniform `TaskCheckResult`.
-Providers: `byteplus`, `veo-3.1`, `veo-3.1-fast`, `kling-ai`
+### Video Generation (single provider)
+There is one provider: BytePlus Seedance, internal id `byteplus` (`ModelType` is just that). Veo and Kling are gone. `veo.ts` creates tasks and `checkBytePlusTasks` returns a `TaskCheckResult` that reports a per-video outcome. Customer-facing UI never names the vendor or model.
 
 ### Shared Modules (consolidated 2026-03-04)
 Avoid re-declaring these — always import from the canonical source:
@@ -221,7 +220,9 @@ Pay-per-generation credits (not subscriptions). Passwordless identity: a typed, 
 
 - **[2026-03-04] Code Cleanup**: Consolidated duplicated code across 34 files into shared modules (`constants.ts`, `media-utils.ts`, `video-url.ts`). Fixed 4 bugs: pet occasion label undefined, updateJob resetting 30-day TTL, upload-music returning fake R2 key, export-server validating after credit check. Removed 6 dead exports. Net -320 lines.
 
-- **[2026-11-13] Status lifecycles are explicit**: `lib/lifecycle.ts` holds the legal transitions (job: queued → processing → complete|error; batch: … → complete|partial|error; quick: generating → exporting → complete|error) and `storage.ts` refuses anything else as a logged no-op — KV has no compare-and-set, so two polls settling one job is normal and the first write wins. A new status value means: add it to the table, then the compiler and `storage-lifecycle.test.ts` show what else must change. Jobs only leave `processing` through `settleJob()`; the gallery "Refresh" button (`POST /api/gallery`) is just a bulk call of it. A provider 429/5xx on a status call keeps a job under 30 minutes old running instead of failing it. The export service answers in camelCase (`r2Key`) — `quick-status` read `r2_key` for nine months and the quick flow could never finish.
+- **[2026-11-13] Provider failures are refunded, with a cap**: each job stores its `charge` ({free, paid, ref}); `refundIfOwed()` in `lib/job-settle.ts` gives it back when the provider fails the job, when a job is still `processing` after 3 hours, or (a share, rounded up) when some of several versions fail — the good versions are kept (`failedVideos`). `refundCredits` applies a charge ref at most once inside the credit record write, so racing polls cannot double-refund. `refundedCredits` is written only after the refund is; the UI reads it, and the stored `error` text never claims a refund. Auto-refunds are capped at 3 per person (`canonicalFreeTierEmail`) and 5 per IP per day; past that the job is `refundHeld` and the admin Telegram chat is alerted (RUNBOOK "退點待審"). Nothing runs on a timer: an overdue job is settled when its owner loads the gallery (`settleOverdue`) or the status route is polled. Jobs created before this change have no `charge` and are never auto-refunded. Removing `@google/genai` (Veo, never enabled) took the Functions bundle from 24.67 to 23.29 MiB.
+
+- **[2026-11-13] Status lifecycles are explicit**: `lib/lifecycle.ts` holds the legal transitions (job: queued → processing → complete|error; batch: … → complete|partial|error; quick: generating → exporting → complete|error) and `storage.ts` refuses anything else as a logged no-op — KV has no compare-and-set, so two polls settling one job is normal and the first write wins. A new status value means: add it to the table, then the compiler and `storage-lifecycle.test.ts` show what else must change. Jobs only leave `processing` through `settleJob()`; the gallery "Refresh" button (`POST /api/gallery`) is just a bulk call of it. Only the provider reporting a task `failed` is a failure: a status call that cannot be made (429/5xx/rotated key) leaves the job running at any age. The export service answers in camelCase (`r2Key`) — `quick-status` read `r2_key` for nine months and the quick flow could never finish.
 
 - **[2026-02-28] FFmpeg xfade**: 13 transition types via `xfade` filter. Both `xfade` and `acrossfade` require all inputs to have video+audio streams — add silent audio to video-only clips first.
 

@@ -61,8 +61,3 @@ export function shouldArmSession(purpose: LinkPurpose): boolean {
 export function emailSub(email: string): string {
   return `email:${email.trim().toLowerCase()}`;
 }
-
-/** True for a sub minted by this module rather than by Google. */
-export function isEmailSub(sub: string): boolean {
-  return sub.startsWith('email:');
-}

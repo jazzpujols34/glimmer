@@ -1,8 +1,7 @@
 /**
  * Signed session cookie for progressive Google identity (Phase 1 — dormant,
  * see docs/oauth-identity-design.html). Edge-safe: Web Crypto HMAC-SHA256,
- * same primitive already used for Kling's JWT (src/lib/veo.ts) — no jose/
- * jsonwebtoken dependency.
+ * no jose/jsonwebtoken dependency.
  *
  * Token shape: base64url(JSON payload) + "." + base64url(HMAC-SHA256 signature)
  * Session payload: { sub, email, iat, exp } — 30-day expiry.

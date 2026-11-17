@@ -1,5 +1,5 @@
-import { GoogleGenAI } from '@google/genai';
 import { buildPrompt } from './prompts';
+import { logger } from './logger';
 import { captureError, ProviderUnavailableError, isProviderUnavailable } from './errors';
 import type { GenerationSettings, GenerationJob, OccasionType, ModelType } from '@/types';
 
@@ -15,12 +15,12 @@ export interface CreateTaskOptions {
 export interface ExternalTaskData {
   provider: ModelType;
   externalTaskIds?: string[];
-  veoOperationName?: string;
 }
 
 export interface TaskCheckResult {
   done: boolean;
   videoUrls?: string[];
+  failedCount?: number;   // tasks that failed while others succeeded
   error?: string;
   progress?: number;
 }
@@ -40,18 +40,7 @@ export async function createVideoTask(options: CreateTaskOptions): Promise<Exter
     name: options.name,
   });
 
-  switch (settings.model) {
-    case 'byteplus':
-      return createBytePlusTasks(options, prompt);
-    case 'veo-3.1':
-      return createVeoTask(options, prompt, 'veo-3.1-generate-001');
-    case 'veo-3.1-fast':
-      return createVeoTask(options, prompt, 'veo-3.1-fast-generate-001');
-    case 'kling-ai':
-      return createKlingTask(options, prompt);
-    default:
-      return createBytePlusTasks(options, prompt);
-  }
+  return createBytePlusTasks(options, prompt);
 }
 
 // === Check task status (called by GET /api/status/[id]) ===
@@ -61,17 +50,8 @@ export async function createVideoTask(options: CreateTaskOptions): Promise<Exter
  * Makes ONE API call per invocation — the client's polling loop drives progress.
  */
 export async function checkVideoTaskStatus(job: GenerationJob): Promise<TaskCheckResult> {
-  switch (job.provider) {
-    case 'byteplus':
-      return checkBytePlusTasks(job.externalTaskIds || [], isWithinStatusGrace(job.createdAt));
-    case 'veo-3.1':
-    case 'veo-3.1-fast':
-      return checkVeoTask(job.veoOperationName || '');
-    case 'kling-ai':
-      return checkKlingTasks(job.externalTaskIds || []);
-    default:
-      return { done: true, error: `Unknown provider: ${job.provider}` };
-  }
+  if (job.provider !== 'byteplus') return { done: true, error: `Unknown provider: ${job.provider}` };
+  return checkBytePlusTasks(job.externalTaskIds || []);
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -163,35 +143,33 @@ async function createBytePlusTasks(options: CreateTaskOptions, prompt: string): 
 }
 
 /**
- * A young job whose status call hits a busy or broken provider (429 / 5xx) is
- * still generating — and still billed — so it must not be marked failed. After
- * the grace window the old behaviour applies, so a dead provider cannot leave
- * a job spinning forever.
+ * One status call per task. Only the provider saying "failed" counts as a
+ * failure: a status call that cannot be made (429, 5xx, a rotated key) leaves
+ * the task pending, because it may still be rendering and billed. settleJob's
+ * timeout bounds a task that never answers.
+ *
+ * Done only when every task has a final answer. Some good, some failed →
+ * `videoUrls` holds the good ones and `failedCount` the rest.
  */
-const STATUS_GRACE_MS = 30 * 60 * 1000;
-
-export function isWithinStatusGrace(createdAt: string, now = Date.now()): boolean {
-  return now - new Date(createdAt).getTime() < STATUS_GRACE_MS;
-}
-
-export async function checkBytePlusTasks(taskIds: string[], tolerateOutage = false): Promise<TaskCheckResult> {
+export async function checkBytePlusTasks(taskIds: string[]): Promise<TaskCheckResult> {
   const apiKey = process.env.BYTEPLUS_API_KEY;
-  if (!apiKey) return { done: true, error: 'BYTEPLUS_API_KEY not set' };
+  if (!apiKey) throw new Error('BYTEPLUS_API_KEY not set');
   if (taskIds.length === 0) return { done: true, error: 'No task IDs' };
 
   const videoUrls: string[] = [];
   let pending = 0;
+  let failedCount = 0;
+  let firstError: string | undefined;
 
   for (const taskId of taskIds) {
     const res = await fetch(`https://ark.ap-southeast.bytepluses.com/api/v3/contents/generations/tasks/${taskId}`, {
       headers: { 'Authorization': `Bearer ${apiKey}` },
     });
     if (!res.ok) {
-      if (tolerateOutage && (res.status === 429 || res.status >= 500)) {
-        pending++;
-        continue;
-      }
-      return { done: true, error: `BytePlus status check failed: ${res.status}` };
+      // Logged, not reported: during an outage every poll of every job lands here.
+      logger.warn(`[BytePlus] status check for ${taskId} answered ${res.status}; treating as still running`);
+      pending++;
+      continue;
     }
 
     const data = await res.json();
@@ -199,216 +177,29 @@ export async function checkBytePlusTasks(taskIds: string[], tolerateOutage = fal
 
     if (status === 'succeeded' || status === 'completed' || status === 'success') {
       const url = data.output?.video_url || data.content?.video_url || data.video_url || data.result?.video_url;
-      if (url) videoUrls.push(url);
-      else return { done: true, error: 'No video URL in BytePlus response' };
+      if (url) {
+        videoUrls.push(url);
+      } else {
+        failedCount++;
+        firstError ??= 'No video URL in BytePlus response';
+      }
     } else if (status === 'failed' || status === 'error') {
       const rawError = data.error || data.message || 'BytePlus generation failed';
       const errorMsg = typeof rawError === 'object' ? (rawError.message || JSON.stringify(rawError)) : String(rawError);
       captureError(new Error(errorMsg), { provider: 'byteplus', taskId });
-      return { done: true, error: errorMsg };
+      failedCount++;
+      firstError ??= errorMsg;
     } else {
       pending++;
     }
   }
 
-  if (pending === 0 && videoUrls.length === taskIds.length) {
-    return { done: true, videoUrls };
+  if (pending > 0) {
+    const finished = videoUrls.length + failedCount;
+    return { done: false, progress: Math.floor((finished / taskIds.length) * 90) + 10 };
   }
-
-  const progress = Math.floor((videoUrls.length / taskIds.length) * 90) + 10;
-  return { done: false, progress };
-}
-
-// ════════════════════════════════════════════════════════════════
-//  Google Veo 3.1
-// ════════════════════════════════════════════════════════════════
-
-function getVertexAIClient(): GoogleGenAI {
-  const project = process.env.GOOGLE_CLOUD_PROJECT_ID || process.env.GOOGLE_CLOUD_PROJECT;
-  const location = process.env.VERTEX_AI_LOCATION || process.env.GOOGLE_CLOUD_LOCATION || 'us-central1';
-  if (!project) throw new Error('GOOGLE_CLOUD_PROJECT not set');
-  return new GoogleGenAI({ vertexai: true, project, location });
-}
-
-async function createVeoTask(options: CreateTaskOptions, prompt: string, modelName: string): Promise<ExternalTaskData> {
-  const { photos, settings } = options;
-  const ai = getVertexAIClient();
-  const imageBase64 = photos[0].toString('base64');
-  const mimeType = detectMimeType(photos[0]);
-
-  const operation = await ai.models.generateVideos({
-    model: modelName,
-    prompt,
-    image: { imageBytes: imageBase64, mimeType },
-    config: {
-      aspectRatio: settings.aspectRatio,
-      numberOfVideos: settings.numResults,
-      durationSeconds: 8,
-      personGeneration: 'allow_adult',
-      generateAudio: true,
-      ...(settings.seed !== undefined && { seed: settings.seed }),
-    },
-  });
-
-  const provider = modelName.includes('fast') ? 'veo-3.1-fast' : 'veo-3.1';
-  return { provider: provider as ModelType, veoOperationName: operation.name || '' };
-}
-
-async function checkVeoTask(operationName: string): Promise<TaskCheckResult> {
-  if (!operationName) return { done: true, error: 'No Veo operation name' };
-
-  const ai = getVertexAIClient();
-  const operation = await ai.operations.getVideosOperation({
-    operation: { name: operationName } as never,
-  });
-
-  if (!operation.done) {
-    return { done: false, progress: 50 };
-  }
-
-  const response = operation.response;
-  if (response?.raiMediaFilteredCount && response.raiMediaFilteredCount > 0) {
-    const reasons = response.raiMediaFilteredReasons?.join(', ') || 'Unknown';
-    const errorMsg = `Content filtered: ${reasons}`;
-    captureError(new Error(errorMsg), { provider: 'veo', operationName });
-    return { done: true, error: errorMsg };
-  }
-
-  if (response?.generatedVideos && response.generatedVideos.length > 0) {
-    const videoUrls: string[] = [];
-    for (const vid of response.generatedVideos) {
-      if (vid.video?.uri) videoUrls.push(vid.video.uri);
-      else if (vid.video?.videoBytes) videoUrls.push(`data:video/mp4;base64,${vid.video.videoBytes}`);
-    }
-    if (videoUrls.length > 0) return { done: true, videoUrls };
-  }
-
-  if (operation.error) {
-    const errorMsg = `Veo error: ${JSON.stringify(operation.error)}`;
-    captureError(new Error(errorMsg), { provider: 'veo', operationName });
-    return { done: true, error: errorMsg };
-  }
-
-  return { done: true, error: 'No videos in Veo response' };
-}
-
-// ════════════════════════════════════════════════════════════════
-//  Kling AI
-// ════════════════════════════════════════════════════════════════
-
-async function createKlingTask(options: CreateTaskOptions, prompt: string): Promise<ExternalTaskData> {
-  const { photos, settings } = options;
-  const accessKey = process.env.KLING_ACCESS_KEY;
-  const secretKey = process.env.KLING_SECRET_KEY;
-  if (!accessKey || !secretKey) throw new Error('Kling AI credentials not set');
-
-  const numVideos = Math.min(Math.max(settings.numResults || 1, 1), 4);
-  const imageBase64 = photos[0].toString('base64');
-  const token = await getKlingToken(accessKey, secretKey);
-  const klingDuration = settings.videoLength <= 5 ? '5' : '10';
-
-  const body = JSON.stringify({
-    model_name: 'kling-v1-5',
-    image: imageBase64,
-    prompt,
-    negative_prompt: 'blurry, distorted, unnatural movements, dramatic changes, morphing',
-    cfg_scale: 0.5,
-    mode: 'std',
-    duration: klingDuration,
-    aspect_ratio: settings.aspectRatio,
-  });
-
-  // Create N parallel tasks (Kling API doesn't support multiple results per request)
-  const taskIds = await Promise.all(
-    Array.from({ length: numVideos }, async () => {
-      const res = await fetch('https://api.klingai.com/v1/videos/image2video', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body,
-      });
-      if (!res.ok) throw new Error(`Kling create failed: ${await res.text()}`);
-      const data = await res.json();
-      const taskId = data.data?.task_id;
-      if (!taskId) throw new Error('No task ID from Kling');
-      return taskId as string;
-    })
-  );
-
-  return { provider: 'kling-ai', externalTaskIds: taskIds };
-}
-
-async function checkKlingTasks(taskIds: string[]): Promise<TaskCheckResult> {
-  const accessKey = process.env.KLING_ACCESS_KEY;
-  const secretKey = process.env.KLING_SECRET_KEY;
-  if (!accessKey || !secretKey) return { done: true, error: 'Kling credentials not set' };
-  if (taskIds.length === 0) return { done: true, error: 'No Kling task IDs' };
-
-  const token = await getKlingToken(accessKey, secretKey);
-  const videoUrls: string[] = [];
-  let pending = 0;
-
-  for (const taskId of taskIds) {
-    const res = await fetch(`https://api.klingai.com/v1/videos/image2video/${taskId}`, {
-      headers: { 'Authorization': `Bearer ${token}` },
-    });
-    if (!res.ok) return { done: true, error: 'Kling status check failed' };
-
-    const data = await res.json();
-    const status = data.data?.task_status;
-
-    if (status === 'succeed') {
-      const videoUrl = data.data?.task_result?.videos?.[0]?.url;
-      if (videoUrl) videoUrls.push(videoUrl);
-      else return { done: true, error: 'No video URL in Kling response' };
-    } else if (status === 'failed') {
-      const errorMsg = data.data?.task_status_msg || 'Kling generation failed';
-      captureError(new Error(errorMsg), { provider: 'kling-ai', taskId });
-      return { done: true, error: errorMsg };
-    } else {
-      pending++;
-    }
-  }
-
-  if (pending === 0 && videoUrls.length === taskIds.length) {
-    return { done: true, videoUrls };
-  }
-
-  const progress = Math.floor((videoUrls.length / taskIds.length) * 90) + 10;
-  return { done: false, progress };
-}
-
-// ════════════════════════════════════════════════════════════════
-//  Shared helpers
-// ════════════════════════════════════════════════════════════════
-
-/** Edge-compatible HMAC-SHA256 JWT for Kling API */
-async function getKlingToken(accessKey: string, secretKey: string): Promise<string> {
-  const header = { alg: 'HS256', typ: 'JWT' };
-  const now = Math.floor(Date.now() / 1000);
-  const payload = { iss: accessKey, exp: now + 1800, nbf: now - 5 };
-
-  const encodedHeader = base64UrlEncode(JSON.stringify(header));
-  const encodedPayload = base64UrlEncode(JSON.stringify(payload));
-
-  const encoder = new TextEncoder();
-  const key = await crypto.subtle.importKey(
-    'raw', encoder.encode(secretKey),
-    { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'],
-  );
-  const sig = await crypto.subtle.sign('HMAC', key, encoder.encode(`${encodedHeader}.${encodedPayload}`));
-  const signature = base64UrlEncodeBuffer(new Uint8Array(sig));
-
-  return `${encodedHeader}.${encodedPayload}.${signature}`;
-}
-
-function base64UrlEncode(input: string): string {
-  return btoa(input).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-}
-
-function base64UrlEncodeBuffer(bytes: Uint8Array): string {
-  let binary = '';
-  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
-  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  if (videoUrls.length === 0) return { done: true, error: firstError };
+  return { done: true, videoUrls, ...(failedCount > 0 && { failedCount, error: firstError }) };
 }
 
 function detectMimeType(buffer: Buffer): string {

@@ -10,6 +10,7 @@ import {
   addSegmentToBatch,
   createQuickJob,
   setJobError,
+  newJobId,
 } from '@/lib/storage';
 import { createVideoTask } from '@/lib/veo';
 import { checkCredits, consumeCredits, refundCredits, isAdmin } from '@/lib/credits';
@@ -236,7 +237,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Create job
-        jobId = `job_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        jobId = newJobId();
         const _job = await createJob(jobId, {
           name: `${name} - 片段 ${i + 1}`,
           occasion: occasion as OccasionType,
@@ -248,7 +249,12 @@ export async function POST(request: NextRequest) {
         // Add to project and batch
         await addJobToProject(project.id, jobId);
         await addSegmentToBatch(batch.id, jobId);
-        await updateJob(jobId, { projectId: project.id, segmentIndex: i, batchId: batch.id });
+        await updateJob(jobId, {
+          projectId: project.id,
+          segmentIndex: i,
+          batchId: batch.id,
+          charge: { free: creditResult.usedFree, paid: creditResult.usedPaid, ref: `${batch.id}_${i}` },
+        });
 
         // Create video task with first-last-frame mode
         const taskResult = await createVideoTask({
@@ -264,7 +270,6 @@ export async function POST(request: NextRequest) {
           progress: 10,
           provider: taskResult.provider,
           externalTaskIds: taskResult.externalTaskIds,
-          veoOperationName: taskResult.veoOperationName,
         });
 
         // Record estimated provider spend AFTER this segment's task was actually created
@@ -284,6 +289,10 @@ export async function POST(request: NextRequest) {
         // Job may already exist in KV as 'queued' (createJob succeeded before
         // a later step threw) — mark it errored so it doesn't stay a zombie.
         if (jobId) await setJobError(jobId, normalizeError(err));
+        // Recorded as done, so nothing later treats this refund as still owed.
+        if (jobId && creditResult?.success) {
+          await updateJob(jobId, { refundedCredits: creditResult.usedFree + creditResult.usedPaid });
+        }
         segmentResults.push({ index: i, jobId: '', success: false });
       }
     }

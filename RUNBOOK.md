@@ -185,10 +185,16 @@ CF Pages → glimmer → Settings → Environment variables → Production:
 | `ADMIN_EMAILS` | optional | Comma-separated, gets unlimited credits + admin UI access |
 | `DAILY_PROVIDER_TOKEN_CAP` | optional | Daily provider-spend circuit breaker (`src/lib/spend-guard.ts`). Max estimated BytePlus tokens per UTC day before `/api/generate`, `/api/generate-batch`, `/api/quick-generate` refuse new generations with a 503. Unset = default 15,000,000 (≈ US$18/day at $0.0012/K tokens). `0` disables the cap. |
 | `ADMIN_SECRET` | **yes** | Second factor for every `/api/admin/*` route, sent as the `x-admin-secret` header. **Fails closed** — if this is unset or empty, the entire admin API returns 401 and the `/admin` dashboard cannot load. Set it before or immediately after deploying. Generate with `python3 -c "import secrets; print(secrets.token_urlsafe(32))"`. Rotating it logs the dashboard out; re-enter the new value at `/admin`. |
-| `GOOGLE_API_KEY` | currently unused | For Veo fallback when restored |
-| `GOOGLE_CLOUD_PROJECT` | currently unused | For Veo fallback |
-| `KLING_ACCESS_KEY` | currently unused | For Kling fallback |
-| `KLING_SECRET_KEY` | currently unused | For Kling fallback |
+| `GOOGLE_API_KEY` | no longer used — safe to delete from Cloudflare | Nothing in `app/src` reads it. |
+| `GOOGLE_CLOUD_PROJECT` | no longer used — safe to delete from Cloudflare | Veo/Vertex provider code, being removed. |
+| `GOOGLE_CLOUD_PROJECT_ID` | no longer used — safe to delete from Cloudflare | Veo/Vertex provider code, being removed. |
+| `VERTEX_AI_LOCATION` | no longer used — safe to delete from Cloudflare | Veo/Vertex provider code, being removed. |
+| `GOOGLE_CLOUD_LOCATION` | no longer used — safe to delete from Cloudflare | Veo/Vertex provider code, being removed. |
+| `KLING_ACCESS_KEY` | no longer used — safe to delete from Cloudflare | Kling provider code, being removed. |
+| `KLING_SECRET_KEY` | no longer used — safe to delete from Cloudflare | Kling provider code, being removed. |
+| `NEXT_PUBLIC_APP_URL` | optional | Site origin used for sitemap, robots, metadata, OAuth redirect, checkout/ECPay return and email links. Falls back to `https://glimmer.video` when unset. Note: `NEXT_PUBLIC_BASE_URL` (above) is a separate variable read by other routes. |
+| `RESEND_FROM_EMAIL` | optional | Sender address for verification and login emails (`src/lib/email.ts`). Falls back to a built-in default when unset. |
+| `NODE_ENV` | set by the build | Not set by hand. Sentry reports it as the environment; Sentry capture runs only when it is `production` and `SENTRY_DSN` is set. |
 | `TELEGRAM_BOT_TOKEN` | optional | Bot token for admin alerts (`src/lib/telegram.ts`). Both this and `TELEGRAM_ADMIN_CHAT_ID` must be set or `sendAdminAlert()` is a silent no-op — never blocks or fails the caller. |
 | `TELEGRAM_ADMIN_CHAT_ID` | optional | Chat ID the bot DMs. Fires on: successful ECPay payment (`/api/webhooks/ecpay`), and daily provider-spend cap breach — at most once per UTC day, gated by a `spend-alert:YYYY-MM-DD` KV flag (`src/lib/spend-guard.ts`). |
 | `GOOGLE_OAUTH_CLIENT_ID` | yes (Phase 1) | OAuth 2.0 client ID for "Sign in with Google" (`src/app/api/auth/[...auth]/route.ts`), GCP project `concise-honor-486903-j3`. Sent as `client_id` on both the login redirect and the token exchange; also checked as the id_token's `aud` claim on callback. Not a secret (client-visible in the redirect URL), but treated as a CF Pages env var for consistency with its paired secret below. |
@@ -203,6 +209,18 @@ CF Pages → glimmer → Settings → Environment variables → Production:
 **R2 bucket binding** (Settings → Functions → R2 bucket bindings):
 - Binding name: `GLIMMER_R2`
 - Must be set to your archival bucket
+
+**Cloud Run export service** (`cloud-run/export-service`, set on the Cloud Run service, not Cloudflare):
+
+| Variable | Required | Notes |
+|----------|----------|-------|
+| `R2_ACCOUNT_ID` | yes | Cloudflare account ID for the S3-compatible R2 endpoint (`main.py`). |
+| `R2_ACCESS_KEY_ID` | yes | R2 access key used to read and write export files. |
+| `R2_SECRET_ACCESS_KEY` | yes | Paired secret for the R2 access key. |
+| `R2_BUCKET_NAME` | optional | R2 bucket name. Defaults to `glimmer-videos`. |
+| `EXPORT_SERVICE_TOKEN` | read, not enforced | `main.py` reads it into `SERVICE_AUTH_TOKEN`, but nothing else in the file uses it, and `app/src` never sends it. |
+| `PORT` | optional | Listen port. Defaults to 8080 (Cloud Run sets it). |
+| `GCP_PROJECT` / `GOOGLE_CLOUD_PROJECT` | optional | Project for the Firestore export-status store (`status_store.py`). `GCP_PROJECT` wins. On Cloud Run the platform normally provides one of them. This is unrelated to the Veo variable of the same name in the Cloudflare table. |
 
 ---
 
@@ -301,3 +319,10 @@ Use this section to record incidents and what was learned.
   - `SENTRY_DSN` set in prod
   - Known provider errors throw `ProviderUnavailableError` → user sees 503 + friendly message
   - `generate_audio: false` halves BytePlus per-clip cost
+
+## 退點待審 (a refund held for review)
+
+A failed video is refunded automatically, up to 3 times per person and 5 per IP address per day. Past that, the job is marked `refundHeld` and the admin Telegram chat gets "拾光退點待審" with the email, the job id and the amount owed. Nothing was refunded yet.
+
+To decide: look at the customer's recent jobs in the admin page. A few falsely filtered family photos is normal; dozens of failures in a day is someone failing on purpose. To pay it back, grant the credits from the admin page (admin grant) for the paid amount in the alert. A held free use is not worth restoring by hand unless the customer asks.
+

@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import type { Storyboard, StoryboardSlot, StoryboardTransitionType, GenerationJob, StoryboardClip, StoryboardTitleCard } from '@/types';
 import { logger } from '@/lib/logger';
 import { getVideoDuration as _getVideoDuration } from '@/lib/media-utils';
+import { buildUploadedClip, getDisplaySlot } from '@/lib/storyboard-upload';
 
 interface StoryboardGridProps {
   storyboard: Storyboard;
@@ -41,20 +42,14 @@ export function StoryboardGrid({
     storyboardRef.current = storyboard;
   });
 
-  // Track blob URLs for cleanup to prevent memory leaks
-  const blobUrlsRef = useRef<Map<number, string>>(new Map());
-
-  // Cleanup blob URLs on unmount
-  useEffect(() => {
-    const urls = blobUrlsRef.current;
-    return () => {
-      urls.forEach((url) => URL.revokeObjectURL(url));
-      urls.clear();
-    };
-  }, []);
+  // Upload state lives only in this tab; it is never saved to the server
+  const [uploadingIds, setUploadingIds] = useState<Set<string>>(new Set());
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const uploadingIdsRef = useRef<Set<string>>(new Set());
+  const displaySlots = storyboard.slots.map((s) => getDisplaySlot(s, uploadingIds));
 
   // Calculate remaining empty slots (text cards count as filled)
-  const filledCount = storyboard.slots.filter((s) => s.status === 'filled' || s.status === 'text-card').length;
+  const filledCount = displaySlots.filter((s) => s.status === 'filled' || s.status === 'text-card').length;
   const emptyCount = storyboard.slots.length - filledCount;
   const [editingTextCardIndex, setEditingTextCardIndex] = useState<number | null>(null);
   const [trimmingSlotIndex, setTrimmingSlotIndex] = useState<number | null>(null);
@@ -65,13 +60,6 @@ export function StoryboardGrid({
   };
 
   const handleRemoveClick = async (slotIndex: number) => {
-    // Revoke blob URL if exists to prevent memory leak
-    const blobUrl = blobUrlsRef.current.get(slotIndex);
-    if (blobUrl) {
-      URL.revokeObjectURL(blobUrl);
-      blobUrlsRef.current.delete(slotIndex);
-    }
-
     await onUpdateSlot(slotIndex, {
       status: 'empty',
       clip: undefined,
@@ -87,12 +75,13 @@ export function StoryboardGrid({
       if (activeSlotIndex === null) return;
 
       let currentSlotIndex = activeSlotIndex;
-      const { slots, slotCount } = storyboardRef.current;
+      const { slots, slotCount, id: storyboardId } = storyboardRef.current;
+      setUploadError(null);
 
       for (const file of files) {
-        // Find next empty slot starting from activeSlotIndex
+        // Find next empty slot (legacy server-side "uploading" counts as empty)
         while (currentSlotIndex < slotCount) {
-          if (slots[currentSlotIndex].status === 'empty') {
+          if (getDisplaySlot(slots[currentSlotIndex], uploadingIdsRef.current).status === 'empty') {
             break;
           }
           currentSlotIndex++;
@@ -100,45 +89,37 @@ export function StoryboardGrid({
 
         if (currentSlotIndex >= slotCount) break;
 
-        // Mark as uploading
-        await onUpdateSlot(currentSlotIndex, {
-          status: 'uploading',
-          uploadProgress: 0,
-        });
+        const slotId = slots[currentSlotIndex].id;
+        uploadingIdsRef.current = new Set(uploadingIdsRef.current).add(slotId);
+        setUploadingIds(uploadingIdsRef.current);
 
+        const blobUrl = URL.createObjectURL(file);
         try {
-          // Revoke old blob URL if slot is being reused
-          const oldBlobUrl = blobUrlsRef.current.get(currentSlotIndex);
-          if (oldBlobUrl) {
-            URL.revokeObjectURL(oldBlobUrl);
-          }
-
-          // Create blob URL for local preview
-          const blobUrl = URL.createObjectURL(file);
-          blobUrlsRef.current.set(currentSlotIndex, blobUrl);
-
           const duration = await getVideoDuration(blobUrl);
 
-          // For now, store the blob URL directly (R2 upload can be added later)
-          // In production, you would upload to R2 here and get back the R2 key
-          const clip: StoryboardClip = {
-            sourceType: 'upload',
-            videoUrl: blobUrl,
-            duration,
-            fitMode: 'letterbox',
-          };
+          const formData = new FormData();
+          formData.append('file', file);
+          formData.append('jobId', storyboardId);
+          const res = await fetch('/api/upload-clip', { method: 'POST', body: formData });
+          const data: { r2Key?: string; error?: string } = await res.json().catch(() => ({}));
+          if (!res.ok || !data.r2Key) {
+            throw new Error(data.error || `HTTP ${res.status}`);
+          }
 
           await onUpdateSlot(currentSlotIndex, {
             status: 'filled',
-            clip,
+            clip: buildUploadedClip(data.r2Key, duration),
             uploadProgress: undefined,
           });
         } catch (error) {
-          logger.error('Error processing upload:', error);
-          await onUpdateSlot(currentSlotIndex, {
-            status: 'empty',
-            uploadProgress: undefined,
-          });
+          logger.error('Error uploading clip:', error);
+          setUploadError(`「${file.name}」上傳失敗，請重試。`);
+        } finally {
+          URL.revokeObjectURL(blobUrl);
+          const next = new Set(uploadingIdsRef.current);
+          next.delete(slotId);
+          uploadingIdsRef.current = next;
+          setUploadingIds(next);
         }
 
         currentSlotIndex++;
@@ -268,7 +249,7 @@ export function StoryboardGrid({
             {filledCount} / {storyboard.slots.length} 格已填入
           </span>
           <span className="text-muted-foreground">
-            約 {Math.round((storyboard.slots.reduce((acc, s) => {
+            約 {Math.round((displaySlots.reduce((acc, s) => {
               if (s.clip) return acc + ((s.clip.trimEnd ?? s.clip.duration) - (s.clip.trimStart ?? 0));
               if (s.textCard) return acc + s.textCard.durationSeconds;
               return acc;
@@ -282,9 +263,13 @@ export function StoryboardGrid({
         </div>
       </div>
 
+      {uploadError && (
+        <p role="alert" className="text-sm text-destructive">{uploadError}</p>
+      )}
+
       {/* Grid */}
       <div className={`grid ${getGridCols()} gap-4`}>
-        {storyboard.slots.map((slot, index) => (
+        {displaySlots.map((slot, index) => (
           <div key={slot.id} className="relative">
             {/* Slot Card */}
             <div
@@ -341,7 +326,7 @@ export function StoryboardGrid({
           variant="outline"
           onClick={() => {
             // Find first empty slot
-            const firstEmpty = storyboard.slots.findIndex((s) => s.status === 'empty');
+            const firstEmpty = displaySlots.findIndex((s) => s.status === 'empty');
             if (firstEmpty >= 0) {
               handleAddClick(firstEmpty);
             }

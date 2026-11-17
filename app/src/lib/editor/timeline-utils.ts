@@ -120,22 +120,6 @@ export function generateId(): string {
   return `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
-/** Find the next clip (by position) after a given timeline position */
-export function findNextClip(
-  position: number,
-  clips: TimelineClip[],
-): { clip: TimelineClip; index: number } | null {
-  const sorted = clipsSortedByPosition(clips);
-  for (let i = 0; i < sorted.length; i++) {
-    if (sorted[i].timelinePosition > position) {
-      // Find original index
-      const originalIndex = clips.indexOf(sorted[i]);
-      return { clip: sorted[i], index: originalIndex };
-    }
-  }
-  return null;
-}
-
 // === Snap & Ripple helpers ===
 
 /** How far can selected clips move left to close the nearest gap? */

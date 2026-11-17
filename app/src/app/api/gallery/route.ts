@@ -1,8 +1,8 @@
 export const runtime = 'edge';
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getCompletedJobs } from '@/lib/storage';
-import { settleJob, archiveIfNeeded } from '@/lib/job-settle';
+import { getOwnedJobs, completedNewestFirst } from '@/lib/storage';
+import { settleJob, archiveIfNeeded, settleOverdue } from '@/lib/job-settle';
 import { captureError } from '@/lib/errors';
 import { getVideoUrl, getVideoUrls } from '@/lib/video-url';
 import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
@@ -32,7 +32,9 @@ export async function GET(request: NextRequest) {
 
     // Admins see every job; everyone else only sees their own
     // Retry archival for any unarchived jobs (CDN URLs expire in 24h)
-    const found = await getCompletedJobs(isAdmin(requesterEmail) ? undefined : requesterEmail);
+    const owned = await getOwnedJobs(isAdmin(requesterEmail) ? undefined : requesterEmail);
+    await settleOverdue(owned);
+    const found = completedNewestFirst(owned);
     const jobs: GenerationJob[] = [];
     for (const job of found) jobs.push(await archiveIfNeeded(job));
 
