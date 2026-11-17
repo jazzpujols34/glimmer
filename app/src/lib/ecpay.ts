@@ -84,6 +84,8 @@ export async function verifyCheckMacValue(
   receivedMac: string
 ): Promise<boolean> {
   const { hashKey, hashIV } = getCredentials();
+  // Empty keys make the MAC computable by anyone, so a missing key must reject, not verify.
+  if (!hashKey || !hashIV) return false;
 
   // Remove CheckMacValue from params before calculating
   const paramsWithoutMac = { ...params };

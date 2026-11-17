@@ -131,4 +131,12 @@ describe('verifyCheckMacValue', () => {
     const tamperedMac = flippedChar + correctMac.slice(1);
     expect(await verifyCheckMacValue(params, tamperedMac)).toBe(false);
   });
+
+  it('rejects everything when the live keys are missing, even a MAC made with empty keys', async () => {
+    process.env.ECPAY_TEST_MODE = 'false';
+    delete process.env.ECPAY_HASH_KEY;
+    delete process.env.ECPAY_HASH_IV;
+    const forgedMac = await generateCheckMacValue(params, '', '');
+    expect(await verifyCheckMacValue(params, forgedMac)).toBe(false);
+  });
 });
