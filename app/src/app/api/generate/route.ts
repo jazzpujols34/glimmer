@@ -13,12 +13,14 @@ import { captureError, ProviderUnavailableError, normalizeError } from '@/lib/er
 import { logger } from '@/lib/logger';
 import { isValidEmail, isValidOccasion, validateSettings, validateName, validatePhoto } from '@/lib/validation';
 import { successResponse, errors } from '@/lib/api-response';
+import { isMaintenance } from '@/lib/maintenance';
 import { enforceIdentity } from '@/lib/identity';
 import { submitFingerprint, findRecentSubmit, claimSubmit } from '@/lib/submit-guard';
 import type { OccasionType } from '@/types';
 
 export async function POST(request: NextRequest) {
   try {
+    if (isMaintenance()) return errors.maintenance();
     // --- Rate limiting (5 generate requests per minute per IP) ---
     const ip = getClientIP(request);
     const rateCheck = await checkRateLimit(`gen:${ip}`, 5, 60);

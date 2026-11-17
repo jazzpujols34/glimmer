@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import Script from "next/script";
 import { I18nProvider } from "@/lib/i18n";
 import { SessionIdentitySync } from "@/components/SessionIdentitySync";
+import { isMaintenance, MAINTENANCE_MESSAGE } from "@/lib/maintenance";
 import "./globals.css";
 
 const GA_MEASUREMENT_ID = "G-VEB2BV8FSN";
@@ -99,6 +100,11 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <SessionIdentitySync />
+        {isMaintenance() && (
+          <div role="status" className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-center text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-100">
+            {MAINTENANCE_MESSAGE}
+          </div>
+        )}
         <I18nProvider>{children}</I18nProvider>
       </body>
     </html>

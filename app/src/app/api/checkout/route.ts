@@ -6,11 +6,13 @@ import { captureError } from '@/lib/errors';
 import { createPaymentFormData } from '@/lib/ecpay';
 import { isValidEmail } from '@/lib/validation';
 import { successResponse, errors } from '@/lib/api-response';
+import { isMaintenance } from '@/lib/maintenance';
 import { logger } from '@/lib/logger';
 import { getPack } from '@/lib/packs';
 
 export async function POST(request: NextRequest) {
   try {
+    if (isMaintenance()) return errors.maintenance();
     // Rate limit: 10 checkout attempts per minute per IP
     const ip = getClientIP(request);
     const rateCheck = await checkRateLimit(`checkout:${ip}`, 10, 60);

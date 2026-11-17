@@ -334,3 +334,20 @@ describe('POST /api/quick-generate — Phase 2b enforcement (dormant unless REQU
     expect(balance.freeUsed).toBe(0);
   });
 });
+
+describe('POST /api/quick-generate — maintenance mode', () => {
+  it('refuses with MAINTENANCE, creates no task and spends nothing', async () => {
+    process.env.NEXT_PUBLIC_MAINTENANCE_MODE = 'true';
+    try {
+      const email = 'maintenance-quick@example.com';
+      await setEmailVerified(email);
+      const res = await POST(buildRequest(email));
+      expect(res.status).toBe(503);
+      expect((await res.json()).code).toBe('MAINTENANCE');
+      expect(mockCreateVideoTask).not.toHaveBeenCalled();
+      expect((await checkCredits(email)).freeUsed).toBe(0);
+    } finally {
+      delete process.env.NEXT_PUBLIC_MAINTENANCE_MODE;
+    }
+  });
+});
