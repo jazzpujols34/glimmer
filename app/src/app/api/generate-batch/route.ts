@@ -1,5 +1,3 @@
-export const runtime = 'edge';
-
 import { NextRequest } from 'next/server';
 import { createJob, updateJob, createProject, addJobToProject, createBatch, addSegmentToBatch, updateBatch, setJobError, newJobId } from '@/lib/storage';
 import { createVideoTask } from '@/lib/veo';

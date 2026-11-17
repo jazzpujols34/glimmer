@@ -11,6 +11,8 @@
  */
 
 export const SESSION_COOKIE_NAME = 'glimmer_session';
+export const STATE_COOKIE = 'glimmer_oauth_state';
+export const PKCE_COOKIE = 'glimmer_oauth_pkce';
 const SESSION_TTL_SECONDS = 30 * 24 * 60 * 60; // 30 days = 2592000
 
 export interface SessionClaims {

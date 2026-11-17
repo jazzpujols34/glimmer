@@ -1,5 +1,3 @@
-export const runtime = 'edge';
-
 import { NextRequest } from 'next/server';
 import { isEmailVerified } from '@/lib/credits';
 import { sendVerificationEmail } from '@/lib/email';

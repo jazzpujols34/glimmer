@@ -19,7 +19,8 @@ vi.mock('@/lib/kv', () => ({
   getKV: vi.fn(() => Promise.resolve(null)),
 }));
 
-import { GET, POST, STATE_COOKIE, PKCE_COOKIE } from './route';
+import { GET, POST } from './route';
+import { STATE_COOKIE, PKCE_COOKIE } from '@/lib/session';
 import { signShortLived, signSession, verifySession, SESSION_COOKIE_NAME } from '@/lib/session';
 
 const ORIGINAL_ENV = { ...process.env };

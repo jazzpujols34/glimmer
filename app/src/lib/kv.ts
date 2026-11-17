@@ -18,8 +18,8 @@ export interface KVNamespaceLike {
 
 export async function getKV(): Promise<KVNamespaceLike | null> {
   try {
-    const { getRequestContext } = await import('@cloudflare/next-on-pages');
-    const ctx = getRequestContext();
+    const { getCloudflareContext } = await import('@opennextjs/cloudflare');
+    const ctx = await getCloudflareContext({ async: true });
     const kv = (ctx.env as Record<string, unknown>).GLIMMER_KV as KVNamespaceLike | undefined;
     return kv || null;
   } catch {

@@ -15,8 +15,6 @@ import { getRequesterEmail, ownsOrAdmin } from '@/lib/owner';
 import { enforceIdentity, resolveReaderEmail } from '@/lib/identity';
 import type { StoryboardSlot, StoryboardTransitionType, StoryboardTitleCard, StoryboardMusic, StoryboardMusicTrack, StoryboardSubtitle } from '@/types';
 
-export const runtime = 'edge';
-
 interface RouteParams {
   params: Promise<{ id: string }>;
 }

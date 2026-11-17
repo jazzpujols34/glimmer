@@ -1,6 +1,6 @@
 /**
  * Shared R2 abstraction: Cloudflare R2 when deployed, no-op fallback for local dev.
- * Follows the same getRequestContext() pattern as kv.ts.
+ * Follows the same getCloudflareContext() pattern as kv.ts.
  */
 
 import { logger } from '@/lib/logger';
@@ -21,8 +21,8 @@ interface R2BucketLike {
 
 async function getR2(): Promise<R2BucketLike | null> {
   try {
-    const { getRequestContext } = await import('@cloudflare/next-on-pages');
-    const ctx = getRequestContext();
+    const { getCloudflareContext } = await import('@opennextjs/cloudflare');
+    const ctx = await getCloudflareContext({ async: true });
     const r2 = (ctx.env as Record<string, unknown>).GLIMMER_R2 as R2BucketLike | undefined;
     return r2 || null;
   } catch {

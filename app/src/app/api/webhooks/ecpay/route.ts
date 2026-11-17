@@ -1,5 +1,3 @@
-export const runtime = 'edge';
-
 import { NextRequest, NextResponse } from 'next/server';
 import { parseCallback } from '@/lib/ecpay';
 import { addCredits, getCreditRecord } from '@/lib/credits';

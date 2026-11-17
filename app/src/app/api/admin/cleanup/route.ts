@@ -1,5 +1,3 @@
-export const runtime = 'edge';
-
 import { NextRequest, NextResponse } from 'next/server';
 import { kvListKeys, kvGet, kvDelete } from '@/lib/kv';
 import { captureError } from '@/lib/errors';
