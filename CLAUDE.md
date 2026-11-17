@@ -6,9 +6,9 @@
 
 **拾光 Glimmer** is an AI-powered memorial video generation platform. Users upload photos and the app generates cinematic videos via one AI provider (BytePlus Seedance, internal id `byteplus`).
 
-**Stack:** Next.js 16, React, TypeScript, Tailwind CSS, Cloudflare Pages (Edge Runtime), Cloudflare KV, Cloudflare R2
+**Stack:** Next.js 16, React, TypeScript, Tailwind CSS, Cloudflare Workers via OpenNext (`@opennextjs/cloudflare`, Node runtime), Cloudflare KV, Cloudflare R2
 
-Deployed on Cloudflare Pages.
+Deployed as the Worker `glimmer-worker` (route `glimmer.video/*`). The old Pages project `glimmer` is kept, auto-builds off, as a rollback.
 
 ## Folder Structure
 
@@ -16,7 +16,7 @@ Deployed on Cloudflare Pages.
 app/                          # Next.js application
 ├── src/
 │   ├── app/                  # Pages and API routes (App Router)
-│   │   ├── api/              # 35 API routes (Edge Runtime)
+│   │   ├── api/              # 35 API routes (Node runtime on Workers)
 │   │   │   ├── generate/     # Video generation (POST)
 │   │   │   ├── status/[id]/  # Job status polling (GET)
 │   │   │   ├── gallery/      # Gallery listing + detail
@@ -151,14 +151,18 @@ Pay-per-generation credits (not subscriptions). Passwordless identity: a typed, 
 
 ## CI/CD
 
-- **Deployment:** Cloudflare Pages (auto-deploy on push to `main`)
-- **Build:** `@cloudflare/next-on-pages` with `legacy-peer-deps=true` in `.npmrc` (Next.js 16 peer dep workaround)
+- **Deployment:** GitHub Actions (`.github/workflows/ci.yml`): every push runs tests + build; on `main` the `deploy` job then runs `opennextjs-cloudflare build && deploy` with a token scoped to glimmer-worker only (repo secrets `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`). Check with `gh run list --repo jazzpujols34/glimmer`.
+- **Never deploy from a laptop:** the OpenNext build bakes `.env*` files into the Worker, so a local build ships `.env.local` (local keys, `ECPAY_TEST_MODE=true`). If you must, move `.env.local` aside first and check `.open-next/cloudflare/next-env.mjs` is empty.
+- **Build:** `next build --webpack` (Turbopack in 16.4 rejects `@ffmpeg/ffmpeg`'s worker URL). `next.config.ts` aliases `nsfwjs` to false on the server: its ~37 MiB of browser-only model weights otherwise land in the Worker.
+- **Runtime config:** secrets live on the Worker (`npx wrangler secret list --name glimmer-worker`), not in Pages. `NEXT_PUBLIC_*` are build-time: `NEXT_PUBLIC_MAINTENANCE_MODE` is the GitHub repo variable (`gh variable set ... --repo jazzpujols34/glimmer`), then re-run the deploy job.
+- **Size:** Worker limit 64 MiB uncompressed; we are ~12 MiB (one bundle, so a new route costs almost nothing). The old 25 MiB Pages limit and the per-function overhead notes below no longer apply.
 - **Export service:** Cloud Run with FFmpeg for server-side video export (concat, transitions, title cards)
-- **New route checklist:** (1) API route → `export const runtime = 'edge';`, (2) `'use client'` page → sibling `layout.tsx` with runtime export, (3) Server page → direct runtime export. **Build fails on Cloudflare without this.**
+- **No `export const runtime = 'edge'`** anywhere: OpenNext runs the Node runtime. A `route.ts` may export only HTTP handlers (Next 16.4 type check), so shared constants go in `src/lib`.
+- **DNS:** `glimmer.video` still has a proxied record pointing at the old Pages host; the Worker route intercepts it. Rollback = delete the route `glimmer.video/*` and re-add `glimmer.video` as a custom domain on the Pages project.
 
 ## Common Gotchas
 
-### Edge Runtime Constraints
+### Runtime Constraints (Workers)
 - No `fs`, `path`, `crypto.createHmac` — use Web Crypto API (`crypto.subtle`) for HMAC
 - No background tasks (`waitUntil`, `setTimeout` polling) — use client-driven polling + KV
 - In-memory state not shared across isolates — always use KV for persistence
@@ -184,6 +188,8 @@ Pay-per-generation credits (not subscriptions). Passwordless identity: a typed, 
 - Category-aware: `getSystemPrompt(occasion)` selects person vs pet base prompt. Keep occasion layer separate.
 
 ## Recent Learnings
+
+- **[2026-11-17] Moved from next-on-pages (Pages) to OpenNext (Workers), Next 16.1.4 → 16.4.6.** Why: 43 per-route functions each carried a ~320 KiB copy of the Next runtime (23.3 of 25 MiB), which blocked the Next security upgrade. Bindings come from `getCloudflareContext({ async: true })` in `kv.ts`/`r2.ts`. Same KV and R2, so no data moved. Five React Compiler lint rules new in eslint-config-next 16.4 are off in `eslint.config.mjs` (26 existing hits), cleanup pending. Same day: `verifyCheckMacValue` now rejects when the ECPay hash keys are empty (an empty key makes the MAC computable by anyone). Admin secret was rotated during the move. The entries below about the 25 MiB limit, function overhead and the Next hold are history.
 
 - **[2026-10-07] Next stays pinned at 16.1.4 — HOLD, re-review by 2026-11-07.** Two critical advisories ask for 16.3.3: GHSA-p293-qw3h-jr36 (RCE on Windows-hosted servers) and GHSA-2xp9-vwfh-vxw4 (RCE in the Image Optimization API via AVIF). Neither path runs here: prod is Cloudflare Pages via next-on-pages, not a Windows Node server, and `/_next/image` is a passthrough (probe 2026-10-07: `glimmer.video/_next/image?url=%2Ffavicon.ico&w=64` returned the original `.ico` bytes, i.e. Next's sharp optimizer never executes). Dependabot alerts 153-156 were dismissed as `not_used` with this reasoning, approved by Jazz. The bump itself is blocked by the 25 MiB bundle limit (entry below). Real fix = bundle diet, or migrate off the deprecated `@cloudflare/next-on-pages` to `@opennextjs/cloudflare`, done against a preview deployment. Re-open the hold at once if prod ever moves off Cloudflare or a new Next advisory hits an edge-reachable path (middleware, server actions, RSC).
 
