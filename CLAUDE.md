@@ -8,7 +8,7 @@
 
 **Stack:** Next.js 16, React, TypeScript, Tailwind CSS, Cloudflare Workers via OpenNext (`@opennextjs/cloudflare`, Node runtime), Cloudflare KV, Cloudflare R2
 
-Deployed as the Worker `glimmer-worker` (route `glimmer.video/*`). The old Pages project `glimmer` is kept, auto-builds off, as a rollback.
+Deployed as the Worker `glimmer-worker` (custom domain `glimmer.video`). The old Pages project `glimmer` is kept, auto-builds off, as a rollback.
 
 ## Folder Structure
 
@@ -158,7 +158,7 @@ Pay-per-generation credits (not subscriptions). Passwordless identity: a typed, 
 - **Size:** Worker limit 64 MiB uncompressed; we are ~12 MiB (one bundle, so a new route costs almost nothing). The old 25 MiB Pages limit and the per-function overhead notes below no longer apply.
 - **Export service:** Cloud Run with FFmpeg for server-side video export (concat, transitions, title cards)
 - **No `export const runtime = 'edge'`** anywhere: OpenNext runs the Node runtime. A `route.ts` may export only HTTP handlers (Next 16.4 type check), so shared constants go in `src/lib`.
-- **DNS:** `glimmer.video` still has a proxied record pointing at the old Pages host; the Worker route intercepts it. Rollback = delete the route `glimmer.video/*` and re-add `glimmer.video` as a custom domain on the Pages project.
+- **DNS:** `glimmer.video` is a Worker custom domain on glimmer-worker (Cloudflare manages its record; no routes). The `send.` and `resend._domainkey` records are Resend email, keep them. Rollback = remove the custom domain from the Worker, then add `glimmer.video` as a custom domain on the Pages project `glimmer` (its CNAME target was `glimmer-657.pages.dev`).
 
 ## Common Gotchas
 
